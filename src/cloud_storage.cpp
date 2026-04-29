@@ -1121,8 +1121,13 @@ std::vector<uint8_t> RetrieveBlob(uint32_t accountId, uint32_t appId,
             LOG("[CloudStorage] RetrieveBlob: cloud-first download failed for %s; falling back to cache",
                 filename.c_str());
         } else if (status == ICloudProvider::ExistsStatus::Missing) {
-            LOG("[CloudStorage] RetrieveBlob: cloud-first reports missing: %s; falling back to cache",
+            // Cloud-authoritative for account-scope: a stale local cache would
+            // otherwise resurrect stats deleted on another machine.
+            LOG("[CloudStorage] RetrieveBlob: cloud-first reports missing: %s; evicting stale cache",
                 filename.c_str());
+            std::error_code rmEc;
+            std::filesystem::remove(FileUtil::Utf8ToPath(localPath), rmEc);
+            return {};
         } else {
             // Error -- transient; prefer cache over an empty result.
             LOG("[CloudStorage] RetrieveBlob: cloud-first existence check errored for %s; falling back to cache",
