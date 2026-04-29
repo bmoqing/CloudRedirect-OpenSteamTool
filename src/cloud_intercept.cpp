@@ -1915,8 +1915,23 @@ static void RefuseVtableHook(const char* reasonFmt, ...) {
     }
 }
 
+// Lock-free body; caller must hold s_installMutex (declared in InstallServiceMethodHook).
+static void InstallServiceMethodHookLocked();
+
+static std::mutex& GetInstallMutex() {
+    static std::mutex m;
+    return m;
+}
+
 // Install the vtable hook on CClientUnifiedServiceTransport
 static void InstallServiceMethodHook() {
+    // Serialize concurrent installers (network thread + lua-sync thread)
+    // so a partial installer can't have its own hook read back as the original.
+    std::lock_guard<std::mutex> installLock(GetInstallMutex());
+    InstallServiceMethodHookLocked();
+}
+
+static void InstallServiceMethodHookLocked() {
     if (g_vtableHookInstalled.load(std::memory_order_acquire) || !g_steamClientBase) return;
 
     // Validate Parse/Serialize RVAs before we rely on them; a Steam update can repoint these into garbage.
@@ -1939,14 +1954,13 @@ static void InstallServiceMethodHook() {
         g_parseFromArray, g_serializeToArray);
 
     // Prefer RTTI walk (build-update-tolerant); fall back to hardcoded RVA if RTTI fails. Validate slot 0 either way.
+    // Resolution stays local; cache to g_serviceTransportVtableEa only on full-install success below.
     uintptr_t vtableEa = g_serviceTransportVtableEa;
     if (!vtableEa) {
         vtableEa = ResolveServiceTransportVtableViaRtti(g_steamClientBase);
         if (vtableEa) {
             const uintptr_t slot0 = *reinterpret_cast<uintptr_t*>(vtableEa);
-            if (LooksLikeFunctionPrologue(reinterpret_cast<const uint8_t*>(slot0))) {
-                g_serviceTransportVtableEa = vtableEa;
-            } else {
+            if (!LooksLikeFunctionPrologue(reinterpret_cast<const uint8_t*>(slot0))) {
                 LOG("[VtHook] RTTI resolved vtable %p but slot0=%p is not a function prologue, rejecting",
                     (void*)vtableEa, (void*)slot0);
                 vtableEa = 0;
@@ -1961,7 +1975,6 @@ static void InstallServiceMethodHook() {
                 LOG("[VtHook] RTTI resolution failed, falling back to hardcoded RVA 0x%X -> %p",
                     (unsigned)SC_RVA_SERVICE_TRANSPORT_VT, (void*)fallback);
                 vtableEa = fallback;
-                g_serviceTransportVtableEa = fallback;
             } else {
                 RefuseVtableHook("RTTI walk + hardcoded RVA 0x%X both failed (slot0=%p not a function prologue) -- Steam update?",
                     (unsigned)SC_RVA_SERVICE_TRANSPORT_VT, (void*)slot0);
@@ -1975,6 +1988,14 @@ static void InstallServiceMethodHook() {
     const uintptr_t vtableSlot7Addr = vtableEa + kSlot7Off;
     const uintptr_t vtableSlot8Addr = vtableEa + kSlot8Off;
 
+    // Identity check: our hook prologues pass LooksLikeFunctionPrologue; reject explicitly.
+    auto isOurHook = [](void* p) {
+        return p == (void*)&ServiceMethodDirectHook
+            || p == (void*)&ServiceMethodHook
+            || p == (void*)&NotificationDirectHook
+            || p == (void*)&NotificationWrapperHook;
+    };
+
     // Read slot 4 (request/response direct)
     ServiceMethodSlot4Fn currentSlot4 = nullptr;
     __try {
@@ -1983,8 +2004,9 @@ static void InstallServiceMethodHook() {
         LOG("[VtHook] EXCEPTION reading slot 4: code=0x%08X", GetExceptionCode());
         return;
     }
-    if (!currentSlot4 || !LooksLikeFunctionPrologue(reinterpret_cast<const uint8_t*>(currentSlot4))) {
-        RefuseVtableHook("slot 4 (%p) at %p is not a function prologue",
+    if (!currentSlot4 || isOurHook((void*)currentSlot4) ||
+        !LooksLikeFunctionPrologue(reinterpret_cast<const uint8_t*>(currentSlot4))) {
+        RefuseVtableHook("slot 4 (%p) at %p invalid (null/our-hook/non-prologue)",
             (void*)currentSlot4, (void*)vtableSlot4Addr);
         return;
     }
@@ -2000,8 +2022,9 @@ static void InstallServiceMethodHook() {
         LOG("[VtHook] EXCEPTION reading slot 5: code=0x%08X", GetExceptionCode());
         return;
     }
-    if (!currentSlot5 || !LooksLikeFunctionPrologue(reinterpret_cast<const uint8_t*>(currentSlot5))) {
-        RefuseVtableHook("slot 5 (%p) at %p is not a function prologue",
+    if (!currentSlot5 || isOurHook((void*)currentSlot5) ||
+        !LooksLikeFunctionPrologue(reinterpret_cast<const uint8_t*>(currentSlot5))) {
+        RefuseVtableHook("slot 5 (%p) at %p invalid (null/our-hook/non-prologue)",
             (void*)currentSlot5, (void*)vtableSlot5Addr);
         return;
     }
@@ -2017,8 +2040,9 @@ static void InstallServiceMethodHook() {
         LOG("[VtHook] EXCEPTION reading slot 7: code=0x%08X", GetExceptionCode());
         return;
     }
-    if (!currentSlot7 || !LooksLikeFunctionPrologue(reinterpret_cast<const uint8_t*>(currentSlot7))) {
-        RefuseVtableHook("slot 7 (%p) at %p is not a function prologue",
+    if (!currentSlot7 || isOurHook((void*)currentSlot7) ||
+        !LooksLikeFunctionPrologue(reinterpret_cast<const uint8_t*>(currentSlot7))) {
+        RefuseVtableHook("slot 7 (%p) at %p invalid (null/our-hook/non-prologue)",
             (void*)currentSlot7, (void*)vtableSlot7Addr);
         return;
     }
@@ -2034,8 +2058,9 @@ static void InstallServiceMethodHook() {
         LOG("[VtHook] EXCEPTION reading slot 8: code=0x%08X", GetExceptionCode());
         return;
     }
-    if (!currentSlot8 || !LooksLikeFunctionPrologue(reinterpret_cast<const uint8_t*>(currentSlot8))) {
-        RefuseVtableHook("slot 8 (%p) at %p is not a function prologue",
+    if (!currentSlot8 || isOurHook((void*)currentSlot8) ||
+        !LooksLikeFunctionPrologue(reinterpret_cast<const uint8_t*>(currentSlot8))) {
+        RefuseVtableHook("slot 8 (%p) at %p invalid (null/our-hook/non-prologue)",
             (void*)currentSlot8, (void*)vtableSlot8Addr);
         return;
     }
@@ -2065,7 +2090,9 @@ static void InstallServiceMethodHook() {
     bool slot5Ok = (*(ServiceMethodSlot5Fn*)vtableSlot5Addr == ServiceMethodHook);
     bool slot7Ok = (*(NotificationSlot7Fn*)vtableSlot7Addr == NotificationDirectHook);
     bool slot8Ok = (*(NotificationSlot8Fn*)vtableSlot8Addr == NotificationWrapperHook);
-    g_vtableHookInstalled.store(slot4Ok && slot5Ok && slot7Ok && slot8Ok, std::memory_order_release);
+    bool allOk = slot4Ok && slot5Ok && slot7Ok && slot8Ok;
+    if (allOk) g_serviceTransportVtableEa = vtableEa; // commit only on success so shutdown's restore EA matches reality
+    g_vtableHookInstalled.store(allOk, std::memory_order_release);
 
     LOG("[VtHook] Vtable slot 4 patched: %p -> %p (ok=%d)", (void*)currentSlot4, (void*)ServiceMethodDirectHook, slot4Ok);
     LOG("[VtHook] Vtable slot 5 patched: %p -> %p (ok=%d)", (void*)currentSlot5, (void*)ServiceMethodHook, slot5Ok);
