@@ -595,7 +595,10 @@ static void ParsePlaytimeBlob(const std::string& blob, uint64_t& lastPlayed,
         if (parsed.has("Playtime2wks"))
             playtime2wks = ParsePlaytimeField(parsed["Playtime2wks"]);
         // 2wks > lifetime is corruption; zero rather than propagate.
-        if (playtime2wks > playtime)
+        // 2wks==lifetime past the 14-day window is the legacy default-to-total bug.
+        constexpr uint64_t kTwoWeeksMinutes = 14ULL * 24 * 60;
+        if (playtime2wks > playtime ||
+            (playtime2wks == playtime && playtime > kTwoWeeksMinutes))
             playtime2wks = 0;
         return;
     }
@@ -611,7 +614,9 @@ static void ParsePlaytimeBlob(const std::string& blob, uint64_t& lastPlayed,
         else if (key == "Playtime") playtime = strtoull(val.c_str(), nullptr, 10);
         else if (key == "Playtime2wks") playtime2wks = strtoull(val.c_str(), nullptr, 10);
     }
-    if (playtime2wks > playtime)
+    constexpr uint64_t kTwoWeeksMinutes = 14ULL * 24 * 60;
+    if (playtime2wks > playtime ||
+        (playtime2wks == playtime && playtime > kTwoWeeksMinutes))
         playtime2wks = 0;
 }
 

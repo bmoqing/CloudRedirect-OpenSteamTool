@@ -1620,7 +1620,11 @@ static void UploadPlaytimeOnExit(uint32_t appId) {
     }
     // Steam decays Playtime2wks; never default it to lifetime total.
     // Clamp obviously-corrupt blobs (2wks > total) by zeroing 2wks.
-    if (cloudPlaytime2wks > cloudPlaytime)
+    // 2wks==total at non-trivial lifetimes is the signature of the prior
+    // "default 2wks to lifetime" bug; recover by zeroing.
+    constexpr uint64_t kTwoWeeksMinutes = 14ULL * 24 * 60;
+    if (cloudPlaytime2wks > cloudPlaytime ||
+        (cloudPlaytime2wks == cloudPlaytime && cloudPlaytime > kTwoWeeksMinutes))
         cloudPlaytime2wks = 0;
 
     // Playtime merge: baseline + session, but never less than VDF or cloud
