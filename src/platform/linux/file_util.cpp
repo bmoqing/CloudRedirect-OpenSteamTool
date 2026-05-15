@@ -2,11 +2,13 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <cerrno>
+#include <atomic>
 
 namespace FileUtil {
 
 bool AtomicWriteBinary(const std::string& path, const void* data, size_t len) {
-    std::string tmp = path + ".tmp";
+    static std::atomic<uint32_t> s_seq{0};
+    std::string tmp = path + ".tmp." + std::to_string(getpid()) + "." + std::to_string(s_seq.fetch_add(1, std::memory_order_relaxed));
 
     int fd = open(tmp.c_str(), O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0600);
     if (fd < 0) return false;

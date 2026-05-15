@@ -5,6 +5,7 @@
 #include <fstream>
 #include <filesystem>
 #include <cstdint>
+#include <atomic>
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
@@ -196,15 +197,19 @@ inline bool WriteFlushAndRename(const std::filesystem::path& pathFs,
 }
 
 inline bool AtomicWriteBinary(const std::string& path, const void* data, size_t len) {
+    static std::atomic<uint32_t> s_seq{0};
     auto pathFs = Utf8ToPath(path);
-    auto tmpPathFs = Utf8ToPath(path + ".tmp");
+    std::string tmpSuffix = ".tmp." + std::to_string(GetCurrentThreadId()) + "." + std::to_string(s_seq.fetch_add(1, std::memory_order_relaxed));
+    auto tmpPathFs = Utf8ToPath(path + tmpSuffix);
     if (pathFs.empty() || tmpPathFs.empty()) return false;
     return WriteFlushAndRename(pathFs, tmpPathFs, data, len);
 }
 
 inline bool AtomicWriteText(const std::string& path, const std::string& content) {
+    static std::atomic<uint32_t> s_seq{0};
     auto pathFs = Utf8ToPath(path);
-    auto tmpPathFs = Utf8ToPath(path + ".tmp");
+    std::string tmpSuffix = ".tmp." + std::to_string(GetCurrentThreadId()) + "." + std::to_string(s_seq.fetch_add(1, std::memory_order_relaxed));
+    auto tmpPathFs = Utf8ToPath(path + tmpSuffix);
     if (pathFs.empty() || tmpPathFs.empty()) return false;
     return WriteFlushAndRename(pathFs, tmpPathFs, content.data(), content.size());
 }

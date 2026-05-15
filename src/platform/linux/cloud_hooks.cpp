@@ -453,6 +453,10 @@ extern "C" int hook_NotificationDirect(void* pThis, const char* methodName, void
         return origFn(pThis, methodName, body, flags);
     }
 
+    // ExitSyncDone: record state, then suppress (don't forward to Valve).
+    // CN advancement is handled by UpdateRemotecacheVdfChangeNumber in CompleteBatch.
+    // Forwarding to Valve would confuse server-side CN tracking for namespace apps
+    // since Valve never received the upload data.
     if (strcmp(methodName, CloudIntercept::RPC_EXIT_SYNC) == 0) {
         CR_SetCrashContext("NotificationDirect:exit-sync", methodName, appId);
         auto bodyBytes = SerializeMessage(body);
@@ -468,11 +472,13 @@ extern "C" int hook_NotificationDirect(void* pThis, const char* methodName, void
             PendingOpsJournal::RecordExitSyncState(accountId, appId,
                 uploadsCompleted, uploadsRequired, clientId);
         }
+        LOG("[Hook-Notif] SUPPRESSED %s app=%u (namespace -- CN managed locally)", methodName, appId);
+        return 1;
     }
 
-    // Namespace app - suppress the notification (don't send to Steam servers)
+    // Suppress other Cloud notifications for namespace apps
     LOG("[Hook-Notif] SUPPRESSED %s app=%u (notification not sent to server)", methodName, appId);
-    return 1;  // Return success without calling original
+    return 1;
 }
 
 // Hook: SyncSend2 (slot 8)

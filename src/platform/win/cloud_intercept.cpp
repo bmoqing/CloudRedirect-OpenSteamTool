@@ -1768,7 +1768,10 @@ static bool __fastcall NotificationWrapperHook(void* thisptr, const char* method
         return g_originalSlot8(thisptr, methodName, request);
     }
 
-    // On ExitSyncDone, upload stats and playtime to cloud before suppressing
+    // ExitSyncDone: upload stats/playtime, then suppress (don't forward to Valve).
+    // CN advancement is handled by UpdateRemotecacheVdfChangeNumber in CompleteBatch.
+    // Forwarding to Valve would confuse server-side CN tracking for namespace apps
+    // since Valve never received the upload data.
     if (strcmp(methodName, RPC_EXIT_SYNC) == 0) {
         auto bodyBytes = SerializeBodyToBytes(bodyObj);
         auto fields = PB::Parse(bodyBytes.data(), bodyBytes.size());
@@ -1798,9 +1801,11 @@ static bool __fastcall NotificationWrapperHook(void* thisptr, const char* method
                 g_bgThreads.push_back(std::move(t));
             }
         }
+        LOG("[VtHook-Notif] SUPPRESSED %s app=%u (namespace -- CN managed locally)", methodName, realAppId);
+        return true;
     }
 
-    // Namespace app - suppress the notification (don't send to Steam servers)
+    // Suppress other Cloud notifications for namespace apps
     LOG("[VtHook-Notif] SUPPRESSED %s app=%u (notification not sent to server)", methodName, realAppId);
     return true;  // Return success without actually sending
 }
@@ -1828,7 +1833,8 @@ static bool __fastcall NotificationDirectHook(void* thisptr, const char* methodN
         return g_originalSlot7(thisptr, methodName, bodyObj, flags);
     }
 
-    // On ExitSyncDone, upload stats and playtime to cloud before suppressing
+    // ExitSyncDone: upload stats/playtime, then suppress (don't forward to Valve).
+    // See slot 8 handler comment for rationale.
     if (strcmp(methodName, RPC_EXIT_SYNC) == 0) {
         auto bodyBytes = SerializeBodyToBytes(bodyObj);
         auto fields = PB::Parse(bodyBytes.data(), bodyBytes.size());
@@ -1857,9 +1863,11 @@ static bool __fastcall NotificationDirectHook(void* thisptr, const char* methodN
                 g_bgThreads.push_back(std::move(t));
             }
         }
+        LOG("[VtHook-Notif] SUPPRESSED %s app=%u (direct, namespace -- CN managed locally)", methodName, realAppId);
+        return true;
     }
 
-    // Namespace app - suppress the notification
+    // Suppress other Cloud notifications for namespace apps
     LOG("[VtHook-Notif] SUPPRESSED %s app=%u (direct notification not sent to server)", methodName, realAppId);
     return true;
 }
@@ -4170,6 +4178,8 @@ bool OnSendPkt(void* thisptr, const uint8_t* data, uint32_t size) {
 
     // With slots 4+5 hooked, namespace Cloud RPCs should not reach SendPkt;
     // log and fall through to Approach D as a safety net if they do.
+    // Notifications (ExitSyncDone, ConflictResolution) are suppressed by slots
+    // 7/8 for namespace apps, so they should not reach here either.
     static std::atomic<int> g_approachDFallbackCount{0};
     if (g_vtableHookInstalled.load(std::memory_order_acquire)) {
         if (isCloudMethod) {
@@ -4182,7 +4192,7 @@ bool OnSendPkt(void* thisptr, const uint8_t* data, uint32_t size) {
             bool isNs = IsNamespaceApp(appId);
 
             if (isNs) {
-                // Namespace app Cloud RPC reached SendPkt despite slot 4+5 hooks - unexpected!
+                // Namespace app Cloud RPC reached SendPkt despite vtable hooks - unexpected!
                 int count = ++g_approachDFallbackCount;
                 LOG("[SendPkt] WARNING: %s app=%u (%u bytes) escaped vtable hooks! "
                     "Using Approach D fallback (occurrence #%d)",

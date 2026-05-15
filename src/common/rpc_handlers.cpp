@@ -2058,10 +2058,12 @@ PB::Writer HandleCommitFileUpload(uint32_t appId, const std::vector<PB::Field>& 
         }
 
     } else {
-        // Drop any partial blob from the aborted PUT.
-        if (HttpServer::HasBlob(accountId, appId, cleanName)) {
-            HttpServer::DeleteBlob(accountId, appId, cleanName);
-        }
+        // Don't delete blobs on transfer failure -- if the PUT truly failed,
+        // no blob was written. If another concurrent PUT for the same file
+        // succeeded, deleting here would destroy valid data. Orphaned blobs
+        // from genuinely partial PUTs are cleaned up at batch completion.
+        LOG("[NS-UP]   transfer failed for %s, skipping blob cleanup (concurrent PUT may have succeeded)",
+            cleanName.c_str());
     }
 
     PB::Writer body;
