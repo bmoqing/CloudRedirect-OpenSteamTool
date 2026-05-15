@@ -304,8 +304,9 @@ static void HandleClient(SOCKET client) {
             }
 
             // Atomic write blob to disk
-            if (!FileUtil::AtomicWriteBinary(blobPath, bodyData.data(), bodyData.size())) {
-                LOG("[HTTP] PUT %s -> WRITE FAILED for %s", path, blobPath.c_str());
+            DWORD writeErr = 0;
+            if (!FileUtil::AtomicWriteBinary(blobPath, bodyData.data(), bodyData.size(), &writeErr)) {
+                LOG("[HTTP] PUT %s -> WRITE FAILED for %s (err=%lu)", path, blobPath.c_str(), (unsigned long)writeErr);
                 const char* errResponse =
                     "HTTP/1.1 500 Internal Server Error\r\n"
                     "Content-Length: 0\r\n"

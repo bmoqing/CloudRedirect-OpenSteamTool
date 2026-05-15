@@ -145,9 +145,13 @@ inline bool IsPathRedirectingReparsePoint(const std::string& path) {
 // Write to tmp, FlushFileBuffers, then atomic rename over the target.
 // FlushFileBuffers is required: a same-volume rename is metadata-only and
 // MOVEFILE_WRITE_THROUGH only flushes when the move actually copies.
+// lastError receives GetLastError() on failure (0 on success) for diagnostics.
 inline bool WriteFlushAndRename(const std::filesystem::path& pathFs,
                                 const std::filesystem::path& tmpPathFs,
-                                const void* data, size_t len) {
+                                const void* data, size_t len,
+                                DWORD* lastError = nullptr) {
+    if (lastError) *lastError = 0;
+
     HANDLE h = CreateFileW(tmpPathFs.c_str(),
                            GENERIC_WRITE,
                            0,
@@ -155,7 +159,10 @@ inline bool WriteFlushAndRename(const std::filesystem::path& pathFs,
                            CREATE_ALWAYS,
                            FILE_ATTRIBUTE_NORMAL,
                            nullptr);
-    if (h == INVALID_HANDLE_VALUE) return false;
+    if (h == INVALID_HANDLE_VALUE) {
+        if (lastError) *lastError = GetLastError();
+        return false;
+    }
 
     const char* p = static_cast<const char*>(data);
     size_t remaining = len;
@@ -165,6 +172,7 @@ inline bool WriteFlushAndRename(const std::filesystem::path& pathFs,
                           : static_cast<DWORD>(remaining);
         DWORD written = 0;
         if (!WriteFile(h, p, chunk, &written, nullptr) || written == 0) {
+            if (lastError) *lastError = GetLastError();
             CloseHandle(h);
             std::error_code ec;
             std::filesystem::remove(tmpPathFs, ec);
@@ -175,6 +183,7 @@ inline bool WriteFlushAndRename(const std::filesystem::path& pathFs,
     }
 
     if (!FlushFileBuffers(h)) {
+        if (lastError) *lastError = GetLastError();
         CloseHandle(h);
         std::error_code ec;
         std::filesystem::remove(tmpPathFs, ec);
@@ -182,6 +191,7 @@ inline bool WriteFlushAndRename(const std::filesystem::path& pathFs,
     }
 
     if (!CloseHandle(h)) {
+        if (lastError) *lastError = GetLastError();
         std::error_code ec;
         std::filesystem::remove(tmpPathFs, ec);
         return false;
@@ -189,6 +199,7 @@ inline bool WriteFlushAndRename(const std::filesystem::path& pathFs,
 
     if (!MoveFileExW(tmpPathFs.c_str(), pathFs.c_str(),
                      MOVEFILE_REPLACE_EXISTING)) {
+        if (lastError) *lastError = GetLastError();
         std::error_code ec;
         std::filesystem::remove(tmpPathFs, ec);
         return false;
@@ -196,13 +207,14 @@ inline bool WriteFlushAndRename(const std::filesystem::path& pathFs,
     return true;
 }
 
-inline bool AtomicWriteBinary(const std::string& path, const void* data, size_t len) {
+inline bool AtomicWriteBinary(const std::string& path, const void* data, size_t len,
+                              DWORD* lastError = nullptr) {
     static std::atomic<uint32_t> s_seq{0};
     auto pathFs = Utf8ToPath(path);
     std::string tmpSuffix = ".tmp." + std::to_string(GetCurrentThreadId()) + "." + std::to_string(s_seq.fetch_add(1, std::memory_order_relaxed));
     auto tmpPathFs = Utf8ToPath(path + tmpSuffix);
     if (pathFs.empty() || tmpPathFs.empty()) return false;
-    return WriteFlushAndRename(pathFs, tmpPathFs, data, len);
+    return WriteFlushAndRename(pathFs, tmpPathFs, data, len, lastError);
 }
 
 inline bool AtomicWriteText(const std::string& path, const std::string& content) {
