@@ -10,7 +10,7 @@
 using namespace Qt::StringLiterals;
 
 #ifndef CR_VERSION
-#define CR_VERSION "2.0.1"
+#define CR_VERSION "2.0.5"
 #endif
 
 int main(int argc, char *argv[])

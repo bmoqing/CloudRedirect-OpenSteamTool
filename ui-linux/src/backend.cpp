@@ -748,7 +748,7 @@ QString Backend::accountId() const { return m_accountId; }
 QString Backend::accountName() const { return m_accountName; }
 
 #ifndef CR_VERSION
-#define CR_VERSION "2.0.1"
+#define CR_VERSION "2.0.5"
 #endif
 QString Backend::version() const { return QStringLiteral(CR_VERSION); }
 
