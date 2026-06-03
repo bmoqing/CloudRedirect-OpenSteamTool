@@ -1,0 +1,4801 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 9357c23..4d691e6 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -78,6 +78,7 @@ set(COMMON_SOURCES
+ set(PROVIDER_SOURCES
+     src/providers/google_drive.cpp
+     src/providers/onedrive.cpp
++    src/providers/webdav_provider.cpp
+     src/providers/local_disk_provider.cpp
+ )
+ 
+@@ -127,6 +128,7 @@ target_compile_definitions(cloud_redirect PRIVATE
+     MINIZ_NO_STDIO
+     CR_VERSION_STRING="${CR_SO_VERSION}"
+     CR_RELEASE_VERSION="${CR_RELEASE_VERSION}"
++    CR_CUSTOM_WEB_DAV_BUILD=1
+ )
+ 
+ if(WIN32)
+@@ -274,6 +276,7 @@ if(EXISTS ${CMAKE_SOURCE_DIR}/tests/autocloud_native_tests.cpp)
+         src/common/miniz_zip.c
+         src/providers/google_drive.cpp
+         src/providers/onedrive.cpp
++        src/providers/webdav_provider.cpp
+         src/providers/local_disk_provider.cpp
+     )
+     target_include_directories(cloud_storage_staging_tests PRIVATE src/common src/providers src/testutil)
+diff --git a/src/common/cli.cpp b/src/common/cli.cpp
+index a1f0777..5ab660c 100644
+--- a/src/common/cli.cpp
++++ b/src/common/cli.cpp
+@@ -52,7 +52,7 @@ static std::string GetConfigDir() {
+ #endif
+ }
+ 
+-static std::string GetTokenPath(const std::string& provider) {
++static std::string GetProviderInitPath(const std::string& provider) {
+     std::string configDir = GetConfigDir();
+     if (configDir.empty()) return "";
+ 
+@@ -71,10 +71,19 @@ static std::string GetTokenPath(const std::string& provider) {
+             json.resize(read);
+ 
+             Json::Value root = Json::Parse(json);
+-            if (root.type == Json::Type::Object && root.has("provider") && root["provider"].str() == provider &&
+-                root.has("token_path") && root["token_path"].type == Json::Type::String &&
+-                !root["token_path"].str().empty()) {
+-                return root["token_path"].str();
++            if (root.type == Json::Type::Object && root.has("provider") && root["provider"].str() == provider) {
++                if (provider == "webdav") {
++                    return configPath;
++                }
++                if (provider == "folder" &&
++                    root.has("sync_path") && root["sync_path"].type == Json::Type::String &&
++                    !root["sync_path"].str().empty()) {
++                    return root["sync_path"].str();
++                }
++                if (root.has("token_path") && root["token_path"].type == Json::Type::String &&
++                    !root["token_path"].str().empty()) {
++                    return root["token_path"].str();
++                }
+             }
+         } else {
+             fclose(f);
+@@ -147,8 +156,8 @@ static std::string JsonSuccess() {
+ // ── Command implementations ─────────────────────────────────────────────
+ 
+ std::string CmdAuthStatus(const std::string& provider) {
+-    std::string tokenPath = GetTokenPath(provider);
+-    if (tokenPath.empty()) {
++    std::string initPath = GetProviderInitPath(provider);
++    if (initPath.empty()) {
+         return JsonError("Cannot determine config directory");
+     }
+     
+@@ -157,7 +166,7 @@ std::string CmdAuthStatus(const std::string& provider) {
+         return JsonError("Unknown provider: " + provider);
+     }
+     
+-    if (!prov->Init(tokenPath)) {
++    if (!prov->Init(initPath)) {
+         return JsonObject({
+             {"authenticated", JsonBool(false)},
+             {"error", JsonString("Failed to initialize provider")}
+@@ -169,13 +178,14 @@ std::string CmdAuthStatus(const std::string& provider) {
+     
+     return JsonObject({
+         {"authenticated", JsonBool(authenticated)},
+-        {"token_path", JsonString(tokenPath)}
++        {"token_path", JsonString(initPath)},
++        {"init_path", JsonString(initPath)}
+     });
+ }
+ 
+ std::string CmdListRemoteApps(const std::string& provider, const std::string& accountId) {
+-    std::string tokenPath = GetTokenPath(provider);
+-    if (tokenPath.empty()) {
++    std::string initPath = GetProviderInitPath(provider);
++    if (initPath.empty()) {
+         return JsonError("Cannot determine config directory");
+     }
+     
+@@ -184,7 +194,7 @@ std::string CmdListRemoteApps(const std::string& provider, const std::string& ac
+         return JsonError("Unknown provider: " + provider);
+     }
+     
+-    if (!prov->Init(tokenPath)) {
++    if (!prov->Init(initPath)) {
+         return JsonError("Failed to initialize provider");
+     }
+     
+@@ -236,8 +246,8 @@ std::string CmdListRemoteApps(const std::string& provider, const std::string& ac
+ }
+ 
+ std::string CmdListRemoteAppIds(const std::string& provider, const std::string& accountId) {
+-    std::string tokenPath = GetTokenPath(provider);
+-    if (tokenPath.empty()) {
++    std::string initPath = GetProviderInitPath(provider);
++    if (initPath.empty()) {
+         return JsonError("Cannot determine config directory");
+     }
+     
+@@ -246,7 +256,7 @@ std::string CmdListRemoteAppIds(const std::string& provider, const std::string&
+         return JsonError("Unknown provider: " + provider);
+     }
+     
+-    if (!prov->Init(tokenPath)) {
++    if (!prov->Init(initPath)) {
+         return JsonError("Failed to initialize provider");
+     }
+     
+@@ -277,8 +287,8 @@ std::string CmdListRemoteAppIds(const std::string& provider, const std::string&
+ }
+ 
+ std::string CmdListRemoteAppFiles(const std::string& provider, const std::string& accountId, const std::string& appId) {
+-    std::string tokenPath = GetTokenPath(provider);
+-    if (tokenPath.empty()) {
++    std::string initPath = GetProviderInitPath(provider);
++    if (initPath.empty()) {
+         return JsonError("Cannot determine config directory");
+     }
+ 
+@@ -287,7 +297,7 @@ std::string CmdListRemoteAppFiles(const std::string& provider, const std::string
+         return JsonError("Unknown provider: " + provider);
+     }
+ 
+-    if (!prov->Init(tokenPath)) {
++    if (!prov->Init(initPath)) {
+         return JsonError("Failed to initialize provider");
+     }
+ 
+@@ -332,8 +342,8 @@ std::string CmdListRemoteAppFiles(const std::string& provider, const std::string
+ }
+ 
+ std::string CmdDeleteRemoteApp(const std::string& provider, const std::string& accountId, const std::string& appId) {
+-    std::string tokenPath = GetTokenPath(provider);
+-    if (tokenPath.empty()) {
++    std::string initPath = GetProviderInitPath(provider);
++    if (initPath.empty()) {
+         return JsonError("Cannot determine config directory");
+     }
+     
+@@ -342,7 +352,7 @@ std::string CmdDeleteRemoteApp(const std::string& provider, const std::string& a
+         return JsonError("Unknown provider: " + provider);
+     }
+     
+-    if (!prov->Init(tokenPath)) {
++    if (!prov->Init(initPath)) {
+         return JsonError("Failed to initialize provider");
+     }
+     
+@@ -375,8 +385,8 @@ std::string CmdDeleteRemoteApp(const std::string& provider, const std::string& a
+ }
+ 
+ std::string CmdListBlobs(const std::string& provider, const std::string& accountId, const std::string& appId) {
+-    std::string tokenPath = GetTokenPath(provider);
+-    if (tokenPath.empty()) {
++    std::string initPath = GetProviderInitPath(provider);
++    if (initPath.empty()) {
+         return JsonError("Cannot determine config directory");
+     }
+     
+@@ -385,7 +395,7 @@ std::string CmdListBlobs(const std::string& provider, const std::string& account
+         return JsonError("Unknown provider: " + provider);
+     }
+     
+-    if (!prov->Init(tokenPath)) {
++    if (!prov->Init(initPath)) {
+         return JsonError("Failed to initialize provider");
+     }
+     
+@@ -440,8 +450,8 @@ std::string CmdListBlobs(const std::string& provider, const std::string& account
+ 
+ std::string CmdDeleteBlobs(const std::string& provider, const std::string& accountId, const std::string& appId,
+                            const std::vector<std::string>& blobNames) {
+-    std::string tokenPath = GetTokenPath(provider);
+-    if (tokenPath.empty()) {
++    std::string initPath = GetProviderInitPath(provider);
++    if (initPath.empty()) {
+         return JsonError("Cannot determine config directory");
+     }
+     
+@@ -450,7 +460,7 @@ std::string CmdDeleteBlobs(const std::string& provider, const std::string& accou
+         return JsonError("Unknown provider: " + provider);
+     }
+     
+-    if (!prov->Init(tokenPath)) {
++    if (!prov->Init(initPath)) {
+         return JsonError("Failed to initialize provider");
+     }
+     
+@@ -498,8 +508,8 @@ std::string CmdDeleteBlobs(const std::string& provider, const std::string& accou
+ 
+ std::string CmdSyncRemoteApp(const std::string& provider, const std::string& accountId, const std::string& appId,
+                              const std::string& cloudRootArg) {
+-    std::string tokenPath = GetTokenPath(provider);
+-    if (tokenPath.empty()) {
++    std::string initPath = GetProviderInitPath(provider);
++    if (initPath.empty()) {
+         return JsonError("Cannot determine config directory");
+     }
+ 
+@@ -514,7 +524,7 @@ std::string CmdSyncRemoteApp(const std::string& provider, const std::string& acc
+         return JsonError("Unknown provider: " + provider);
+     }
+ 
+-    if (!prov->Init(tokenPath)) {
++    if (!prov->Init(initPath)) {
+         return JsonError("Failed to initialize provider");
+     }
+ 
+@@ -562,8 +572,8 @@ std::string CmdSyncRemoteApp(const std::string& provider, const std::string& acc
+ 
+ std::string CmdSyncAllRemoteApps(const std::string& provider, const std::string& accountId,
+                                  const std::string& cloudRootArg) {
+-    std::string tokenPath = GetTokenPath(provider);
+-    if (tokenPath.empty()) {
++    std::string initPath = GetProviderInitPath(provider);
++    if (initPath.empty()) {
+         return JsonError("Cannot determine config directory");
+     }
+ 
+@@ -577,7 +587,7 @@ std::string CmdSyncAllRemoteApps(const std::string& provider, const std::string&
+         return JsonError("Unknown provider: " + provider);
+     }
+ 
+-    if (!prov->Init(tokenPath)) {
++    if (!prov->Init(initPath)) {
+         return JsonError("Failed to initialize provider");
+     }
+ 
+@@ -639,8 +649,8 @@ std::string CmdPruneLocalLegacyMetadata(const std::string& cloudRootArg) {
+ 
+ std::string CmdPublishFullManifest(const std::string& provider, const std::string& accountId, const std::string& appId,
+                                    const std::string& cloudRootArg) {
+-    std::string tokenPath = GetTokenPath(provider);
+-    if (tokenPath.empty()) {
++    std::string initPath = GetProviderInitPath(provider);
++    if (initPath.empty()) {
+         return JsonError("Cannot determine config directory");
+     }
+ 
+@@ -655,7 +665,7 @@ std::string CmdPublishFullManifest(const std::string& provider, const std::strin
+         return JsonError("Unknown provider: " + provider);
+     }
+ 
+-    if (!prov->Init(tokenPath)) {
++    if (!prov->Init(initPath)) {
+         return JsonError("Failed to initialize provider");
+     }
+ 
+@@ -707,8 +717,8 @@ std::string CmdPublishFullManifest(const std::string& provider, const std::strin
+ 
+ std::string CmdGcBlobs(const std::string& provider, const std::string& accountId, const std::string& appId,
+                        const std::string& cloudRootArg) {
+-    std::string tokenPath = GetTokenPath(provider);
+-    if (tokenPath.empty()) {
++    std::string initPath = GetProviderInitPath(provider);
++    if (initPath.empty()) {
+         return JsonError("Cannot determine config directory");
+     }
+ 
+@@ -723,7 +733,7 @@ std::string CmdGcBlobs(const std::string& provider, const std::string& accountId
+         return JsonError("Unknown provider: " + provider);
+     }
+ 
+-    if (!prov->Init(tokenPath)) {
++    if (!prov->Init(initPath)) {
+         return JsonError("Failed to initialize provider");
+     }
+ 
+diff --git a/src/common/cloud_storage.cpp b/src/common/cloud_storage.cpp
+index 1887f82..05247e6 100644
+--- a/src/common/cloud_storage.cpp
++++ b/src/common/cloud_storage.cpp
+@@ -4,6 +4,7 @@
+ #include "local_disk_provider.h"
+ #include "google_drive_provider.h"
+ #include "onedrive_provider.h"
++#include "webdav_provider.h"
+ #include "cloud_metadata_paths.h"
+ #include "cloud_staging.h"
+ #include "file_util.h"
+@@ -2823,6 +2824,9 @@ std::unique_ptr<ICloudProvider> CreateCloudProvider(const std::string& name) {
+     if (lower == "onedrive") {
+         return wireAuthCallback(std::make_unique<OneDriveProvider>());
+     }
++    if (lower == "webdav") {
++        return std::make_unique<WebDavProvider>();
++    }
+     LOG("[CloudStorage] CreateCloudProvider: unknown provider '%s'", name.c_str());
+     return nullptr;
+ }
+diff --git a/src/platform/linux/cloud_hooks.cpp b/src/platform/linux/cloud_hooks.cpp
+index c202ed9..24ad3a2 100644
+--- a/src/platform/linux/cloud_hooks.cpp
++++ b/src/platform/linux/cloud_hooks.cpp
+@@ -266,10 +266,16 @@ static void EnsureInitialized() {
+             if (!providerName.empty() && providerName != "local") {
+                 provider = CreateCloudProvider(providerName);
+                 if (provider) {
+-                    std::string tokenPath = cloudRedirectRoot + "tokens_" + providerName + ".json";
+-                    if (provider->Init(tokenPath)) {
+-                        LOG("[Linux] Cloud provider '%s' initialized (tokens: %s)",
+-                            provider->Name(), tokenPath.c_str());
++                    std::string initPath = cloudRedirectRoot + "tokens_" + providerName + ".json";
++                    if (providerName == "folder") {
++                        std::string syncPath = cfg["sync_path"].str();
++                        if (!syncPath.empty()) initPath = syncPath;
++                    } else if (providerName == "webdav") {
++                        initPath = configPath;
++                    }
++                    if (provider->Init(initPath)) {
++                        LOG("[Linux] Cloud provider '%s' initialized (path: %s)",
++                            provider->Name(), initPath.c_str());
+                         if (!provider->IsAuthenticated()) {
+                             LOG("[Linux] WARNING: %s configured but not authenticated -- local-only until signed in",
+                                 provider->Name());
+diff --git a/src/platform/linux/http_transport_linux.cpp b/src/platform/linux/http_transport_linux.cpp
+index 92d2eae..b602f39 100644
+--- a/src/platform/linux/http_transport_linux.cpp
++++ b/src/platform/linux/http_transport_linux.cpp
+@@ -119,6 +119,21 @@ static size_t HeaderCallback(const char* data, size_t size, size_t nmemb, std::s
+     return total;
+ }
+ 
++static std::vector<std::string> SplitHeaderLines(const std::string& headers) {
++    std::vector<std::string> lines;
++    size_t start = 0;
++    while (start < headers.size()) {
++        size_t end = headers.find('\n', start);
++        if (end == std::string::npos) end = headers.size();
++        std::string line = headers.substr(start, end - start);
++        while (!line.empty() && (line.back() == '\r' || line.back() == '\n'))
++            line.pop_back();
++        if (!line.empty()) lines.push_back(std::move(line));
++        start = end + 1;
++    }
++    return lines;
++}
++
+ // Extract Location header from raw header block
+ static std::string ExtractLocation(const std::string& headers) {
+     for (const char* key : {"Location: ", "location: "}) {
+@@ -207,6 +222,8 @@ static HttpUtil::HttpResp CurlRequest(const char* logTag, const char* method,
+ 
+     resp.status = (int)httpCode;
+     resp.body = std::move(responseBody);
++    if (!responseHeaders.empty())
++        resp.headers = SplitHeaderLines(responseHeaders);
+ 
+     if (outLocation && !responseHeaders.empty())
+         *outLocation = ExtractLocation(responseHeaders);
+diff --git a/src/platform/linux/http_util.h b/src/platform/linux/http_util.h
+index 5e22f48..c130a2e 100644
+--- a/src/platform/linux/http_util.h
++++ b/src/platform/linux/http_util.h
+@@ -3,6 +3,7 @@
+ 
+ #include <string>
+ #include <cstdint>
++#include <vector>
+ 
+ namespace HttpUtil {
+ 
+@@ -23,6 +24,7 @@ std::string UnixToIso8601(int64_t ts);
+ struct HttpResp {
+     int status = 0;
+     std::string body;
++    std::vector<std::string> headers;
+ };
+ 
+ } // namespace HttpUtil
+diff --git a/src/platform/win/cloud_intercept.cpp b/src/platform/win/cloud_intercept.cpp
+index 8d430c7..18de404 100644
+--- a/src/platform/win/cloud_intercept.cpp
++++ b/src/platform/win/cloud_intercept.cpp
+@@ -3321,6 +3321,10 @@ static std::string ComputeFileSHA256(const std::string& path) {
+ }
+ 
+ static void TryAutoUpdateDll() {
++#ifdef CR_CUSTOM_WEB_DAV_BUILD
++    LOG("[AutoUpdate] Skipping official DLL auto-update for custom WebDAV build");
++    return;
++#endif
+     LOG("[AutoUpdate] Checking for DLL update (local version: %s)...", CR_RELEASE_VERSION);
+ 
+     // Fetch releases from GitHub
+@@ -4042,6 +4046,8 @@ void Init(const std::string& steamPath) {
+                 std::string syncPath = cfg["sync_path"].str();
+                 if (providerName == "folder" && !syncPath.empty()) {
+                     initPath = syncPath;
++                } else if (providerName == "webdav") {
++                    initPath = configPath;
+                 }
+ 
+                 if (!initPath.empty() && provider->Init(initPath)) {
+diff --git a/src/platform/win/http_transport_win.cpp b/src/platform/win/http_transport_win.cpp
+index 91c374c..88aa592 100644
+--- a/src/platform/win/http_transport_win.cpp
++++ b/src/platform/win/http_transport_win.cpp
+@@ -77,6 +77,7 @@ public:
+             WinHttpQueryHeaders(hReq, WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER,
+                 WINHTTP_HEADER_NAME_BY_INDEX, &code, &codeLen, WINHTTP_NO_HEADER_INDEX);
+             resp.status = (int)code;
++            ReadHeaders(hReq, resp.headers);
+             ReadBody(hReq, resp.body);
+         }
+ 
+@@ -143,6 +144,7 @@ public:
+             WinHttpQueryHeaders(hReq, WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER,
+                 WINHTTP_HEADER_NAME_BY_INDEX, &code, &codeLen, WINHTTP_NO_HEADER_INDEX);
+             resp.status = (int)code;
++            ReadHeaders(hReq, resp.headers);
+             ReadBody(hReq, resp.body);
+         }
+ 
+@@ -190,6 +192,7 @@ public:
+         WinHttpQueryHeaders(hReq, WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER,
+             WINHTTP_HEADER_NAME_BY_INDEX, &statusCode, &codeLen, WINHTTP_NO_HEADER_INDEX);
+         resp.status = (int)statusCode;
++        ReadHeaders(hReq, resp.headers);
+ 
+         if (statusCode == 200) {
+             ReadBody(hReq, resp.body);
+@@ -227,6 +230,40 @@ public:
+     }
+ 
+ private:
++    void ReadHeaders(HINTERNET hReq, std::vector<std::string>& headers) {
++        DWORD len = 0;
++        WinHttpQueryHeaders(hReq, WINHTTP_QUERY_RAW_HEADERS_CRLF,
++            WINHTTP_HEADER_NAME_BY_INDEX, WINHTTP_NO_OUTPUT_BUFFER, &len,
++            WINHTTP_NO_HEADER_INDEX);
++        if (GetLastError() != ERROR_INSUFFICIENT_BUFFER || len == 0) return;
++
++        std::wstring raw(len / sizeof(wchar_t), 0);
++        if (!WinHttpQueryHeaders(hReq, WINHTTP_QUERY_RAW_HEADERS_CRLF,
++                WINHTTP_HEADER_NAME_BY_INDEX, raw.data(), &len,
++                WINHTTP_NO_HEADER_INDEX)) {
++            return;
++        }
++        while (!raw.empty() && raw.back() == L'\0') raw.pop_back();
++
++        size_t start = 0;
++        while (start < raw.size()) {
++            size_t end = raw.find(L"\r\n", start);
++            if (end == std::wstring::npos) end = raw.size();
++            if (end > start) {
++                std::wstring line = raw.substr(start, end - start);
++                int n = WideCharToMultiByte(CP_UTF8, 0, line.c_str(), (int)line.size(),
++                                             nullptr, 0, nullptr, nullptr);
++                if (n > 0) {
++                    std::string utf8(n, 0);
++                    WideCharToMultiByte(CP_UTF8, 0, line.c_str(), (int)line.size(),
++                                         utf8.data(), n, nullptr, nullptr);
++                    headers.push_back(std::move(utf8));
++                }
++            }
++            start = end + 2;
++        }
++    }
++
+     void ReadBody(HINTERNET hReq, std::string& body) {
+         DWORD avail, got;
+         while (WinHttpQueryDataAvailable(hReq, &avail) && avail > 0) {
+diff --git a/src/platform/win/http_util.h b/src/platform/win/http_util.h
+index e86a662..efd39b4 100644
+--- a/src/platform/win/http_util.h
++++ b/src/platform/win/http_util.h
+@@ -1,6 +1,7 @@
+ #pragma once
+ #include <string>
+ #include <cstdint>
++#include <vector>
+ 
+ namespace HttpUtil {
+ 
+@@ -24,6 +25,7 @@ std::string UnixToIso8601(int64_t ts);
+ struct HttpResp {
+     int status = 0;
+     std::string body;
++    std::vector<std::string> headers;
+ };
+ 
+ } // namespace HttpUtil
+diff --git a/src/providers/webdav_provider.cpp b/src/providers/webdav_provider.cpp
+new file mode 100644
+index 0000000..b05fc8d
+--- /dev/null
++++ b/src/providers/webdav_provider.cpp
+@@ -0,0 +1,807 @@
++#include "webdav_provider.h"
++#include "file_util.h"
++#include "http_util.h"
++#include "json.h"
++#include "log.h"
++
++#include <algorithm>
++#include <cctype>
++#include <cstring>
++#include <ctime>
++#include <fstream>
++#include <iomanip>
++#include <locale>
++#include <random>
++#include <sstream>
++
++#ifdef _WIN32
++#include <Windows.h>
++#include <wincrypt.h>
++#endif
++
++using HttpUtil::HttpResp;
++using HttpUtil::UrlDecode;
++using HttpUtil::UrlEncode;
++
++namespace {
++
++std::string Trim(const std::string& s) {
++    size_t begin = 0;
++    while (begin < s.size() && std::isspace(static_cast<unsigned char>(s[begin]))) ++begin;
++    size_t end = s.size();
++    while (end > begin && std::isspace(static_cast<unsigned char>(s[end - 1]))) --end;
++    return s.substr(begin, end - begin);
++}
++
++std::string ToLower(std::string s) {
++    for (auto& c : s) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
++    return s;
++}
++
++bool StartsWithInsensitive(const std::string& s, const std::string& prefix) {
++    if (s.size() < prefix.size()) return false;
++    for (size_t i = 0; i < prefix.size(); ++i) {
++        if (std::tolower(static_cast<unsigned char>(s[i])) !=
++            std::tolower(static_cast<unsigned char>(prefix[i]))) {
++            return false;
++        }
++    }
++    return true;
++}
++
++bool ContainsInsensitive(const std::string& s, const std::string& needle) {
++    return ToLower(s).find(ToLower(needle)) != std::string::npos;
++}
++
++std::string StripQuotes(std::string value) {
++    value = Trim(value);
++    if (value.size() >= 2 && value.front() == '"' && value.back() == '"')
++        return value.substr(1, value.size() - 2);
++    return value;
++}
++
++std::unordered_map<std::string, std::string> ParseAuthParams(const std::string& input) {
++    std::unordered_map<std::string, std::string> params;
++    size_t pos = 0;
++    while (pos < input.size()) {
++        while (pos < input.size() && (std::isspace(static_cast<unsigned char>(input[pos])) || input[pos] == ','))
++            ++pos;
++        size_t keyStart = pos;
++        while (pos < input.size() && input[pos] != '=' && input[pos] != ',') ++pos;
++        if (pos >= input.size() || input[pos] != '=') break;
++        std::string key = ToLower(Trim(input.substr(keyStart, pos - keyStart)));
++        ++pos;
++
++        std::string value;
++        if (pos < input.size() && input[pos] == '"') {
++            ++pos;
++            while (pos < input.size()) {
++                char c = input[pos++];
++                if (c == '\\' && pos < input.size()) {
++                    value.push_back(input[pos++]);
++                } else if (c == '"') {
++                    break;
++                } else {
++                    value.push_back(c);
++                }
++            }
++        } else {
++            size_t valueStart = pos;
++            while (pos < input.size() && input[pos] != ',') ++pos;
++            value = Trim(input.substr(valueStart, pos - valueStart));
++        }
++        if (!key.empty()) params[key] = value;
++    }
++    return params;
++}
++
++std::string RandomClientNonce() {
++    unsigned char bytes[8] = {};
++#ifdef _WIN32
++    HCRYPTPROV hProv = 0;
++    if (CryptAcquireContextW(&hProv, nullptr, nullptr, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT)) {
++        CryptGenRandom(hProv, sizeof(bytes), bytes);
++        CryptReleaseContext(hProv, 0);
++    } else
++#endif
++    {
++        std::random_device rd;
++        for (auto& b : bytes) b = static_cast<unsigned char>(rd());
++    }
++
++    static constexpr char hex[] = "0123456789abcdef";
++    std::string out;
++    out.reserve(sizeof(bytes) * 2);
++    for (unsigned char b : bytes) {
++        out.push_back(hex[b >> 4]);
++        out.push_back(hex[b & 0x0F]);
++    }
++    return out;
++}
++
++std::string ExtractElementBody(const std::string& block, const char* localName) {
++    std::string needle = ":";
++    needle += localName;
++    size_t tag = block.find(needle);
++    if (tag == std::string::npos) {
++        needle = "<";
++        needle += localName;
++        tag = block.find(needle);
++    }
++    while (tag != std::string::npos) {
++        size_t openStart = block.rfind('<', tag);
++        size_t openEnd = block.find('>', tag);
++        if (openStart == std::string::npos || openEnd == std::string::npos) return {};
++        bool closing = openStart + 1 < block.size() && block[openStart + 1] == '/';
++        if (closing) {
++            tag = block.find(needle, openEnd + 1);
++            continue;
++        }
++
++        size_t nameStart = openStart + 1;
++        while (nameStart < openEnd && std::isspace(static_cast<unsigned char>(block[nameStart])))
++            ++nameStart;
++        size_t nameEnd = nameStart;
++        while (nameEnd < openEnd &&
++               !std::isspace(static_cast<unsigned char>(block[nameEnd])) &&
++               block[nameEnd] != '>') {
++            ++nameEnd;
++        }
++        std::string tagName = block.substr(nameStart, nameEnd - nameStart);
++
++        std::string closeTag = "</" + tagName + ">";
++        size_t closeStart = block.find(closeTag, openEnd + 1);
++        if (closeStart == std::string::npos) return {};
++        return block.substr(openEnd + 1, closeStart - openEnd - 1);
++    }
++    return {};
++}
++
++bool BlockHasCollectionResourceType(const std::string& block) {
++    auto type = ToLower(block);
++    return type.find(":resourcetype") != std::string::npos &&
++           (type.find(":collection") != std::string::npos ||
++            type.find("<collection") != std::string::npos);
++}
++
++} // namespace
++
++bool WebDavProvider::Init(const std::string& configPath) {
++    if (m_initialized) return true;
++    if (!LoadConfig(configPath)) return false;
++
++    m_transport = CreateHttpTransport("[WebDAV]");
++    if (!m_transport || !m_transport->Init()) {
++        LOG("[WebDAV] Transport init failed");
++        return false;
++    }
++
++    m_basicAuthHeader = "Authorization: Basic " + Base64Encode(m_username + ":" + m_password);
++    m_initialized = true;
++    LOG("[WebDAV] Initialized at %s", m_baseUrl.c_str());
++    return true;
++}
++
++void WebDavProvider::Shutdown() {
++    if (m_transport) m_transport->Shutdown();
++    m_initialized = false;
++}
++
++bool WebDavProvider::IsAuthenticated() const {
++    return m_initialized && !m_baseUrl.empty() && !m_username.empty();
++}
++
++bool WebDavProvider::LoadConfig(const std::string& configPath) {
++    std::ifstream f(FileUtil::Utf8ToPath(configPath), std::ios::binary);
++    if (!f) {
++        LOG("[WebDAV] Cannot read config: %s", configPath.c_str());
++        return false;
++    }
++    std::string raw((std::istreambuf_iterator<char>(f)), {});
++    auto cfg = Json::Parse(raw);
++
++    m_baseUrl = NormalizeBaseUrl(cfg["webdav_url"].str());
++    m_username = cfg["webdav_username"].str();
++    m_password = cfg["webdav_password"].str();
++    m_authMode = ParseAuthMode(cfg["webdav_auth_mode"].str());
++    m_baseUrlPath = ExtractUrlPath(m_baseUrl);
++
++    if (m_baseUrl.empty() || !StartsWithInsensitive(m_baseUrl, "https://")) {
++        LOG("[WebDAV] webdav_url must be an HTTPS URL");
++        return false;
++    }
++    if (m_baseUrl.find_first_of("?#") != std::string::npos) {
++        LOG("[WebDAV] webdav_url must not include a query string or fragment");
++        return false;
++    }
++    if (m_username.empty() || m_password.empty()) {
++        LOG("[WebDAV] Username/password are required");
++        return false;
++    }
++    return true;
++}
++
++WebDavProvider::AuthMode WebDavProvider::ParseAuthMode(std::string mode) {
++    mode = ToLower(Trim(mode));
++    if (mode == "basic") return AuthMode::Basic;
++    if (mode == "digest") return AuthMode::Digest;
++    return AuthMode::Auto;
++}
++
++std::string WebDavProvider::NormalizeBaseUrl(std::string url) {
++    url = Trim(url);
++    while (!url.empty() && url.back() == '/') url.pop_back();
++    return url;
++}
++
++std::string WebDavProvider::ExtractUrlPath(const std::string& url) {
++    size_t schemeEnd = url.find("://");
++    if (schemeEnd == std::string::npos) return "/";
++    size_t hostStart = schemeEnd + 3;
++    size_t pathStart = url.find('/', hostStart);
++    if (pathStart == std::string::npos) return "/";
++    auto path = url.substr(pathStart);
++    size_t query = path.find_first_of("?#");
++    if (query != std::string::npos) path.resize(query);
++    while (path.size() > 1 && path.back() == '/') path.pop_back();
++    return path.empty() ? "/" : UrlDecode(path);
++}
++
++std::string WebDavProvider::DigestUriForUrl(const std::string& url) {
++    size_t schemeEnd = url.find("://");
++    if (schemeEnd == std::string::npos) return "/";
++    size_t hostStart = schemeEnd + 3;
++    size_t pathStart = url.find('/', hostStart);
++    if (pathStart == std::string::npos) return "/";
++    std::string path = url.substr(pathStart);
++    if (path.empty()) path = "/";
++    return path;
++}
++
++bool WebDavProvider::IsSafeRelativePath(const std::string& path) {
++    if (path.empty() || path[0] == '/') return false;
++    size_t start = 0;
++    while (start < path.size()) {
++        size_t slash = path.find('/', start);
++        std::string seg = (slash == std::string::npos)
++            ? path.substr(start)
++            : path.substr(start, slash - start);
++        if (seg.empty() || seg == "." || seg == "..") return false;
++        if (seg.find('\\') != std::string::npos) return false;
++        if (slash == std::string::npos) break;
++        start = slash + 1;
++    }
++    return true;
++}
++
++std::string WebDavProvider::EncodePath(const std::string& path) {
++    std::string out;
++    size_t start = 0;
++    while (start < path.size()) {
++        size_t slash = path.find('/', start);
++        std::string seg = (slash == std::string::npos)
++            ? path.substr(start)
++            : path.substr(start, slash - start);
++        if (!seg.empty()) out += UrlEncode(seg);
++        if (slash == std::string::npos) break;
++        out += '/';
++        start = slash + 1;
++    }
++    return out;
++}
++
++std::string WebDavProvider::UrlForPath(const std::string& relPath) const {
++    if (relPath.empty()) return m_baseUrl;
++    return m_baseUrl + "/" + EncodePath(relPath);
++}
++
++std::vector<std::string> WebDavProvider::Headers(const std::vector<std::string>& extra,
++                                                 const std::string& authHeader) const {
++    std::vector<std::string> headers;
++    headers.reserve(extra.size() + 2);
++    if (!authHeader.empty()) headers.push_back(authHeader);
++    headers.push_back("Accept: */*");
++    for (const auto& h : extra) headers.push_back(h);
++    return headers;
++}
++
++HttpResp WebDavProvider::RequestOnce(const char* method, const std::string& relPath,
++                                     const std::string& body,
++                                     const std::vector<std::string>& extraHeaders,
++                                     const std::string& authHeader) {
++    if (!m_transport || !m_transport->IsReady()) return {};
++    return m_transport->RequestUrl(method, UrlForPath(relPath), body, Headers(extraHeaders, authHeader));
++}
++
++HttpResp WebDavProvider::Request(const char* method, const std::string& relPath,
++                                 const std::string& body,
++                                 const std::vector<std::string>& extraHeaders) {
++    if (!m_transport || !m_transport->IsReady()) return {};
++
++    if (m_authMode == AuthMode::Digest && !m_digestChallenge.nonce.empty()) {
++        return RequestOnce(method, relPath, body, extraHeaders,
++            BuildDigestAuthHeader(method, relPath, m_digestChallenge));
++    }
++
++    HttpResp r = RequestOnce(method, relPath, body, extraHeaders,
++        m_authMode == AuthMode::Digest ? std::string() : m_basicAuthHeader);
++
++    if (r.status == 401 && m_authMode != AuthMode::Basic) {
++        DigestChallenge challenge;
++        if (ExtractDigestChallenge(r, challenge)) {
++            m_digestChallenge = std::move(challenge);
++            LOG("[WebDAV] Retrying %s with Digest authentication", method);
++            return RequestOnce(method, relPath, body, extraHeaders,
++                BuildDigestAuthHeader(method, relPath, m_digestChallenge));
++        }
++    }
++
++    return r;
++}
++
++bool WebDavProvider::Mkcol(const std::string& relDir) {
++    if (relDir.empty()) return true;
++    {
++        std::lock_guard<std::mutex> lock(m_collectionMtx);
++        if (m_createdCollections.count(relDir)) return true;
++    }
++    auto r = Request("MKCOL", relDir);
++    if (r.status == 201 || r.status == 405 || r.status == 301 || r.status == 302) {
++        std::lock_guard<std::mutex> lock(m_collectionMtx);
++        m_createdCollections.insert(relDir);
++        return true;
++    }
++    if (r.status == 409) return false;
++    auto exists = CheckExists(relDir);
++    if (exists == ExistsStatus::Exists) {
++        std::lock_guard<std::mutex> lock(m_collectionMtx);
++        m_createdCollections.insert(relDir);
++        return true;
++    }
++    LOG("[WebDAV] MKCOL failed for %s: HTTP %d", relDir.c_str(), r.status);
++    return false;
++}
++
++bool WebDavProvider::EnsureParentCollections(const std::string& relPath) {
++    size_t pos = 0;
++    while (true) {
++        pos = relPath.find('/', pos);
++        if (pos == std::string::npos) break;
++        std::string dir = relPath.substr(0, pos);
++        if (!dir.empty() && !Mkcol(dir)) return false;
++        ++pos;
++    }
++    return true;
++}
++
++bool WebDavProvider::Upload(const std::string& path, const uint8_t* data, size_t len) {
++    if (!IsSafeRelativePath(path)) {
++        LOG("[WebDAV] Upload: bad path '%s'", path.c_str());
++        return false;
++    }
++    if (!EnsureParentCollections(path)) return false;
++
++    std::string body;
++    if (data && len > 0) body.assign(reinterpret_cast<const char*>(data), len);
++    auto r = Request("PUT", path, body, {"Content-Type: application/octet-stream"});
++    bool ok = r.status >= 200 && r.status < 300;
++    if (!ok) LOG("[WebDAV] Upload failed for %s: HTTP %d", path.c_str(), r.status);
++    return ok;
++}
++
++bool WebDavProvider::Download(const std::string& path, std::vector<uint8_t>& outData) {
++    if (!IsSafeRelativePath(path)) {
++        LOG("[WebDAV] Download: bad path '%s'", path.c_str());
++        return false;
++    }
++    auto r = Request("GET", path);
++    if (r.status != 200) {
++        LOG("[WebDAV] Download failed for %s: HTTP %d", path.c_str(), r.status);
++        return false;
++    }
++    outData.assign(r.body.begin(), r.body.end());
++    return true;
++}
++
++bool WebDavProvider::Remove(const std::string& path) {
++    if (!IsSafeRelativePath(path)) {
++        LOG("[WebDAV] Remove: bad path '%s'", path.c_str());
++        return false;
++    }
++    auto r = Request("DELETE", path);
++    if (r.status == 404 || r.status == 410) return true;
++    bool ok = r.status >= 200 && r.status < 300;
++    if (!ok) LOG("[WebDAV] Delete failed for %s: HTTP %d", path.c_str(), r.status);
++    return ok;
++}
++
++ICloudProvider::ExistsStatus WebDavProvider::CheckExists(const std::string& path) {
++    if (!IsSafeRelativePath(path)) return ExistsStatus::Error;
++
++    auto r = Request("HEAD", path);
++    if (r.status >= 200 && r.status < 300) return ExistsStatus::Exists;
++    if (r.status == 404 || r.status == 410) return ExistsStatus::Missing;
++
++    std::string body =
++        "<?xml version=\"1.0\" encoding=\"utf-8\"?>"
++        "<d:propfind xmlns:d=\"DAV:\"><d:prop><d:resourcetype/></d:prop></d:propfind>";
++    r = Request("PROPFIND", path, body, {"Depth: 0", "Content-Type: application/xml; charset=utf-8"});
++    if (r.status == 207 || (r.status >= 200 && r.status < 300)) return ExistsStatus::Exists;
++    if (r.status == 404 || r.status == 410) return ExistsStatus::Missing;
++    return ExistsStatus::Error;
++}
++
++std::vector<ICloudProvider::FileInfo> WebDavProvider::List(const std::string& prefix) {
++    std::vector<FileInfo> result;
++    ListChecked(prefix, result);
++    return result;
++}
++
++bool WebDavProvider::ListChecked(const std::string& prefix, std::vector<FileInfo>& result,
++                                 bool* outComplete) {
++    result.clear();
++    if (outComplete) *outComplete = false;
++    if (!IsSafeRelativePath(prefix)) return false;
++
++    bool complete = true;
++    bool ok = ListRecursive(prefix, result, &complete);
++    if (outComplete) *outComplete = complete;
++    return ok;
++}
++
++bool WebDavProvider::ListRecursive(const std::string& prefix, std::vector<FileInfo>& result,
++                                   bool* outComplete, int depth) {
++    static constexpr int MAX_DEPTH = 32;
++    if (depth >= MAX_DEPTH) {
++        if (outComplete) *outComplete = false;
++        LOG("[WebDAV] ListRecursive depth limit reached at %s", prefix.c_str());
++        return true;
++    }
++
++    std::string body =
++        "<?xml version=\"1.0\" encoding=\"utf-8\"?>"
++        "<d:propfind xmlns:d=\"DAV:\"><d:prop>"
++        "<d:resourcetype/><d:getcontentlength/><d:getlastmodified/>"
++        "</d:prop></d:propfind>";
++
++    auto r = Request("PROPFIND", prefix, body, {"Depth: 1", "Content-Type: application/xml; charset=utf-8"});
++    if (r.status == 404 || r.status == 410) {
++        return true;
++    }
++    if (r.status != 207 && (r.status < 200 || r.status >= 300)) {
++        LOG("[WebDAV] List failed for %s: HTTP %d", prefix.c_str(), r.status);
++        return false;
++    }
++
++    auto items = ParsePropfind(r.body, m_baseUrlPath);
++    std::string self = prefix;
++    while (self.size() > 1 && self.back() == '/') self.pop_back();
++    for (const auto& item : items) {
++        if (item.path == self || item.path == prefix) continue;
++        if (item.path.size() < prefix.size() || item.path.rfind(prefix, 0) != 0) continue;
++        if (item.isCollection) {
++            std::string childPrefix = item.path;
++            if (!childPrefix.empty() && childPrefix.back() != '/') childPrefix += '/';
++            if (!ListRecursive(childPrefix, result, outComplete, depth + 1)) return false;
++        } else {
++            result.push_back({item.path, item.size, item.modifiedTime});
++        }
++    }
++    return true;
++}
++
++std::vector<std::string> WebDavProvider::ListSubfolders(const std::string& prefix) {
++    if (!IsSafeRelativePath(prefix)) return {};
++
++    std::string body =
++        "<?xml version=\"1.0\" encoding=\"utf-8\"?>"
++        "<d:propfind xmlns:d=\"DAV:\"><d:prop><d:resourcetype/></d:prop></d:propfind>";
++    auto r = Request("PROPFIND", prefix, body, {"Depth: 1", "Content-Type: application/xml; charset=utf-8"});
++    if (r.status == 404 || r.status == 410) return {};
++    if (r.status != 207 && (r.status < 200 || r.status >= 300)) return {};
++
++    auto items = ParsePropfind(r.body, m_baseUrlPath);
++    std::vector<std::string> folders;
++    for (const auto& item : items) {
++        if (!item.isCollection) continue;
++        if (item.path.size() <= prefix.size() || item.path.rfind(prefix, 0) != 0) continue;
++        auto rest = item.path.substr(prefix.size());
++        if (rest.empty() || rest.find('/') != std::string::npos) continue;
++        if (std::find(folders.begin(), folders.end(), rest) == folders.end())
++            folders.push_back(rest);
++    }
++    return folders;
++}
++
++std::string WebDavProvider::Base64Encode(const std::string& input) {
++    static constexpr char table[] =
++        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
++    std::string out;
++    out.reserve(((input.size() + 2) / 3) * 4);
++    uint32_t val = 0;
++    int valb = -6;
++    for (uint8_t c : input) {
++        val = (val << 8) | c;
++        valb += 8;
++        while (valb >= 0) {
++            out.push_back(table[(val >> valb) & 0x3F]);
++            valb -= 6;
++        }
++    }
++    if (valb > -6) out.push_back(table[((val << 8) >> (valb + 8)) & 0x3F]);
++    while (out.size() % 4) out.push_back('=');
++    return out;
++}
++
++std::string WebDavProvider::Md5Hex(const std::string& input) {
++    unsigned char hash[16] = {};
++#ifdef _WIN32
++    HCRYPTPROV hProv = 0;
++    HCRYPTHASH hHash = 0;
++    if (CryptAcquireContextW(&hProv, nullptr, nullptr, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT)) {
++        if (CryptCreateHash(hProv, CALG_MD5, 0, 0, &hHash)) {
++            CryptHashData(hHash, reinterpret_cast<const BYTE*>(input.data()), (DWORD)input.size(), 0);
++            DWORD len = sizeof(hash);
++            CryptGetHashParam(hHash, HP_HASHVAL, hash, &len, 0);
++            CryptDestroyHash(hHash);
++        }
++        CryptReleaseContext(hProv, 0);
++    }
++#else
++    // Tiny MD5 implementation adapted for Digest auth input strings.
++    auto leftRotate = [](uint32_t x, uint32_t c) {
++        return (x << c) | (x >> (32 - c));
++    };
++    static constexpr uint32_t s[] = {
++        7,12,17,22, 7,12,17,22, 7,12,17,22, 7,12,17,22,
++        5,9,14,20, 5,9,14,20, 5,9,14,20, 5,9,14,20,
++        4,11,16,23, 4,11,16,23, 4,11,16,23, 4,11,16,23,
++        6,10,15,21, 6,10,15,21, 6,10,15,21, 6,10,15,21
++    };
++    static constexpr uint32_t k[] = {
++        0xd76aa478,0xe8c7b756,0x242070db,0xc1bdceee,0xf57c0faf,0x4787c62a,0xa8304613,0xfd469501,
++        0x698098d8,0x8b44f7af,0xffff5bb1,0x895cd7be,0x6b901122,0xfd987193,0xa679438e,0x49b40821,
++        0xf61e2562,0xc040b340,0x265e5a51,0xe9b6c7aa,0xd62f105d,0x02441453,0xd8a1e681,0xe7d3fbc8,
++        0x21e1cde6,0xc33707d6,0xf4d50d87,0x455a14ed,0xa9e3e905,0xfcefa3f8,0x676f02d9,0x8d2a4c8a,
++        0xfffa3942,0x8771f681,0x6d9d6122,0xfde5380c,0xa4beea44,0x4bdecfa9,0xf6bb4b60,0xbebfbc70,
++        0x289b7ec6,0xeaa127fa,0xd4ef3085,0x04881d05,0xd9d4d039,0xe6db99e5,0x1fa27cf8,0xc4ac5665,
++        0xf4292244,0x432aff97,0xab9423a7,0xfc93a039,0x655b59c3,0x8f0ccc92,0xffeff47d,0x85845dd1,
++        0x6fa87e4f,0xfe2ce6e0,0xa3014314,0x4e0811a1,0xf7537e82,0xbd3af235,0x2ad7d2bb,0xeb86d391
++    };
++
++    std::vector<uint8_t> msg(input.begin(), input.end());
++    uint64_t bitLen = static_cast<uint64_t>(msg.size()) * 8;
++    msg.push_back(0x80);
++    while ((msg.size() % 64) != 56) msg.push_back(0);
++    for (int i = 0; i < 8; ++i) msg.push_back(static_cast<uint8_t>(bitLen >> (8 * i)));
++
++    uint32_t a0 = 0x67452301, b0 = 0xefcdab89, c0 = 0x98badcfe, d0 = 0x10325476;
++    for (size_t offset = 0; offset < msg.size(); offset += 64) {
++        uint32_t m[16];
++        for (int i = 0; i < 16; ++i) {
++            size_t j = offset + i * 4;
++            m[i] = (uint32_t)msg[j] | ((uint32_t)msg[j + 1] << 8) |
++                   ((uint32_t)msg[j + 2] << 16) | ((uint32_t)msg[j + 3] << 24);
++        }
++
++        uint32_t A = a0, B = b0, C = c0, D = d0;
++        for (uint32_t i = 0; i < 64; ++i) {
++            uint32_t F, g;
++            if (i < 16) {
++                F = (B & C) | ((~B) & D);
++                g = i;
++            } else if (i < 32) {
++                F = (D & B) | ((~D) & C);
++                g = (5 * i + 1) % 16;
++            } else if (i < 48) {
++                F = B ^ C ^ D;
++                g = (3 * i + 5) % 16;
++            } else {
++                F = C ^ (B | (~D));
++                g = (7 * i) % 16;
++            }
++            F += A + k[i] + m[g];
++            A = D;
++            D = C;
++            C = B;
++            B += leftRotate(F, s[i]);
++        }
++        a0 += A; b0 += B; c0 += C; d0 += D;
++    }
++
++    uint32_t words[4] = {a0, b0, c0, d0};
++    for (int i = 0; i < 4; ++i) {
++        hash[i * 4 + 0] = static_cast<unsigned char>(words[i] & 0xFF);
++        hash[i * 4 + 1] = static_cast<unsigned char>((words[i] >> 8) & 0xFF);
++        hash[i * 4 + 2] = static_cast<unsigned char>((words[i] >> 16) & 0xFF);
++        hash[i * 4 + 3] = static_cast<unsigned char>((words[i] >> 24) & 0xFF);
++    }
++#endif
++
++    static constexpr char hex[] = "0123456789abcdef";
++    std::string out;
++    out.reserve(32);
++    for (unsigned char b : hash) {
++        out.push_back(hex[b >> 4]);
++        out.push_back(hex[b & 0x0F]);
++    }
++    return out;
++}
++
++bool WebDavProvider::ExtractDigestChallenge(const HttpResp& resp, DigestChallenge& out) {
++    for (const auto& header : resp.headers) {
++        size_t colon = header.find(':');
++        if (colon == std::string::npos) continue;
++        auto name = ToLower(Trim(header.substr(0, colon)));
++        if (name != "www-authenticate") continue;
++        auto value = Trim(header.substr(colon + 1));
++        if (!StartsWithInsensitive(value, "Digest")) continue;
++
++        auto params = ParseAuthParams(value.substr(6));
++        out.realm = params["realm"];
++        out.nonce = params["nonce"];
++        out.opaque = params["opaque"];
++        out.qop = params["qop"];
++        out.algorithm = params["algorithm"];
++        if (out.algorithm.empty()) out.algorithm = "MD5";
++        if (!ContainsInsensitive(out.algorithm, "MD5")) {
++            LOG("[WebDAV] Unsupported Digest algorithm: %s", out.algorithm.c_str());
++            return false;
++        }
++        return !out.realm.empty() && !out.nonce.empty();
++    }
++    return false;
++}
++
++std::string WebDavProvider::BuildDigestAuthHeader(const char* method, const std::string& relPath,
++                                                  const DigestChallenge& challenge) {
++    std::string uri = DigestUriForUrl(UrlForPath(relPath));
++    std::string qop = "auth";
++    if (!challenge.qop.empty() && !ContainsInsensitive(challenge.qop, "auth"))
++        qop.clear();
++
++    std::string ha1 = Md5Hex(m_username + ":" + challenge.realm + ":" + m_password);
++    std::string ha2 = Md5Hex(std::string(method) + ":" + uri);
++    std::ostringstream nc;
++    nc << std::hex << std::setw(8) << std::setfill('0') << ++m_digestNonceCount;
++    std::string cnonce = RandomClientNonce();
++
++    std::string response;
++    if (!qop.empty()) {
++        response = Md5Hex(ha1 + ":" + challenge.nonce + ":" + nc.str() + ":" +
++                          cnonce + ":" + qop + ":" + ha2);
++    } else {
++        response = Md5Hex(ha1 + ":" + challenge.nonce + ":" + ha2);
++    }
++
++    auto quote = [](const std::string& s) {
++        std::string out = "\"";
++        for (char c : s) {
++            if (c == '"' || c == '\\') out.push_back('\\');
++            out.push_back(c);
++        }
++        out.push_back('"');
++        return out;
++    };
++
++    std::string header = "Authorization: Digest username=" + quote(m_username) +
++        ", realm=" + quote(challenge.realm) +
++        ", nonce=" + quote(challenge.nonce) +
++        ", uri=" + quote(uri) +
++        ", response=" + quote(response) +
++        ", algorithm=MD5";
++    if (!challenge.opaque.empty())
++        header += ", opaque=" + quote(challenge.opaque);
++    if (!qop.empty())
++        header += ", qop=" + qop + ", nc=" + nc.str() + ", cnonce=" + quote(cnonce);
++    return header;
++}
++
++std::string WebDavProvider::XmlDecode(std::string s) {
++    struct Entity { const char* from; const char* to; };
++    static constexpr Entity entities[] = {
++        {"&amp;", "&"}, {"&lt;", "<"}, {"&gt;", ">"}, {"&quot;", "\""}, {"&apos;", "'"}
++    };
++    for (const auto& entity : entities) {
++        size_t pos = 0;
++        while ((pos = s.find(entity.from, pos)) != std::string::npos) {
++            s.replace(pos, strlen(entity.from), entity.to);
++            pos += strlen(entity.to);
++        }
++    }
++    return s;
++}
++
++std::vector<WebDavProvider::DavItem> WebDavProvider::ParsePropfind(
++    const std::string& xml, const std::string& baseUrlPath) {
++    std::vector<DavItem> items;
++    size_t pos = 0;
++
++    while (true) {
++        size_t responseTag = xml.find(":response", pos);
++        if (responseTag == std::string::npos) responseTag = xml.find("<response", pos);
++        if (responseTag == std::string::npos) break;
++        size_t responseStart = xml.rfind('<', responseTag);
++        size_t responseOpenEnd = xml.find('>', responseTag);
++        if (responseStart == std::string::npos || responseOpenEnd == std::string::npos) break;
++
++        size_t responseNameStart = responseStart + 1;
++        while (responseNameStart < responseOpenEnd &&
++               std::isspace(static_cast<unsigned char>(xml[responseNameStart]))) {
++            ++responseNameStart;
++        }
++        size_t responseNameEnd = responseNameStart;
++        while (responseNameEnd < responseOpenEnd &&
++               !std::isspace(static_cast<unsigned char>(xml[responseNameEnd])) &&
++               xml[responseNameEnd] != '>') {
++            ++responseNameEnd;
++        }
++        std::string responseName = xml.substr(responseNameStart, responseNameEnd - responseNameStart);
++        std::string closeTag = "</" + responseName + ">";
++        size_t responseEnd = xml.find(closeTag, responseOpenEnd + 1);
++        if (responseEnd == std::string::npos) break;
++
++        std::string block = xml.substr(responseOpenEnd + 1, responseEnd - responseOpenEnd - 1);
++        pos = responseEnd + closeTag.size();
++
++        std::string href = XmlDecode(ExtractElementBody(block, "href"));
++        if (href.empty()) continue;
++
++        size_t scheme = href.find("://");
++        if (scheme != std::string::npos) {
++            size_t pathStart = href.find('/', scheme + 3);
++            href = pathStart == std::string::npos ? "/" : href.substr(pathStart);
++        }
++        size_t query = href.find_first_of("?#");
++        if (query != std::string::npos) href.resize(query);
++        while (href.size() > 1 && href.back() == '/') href.pop_back();
++        href = UrlDecode(href);
++
++        std::string base = baseUrlPath.empty() ? "/" : baseUrlPath;
++        while (base.size() > 1 && base.back() == '/') base.pop_back();
++
++        std::string rel;
++        if (href == base) {
++            continue;
++        } else if (href.rfind(base + "/", 0) == 0) {
++            rel = href.substr(base.size() + 1);
++        } else if (!base.empty() && base != "/" && href.rfind(base, 0) == 0) {
++            rel = href.substr(base.size());
++            if (!rel.empty() && rel[0] == '/') rel.erase(rel.begin());
++        } else if (!href.empty() && href[0] == '/') {
++            rel = href.substr(1);
++        } else {
++            rel = href;
++        }
++        if (rel.empty()) continue;
++
++        DavItem item;
++        item.path = rel;
++        item.isCollection = BlockHasCollectionResourceType(block);
++        auto sizeText = Trim(ExtractElementBody(block, "getcontentlength"));
++        if (!sizeText.empty()) {
++            try { item.size = static_cast<uint64_t>(std::stoull(sizeText)); }
++            catch (...) { item.size = 0; }
++        }
++        auto modifiedText = Trim(ExtractElementBody(block, "getlastmodified"));
++        int64_t modified = ParseHttpDate(modifiedText);
++        item.modifiedTime = modified > 0 ? static_cast<uint64_t>(modified) : 0;
++        items.push_back(std::move(item));
++    }
++
++    return items;
++}
++
++int64_t WebDavProvider::ParseHttpDate(const std::string& value) {
++    if (value.empty()) return 0;
++    std::tm tm{};
++    std::istringstream ss(value);
++    ss.imbue(std::locale::classic());
++    ss >> std::get_time(&tm, "%a, %d %b %Y %H:%M:%S GMT");
++    if (ss.fail()) return 0;
++#ifdef _WIN32
++    return static_cast<int64_t>(_mkgmtime(&tm));
++#else
++    return static_cast<int64_t>(timegm(&tm));
++#endif
++}
+diff --git a/src/providers/webdav_provider.h b/src/providers/webdav_provider.h
+new file mode 100644
+index 0000000..8c67350
+--- /dev/null
++++ b/src/providers/webdav_provider.h
+@@ -0,0 +1,99 @@
++#pragma once
++#include "cloud_provider.h"
++#include "cloud_provider_base.h"
++
++#include <memory>
++#include <mutex>
++#include <string>
++#include <unordered_map>
++#include <unordered_set>
++
++// WebDAV provider backed by a user-supplied HTTPS WebDAV root.
++// Paths are mapped directly under the configured root:
++//   {webdav_url}/{accountId}/{appId}/...
++
++class WebDavProvider : public ICloudProvider {
++public:
++    const char* Name() const override { return "WebDAV"; }
++
++    bool Init(const std::string& configPath) override;
++    void Shutdown() override;
++    bool IsAuthenticated() const override;
++
++    bool Upload(const std::string& path, const uint8_t* data, size_t len) override;
++    bool Download(const std::string& path, std::vector<uint8_t>& outData) override;
++    bool Remove(const std::string& path) override;
++    ExistsStatus CheckExists(const std::string& path) override;
++    std::vector<FileInfo> List(const std::string& prefix) override;
++    std::vector<std::string> ListSubfolders(const std::string& prefix) override;
++    bool ListChecked(const std::string& prefix, std::vector<FileInfo>& outFiles,
++                     bool* outComplete = nullptr) override;
++
++private:
++    enum class AuthMode {
++        Auto,
++        Basic,
++        Digest,
++    };
++
++    struct DigestChallenge {
++        std::string realm;
++        std::string nonce;
++        std::string opaque;
++        std::string qop;
++        std::string algorithm;
++    };
++
++    struct DavItem {
++        std::string path;
++        bool isCollection = false;
++        uint64_t size = 0;
++        uint64_t modifiedTime = 0;
++    };
++
++    bool LoadConfig(const std::string& configPath);
++    bool EnsureParentCollections(const std::string& relPath);
++    bool Mkcol(const std::string& relDir);
++    HttpUtil::HttpResp Request(const char* method, const std::string& relPath,
++                               const std::string& body = {},
++                               const std::vector<std::string>& extraHeaders = {});
++    HttpUtil::HttpResp RequestOnce(const char* method, const std::string& relPath,
++                                   const std::string& body,
++                                   const std::vector<std::string>& extraHeaders,
++                                   const std::string& authHeader);
++
++    std::string UrlForPath(const std::string& relPath) const;
++    std::vector<std::string> Headers(const std::vector<std::string>& extra,
++                                     const std::string& authHeader) const;
++    std::string BuildDigestAuthHeader(const char* method, const std::string& relPath,
++                                      const DigestChallenge& challenge);
++    static AuthMode ParseAuthMode(std::string mode);
++    static bool ExtractDigestChallenge(const HttpUtil::HttpResp& resp, DigestChallenge& out);
++
++    static bool IsSafeRelativePath(const std::string& path);
++    static std::string EncodePath(const std::string& path);
++    static std::string NormalizeBaseUrl(std::string url);
++    static std::string ExtractUrlPath(const std::string& url);
++    static std::string DigestUriForUrl(const std::string& url);
++    static std::string Base64Encode(const std::string& input);
++    static std::string Md5Hex(const std::string& input);
++    static std::string XmlDecode(std::string s);
++    static std::vector<DavItem> ParsePropfind(const std::string& xml,
++                                              const std::string& baseUrlPath);
++    static int64_t ParseHttpDate(const std::string& value);
++    bool ListRecursive(const std::string& prefix, std::vector<FileInfo>& outFiles,
++                       bool* outComplete, int depth = 0);
++
++    std::string m_baseUrl;
++    std::string m_baseUrlPath;
++    std::string m_username;
++    std::string m_password;
++    std::string m_basicAuthHeader;
++    AuthMode m_authMode = AuthMode::Auto;
++    DigestChallenge m_digestChallenge;
++    uint32_t m_digestNonceCount = 0;
++    bool m_initialized = false;
++    std::unique_ptr<IHttpTransport> m_transport;
++    std::unordered_set<std::string> m_createdCollections;
++    std::mutex m_collectionMtx;
++};
+diff --git a/tests/webdav_compat_smoke.ps1 b/tests/webdav_compat_smoke.ps1
+new file mode 100644
+index 0000000..9009bb9
+--- /dev/null
++++ b/tests/webdav_compat_smoke.ps1
+@@ -0,0 +1,105 @@
++param(
++    [Parameter(Mandatory = $true)]
++    [string]$BaseUrl,
++
++    [Parameter(Mandatory = $true)]
++    [string]$Username,
++
++    [Parameter(Mandatory = $true)]
++    [string]$Password
++)
++
++$ErrorActionPreference = 'Stop'
++
++if (-not $BaseUrl.StartsWith('https://', [System.StringComparison]::OrdinalIgnoreCase)) {
++    throw 'BaseUrl must be an HTTPS WebDAV folder URL.'
++}
++
++$BaseUrl = $BaseUrl.TrimEnd('/')
++$client = [System.Net.Http.HttpClient]::new(
++    [System.Net.Http.HttpClientHandler]@{
++        Credentials = [System.Net.NetworkCredential]::new($Username, $Password)
++        PreAuthenticate = $true
++        AllowAutoRedirect = $true
++    })
++$client.Timeout = [TimeSpan]::FromSeconds(30)
++
++function Invoke-Dav {
++    param(
++        [string]$Method,
++        [string]$Path,
++        [string]$Body = '',
++        [hashtable]$Headers = @{},
++        [string]$ContentType = 'text/plain'
++    )
++
++    $uri = "$BaseUrl/$Path"
++    $req = [System.Net.Http.HttpRequestMessage]::new([System.Net.Http.HttpMethod]::new($Method), $uri)
++    foreach ($key in $Headers.Keys) {
++        [void]$req.Headers.TryAddWithoutValidation($key, [string]$Headers[$key])
++    }
++    if ($Body.Length -gt 0 -or $Method -in @('PUT', 'PROPFIND')) {
++        $req.Content = [System.Net.Http.StringContent]::new($Body, [System.Text.Encoding]::UTF8, $ContentType)
++    }
++    try {
++        return $client.Send($req)
++    }
++    finally {
++        $req.Dispose()
++    }
++}
++
++function Assert-Status {
++    param([System.Net.Http.HttpResponseMessage]$Response, [int[]]$Allowed, [string]$Step)
++    $code = [int]$Response.StatusCode
++    if ($Allowed -notcontains $code) {
++        $body = $Response.Content.ReadAsStringAsync().GetAwaiter().GetResult()
++        throw "$Step failed: HTTP $code $($Response.ReasonPhrase) $body"
++    }
++}
++
++$root = 'cloudredirect-compat-' + [Guid]::NewGuid().ToString('N')
++$unicodeFile = "$root/中文 文件.txt"
++$emptyDir = "$root/empty-dir"
++$conflictA = "$root/conflict.txt"
++
++try {
++    Assert-Status (Invoke-Dav MKCOL $root) @(201, 405) 'MKCOL root'
++    Assert-Status (Invoke-Dav MKCOL $emptyDir) @(201, 405) 'MKCOL empty dir'
++
++    Assert-Status (Invoke-Dav PUT $unicodeFile 'hello 中文') @(200, 201, 204) 'PUT unicode file'
++    Assert-Status (Invoke-Dav PUT $conflictA 'v1') @(200, 201, 204) 'PUT conflict v1'
++    Assert-Status (Invoke-Dav PUT $conflictA 'v2') @(200, 201, 204) 'PUT conflict overwrite'
++
++    $get = Invoke-Dav GET $unicodeFile
++    Assert-Status $get @(200) 'GET unicode file'
++    $content = $get.Content.ReadAsStringAsync().GetAwaiter().GetResult()
++    if ($content -ne 'hello 中文') {
++        throw "GET unicode file returned unexpected content: $content"
++    }
++
++    $propfindBody = '<?xml version="1.0" encoding="utf-8"?><d:propfind xmlns:d="DAV:"><d:prop><d:resourcetype/><d:getcontentlength/></d:prop></d:propfind>'
++    $list = Invoke-Dav PROPFIND "$root/" $propfindBody @{ Depth = '1' } 'application/xml'
++    Assert-Status $list @(207, 200) 'PROPFIND root'
++    $xml = $list.Content.ReadAsStringAsync().GetAwaiter().GetResult()
++    if ($xml -notmatch '中文|%E4%B8%AD%E6%96%87') {
++        throw 'PROPFIND root did not include the unicode file.'
++    }
++    if ($xml -notmatch 'empty-dir') {
++        throw 'PROPFIND root did not include the empty directory.'
++    }
++
++    Assert-Status (Invoke-Dav DELETE $unicodeFile) @(200, 202, 204, 404) 'DELETE unicode file'
++    Assert-Status (Invoke-Dav DELETE $conflictA) @(200, 202, 204, 404) 'DELETE conflict file'
++    Assert-Status (Invoke-Dav DELETE $emptyDir) @(200, 202, 204, 404) 'DELETE empty dir'
++    Assert-Status (Invoke-Dav DELETE $root) @(200, 202, 204, 404) 'DELETE root'
++
++    Write-Output 'WebDAV compatibility smoke test passed.'
++}
++finally {
++    try { [void](Invoke-Dav DELETE $unicodeFile) } catch {}
++    try { [void](Invoke-Dav DELETE $conflictA) } catch {}
++    try { [void](Invoke-Dav DELETE $emptyDir) } catch {}
++    try { [void](Invoke-Dav DELETE $root) } catch {}
++    $client.Dispose()
++}
+diff --git a/ui/Pages/CloudProviderPage.xaml b/ui/Pages/CloudProviderPage.xaml
+index 9c3b918..4f83b2f 100644
+--- a/ui/Pages/CloudProviderPage.xaml
++++ b/ui/Pages/CloudProviderPage.xaml
+@@ -12,7 +12,7 @@
+                        Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                        Margin="0,0,0,8" />
+ 
+-            <TextBlock Text="{res:Loc CloudProvider_Description}"
++            <TextBlock Text="{res:Loc CloudProvider_DescriptionWebDav}"
+                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                        TextWrapping="Wrap"
+                        Margin="0,0,0,24" />
+@@ -29,6 +29,7 @@
+                       SelectionChanged="ProviderCombo_SelectionChanged">
+                 <ComboBoxItem Content="{res:Loc CloudProvider_GoogleDrive}" Tag="gdrive" />
+                 <ComboBoxItem Content="{res:Loc CloudProvider_OneDrive}" Tag="onedrive" />
++                <ComboBoxItem Content="{res:Loc CloudProvider_WebDav}" Tag="webdav" />
+                 <ComboBoxItem Content="{res:Loc CloudProvider_FolderMappedDrive}" Tag="folder" />
+                 <ComboBoxItem Content="{res:Loc CloudProvider_LocalOnly}" Tag="local" />
+             </ComboBox>
+@@ -61,6 +62,31 @@
+                        TextWrapping="Wrap"
+                        Margin="0,0,0,24" />
+ 
++            <StackPanel x:Name="WebDavFields"
++                        Visibility="Collapsed"
++                        Margin="0,0,0,24">
++                <TextBlock Text="{res:Loc CloudProvider_WebDavUsername}"
++                           FontWeight="SemiBold"
++                           Foreground="{DynamicResource TextFillColorPrimaryBrush}"
++                           Margin="0,0,0,8" />
++                <ui:TextBox x:Name="WebDavUsernameBox"
++                            PlaceholderText="{res:Loc CloudProvider_WebDavUsernamePlaceholder}"
++                            Margin="0,0,0,12" />
++
++                <TextBlock Text="{res:Loc CloudProvider_WebDavPassword}"
++                           FontWeight="SemiBold"
++                           Foreground="{DynamicResource TextFillColorPrimaryBrush}"
++                           Margin="0,0,0,8" />
++                <PasswordBox x:Name="WebDavPasswordBox"
++                             Margin="0,0,0,12" />
++
++                <ui:Button x:Name="TestWebDavButton"
++                           Content="{res:Loc CloudProvider_TestConnection}"
++                           Icon="{ui:SymbolIcon PlugConnected24}"
++                           HorizontalAlignment="Left"
++                           Click="TestWebDav_Click" />
++            </StackPanel>
++
+             <TextBlock Text="{res:Loc CloudProvider_Authentication}"
+                        FontWeight="SemiBold"
+                        Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+diff --git a/ui/Pages/CloudProviderPage.xaml.cs b/ui/Pages/CloudProviderPage.xaml.cs
+index 92a6762..5384b3c 100644
+--- a/ui/Pages/CloudProviderPage.xaml.cs
++++ b/ui/Pages/CloudProviderPage.xaml.cs
+@@ -50,6 +50,8 @@ public partial class CloudProviderPage : Page
+         Services.CloudConfig? Config,
+         string DefaultLocalPath,
+         string PathTextOverride,
++        string WebDavUsername,
++        string WebDavPassword,
+         Services.TokenStatus? TokenStatus);
+ 
+     // M14: Move SteamDetector.ReadConfig + FindSteamPath + OAuth token
+@@ -83,13 +85,21 @@ public partial class CloudProviderPage : Page
+                         pathOverride = config.TokenPath;
+                     else if (config.SyncPath != null)
+                         pathOverride = config.SyncPath;
++                    else if (config.WebDavUrl != null)
++                        pathOverride = config.WebDavUrl;
+                 }
+ 
+                 Services.TokenStatus? tokenStatus = null;
+                 if (config?.TokenPath != null)
+                     tokenStatus = Services.OAuthService.CheckTokenStatus(config.TokenPath);
+ 
+-                return new LoadedConfigSnapshot(config, defaultLocal, pathOverride, tokenStatus);
++                return new LoadedConfigSnapshot(
++                    config,
++                    defaultLocal,
++                    pathOverride,
++                    config?.WebDavUsername ?? "",
++                    config?.WebDavPassword ?? "",
++                    tokenStatus);
+             });
+ 
+             ApplyLoadedSnapshot(snapshot);
+@@ -109,7 +119,7 @@ public partial class CloudProviderPage : Page
+         if (snap.Config == null)
+         {
+             AuthStatus.Text = S.Get("CloudProvider_NoConfigFound");
+-            ProviderCombo.SelectedIndex = 3; // Local only
++            ProviderCombo.SelectedIndex = 4; // Local only
+             if (!string.IsNullOrEmpty(snap.DefaultLocalPath))
+                 TokenPathBox.Text = snap.DefaultLocalPath;
+             return;
+@@ -132,6 +142,9 @@ public partial class CloudProviderPage : Page
+                 TokenPathBox.Text = snap.DefaultLocalPath;
+         }
+ 
++        WebDavUsernameBox.Text = snap.WebDavUsername;
++        WebDavPasswordBox.Password = snap.WebDavPassword;
++
+         UpdateProviderUI();
+         // Use the pre-resolved token status so the dispatcher path never
+         // re-enters CheckTokenStatus synchronously on Loaded. Only reach
+@@ -172,6 +185,12 @@ public partial class CloudProviderPage : Page
+                     Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                     "CloudRedirect", "onedrive_tokens.json");
+             }
++            else if (tag == "webdav")
++            {
++                TokenPathBox.Text = "";
++                WebDavUsernameBox.Text = "";
++                WebDavPasswordBox.Password = "";
++            }
+             else if (tag is "local" or "folder")
+             {
+                 SetDefaultLocalPath();
+@@ -192,14 +211,24 @@ public partial class CloudProviderPage : Page
+         bool needsTokens = tag is "gdrive" or "onedrive";
+         bool isFolder = tag == "folder";
+         bool isLocal = tag == "local";
+-        bool needsPath = needsTokens || isFolder;
++        bool isWebDav = tag == "webdav";
++        bool needsPath = needsTokens || isFolder || isWebDav;
+ 
+         TokenPathBox.IsEnabled = needsPath;
+-        BrowseButton.IsEnabled = needsPath;
++        BrowseButton.IsEnabled = needsPath && !isWebDav;
++        BrowseButton.Visibility = isWebDav ? Visibility.Collapsed : Visibility.Visible;
++        WebDavFields.Visibility = isWebDav ? Visibility.Visible : Visibility.Collapsed;
++        TestWebDavButton.Visibility = isWebDav ? Visibility.Visible : Visibility.Collapsed;
+         SignInButton.Visibility = needsTokens ? Visibility.Visible : Visibility.Collapsed;
+ 
+         // Update labels based on provider type
+-        if (isFolder)
++        if (isWebDav)
++        {
++            PathLabel.Text = S.Get("CloudProvider_WebDavUrlPath");
++            TokenPathBox.PlaceholderText = S.Get("CloudProvider_WebDavUrlPlaceholder");
++            PathHint.Text = S.Get("CloudProvider_WebDavUrlHint");
++        }
++        else if (isFolder)
+         {
+             PathLabel.Text = S.Get("CloudProvider_SyncFolderPath");
+             TokenPathBox.PlaceholderText = S.Get("CloudProvider_SyncFolderPlaceholder");
+@@ -230,6 +259,7 @@ public partial class CloudProviderPage : Page
+     private void BrowseToken_Click(object sender, RoutedEventArgs e)
+     {
+         var provider = GetSelectedProvider();
++        if (provider == "webdav") return;
+ 
+         if (provider == "folder")
+         {
+@@ -270,7 +300,7 @@ public partial class CloudProviderPage : Page
+         if (_isAuthenticating) return;
+ 
+         var provider = GetSelectedProvider();
+-        if (provider is "local" or "folder") return;
++        if (provider is "local" or "folder" or "webdav") return;
+ 
+         var tokenPath = TokenPathBox.Text?.Trim();
+         if (string.IsNullOrEmpty(tokenPath))
+@@ -345,6 +375,34 @@ public partial class CloudProviderPage : Page
+         }
+     }
+ 
++    private async void TestWebDav_Click(object sender, RoutedEventArgs e)
++    {
++        if (GetSelectedProvider() != "webdav") return;
++
++        TestWebDavButton.IsEnabled = false;
++        TestWebDavButton.Content = S.Get("CloudProvider_TestingConnection");
++        AuthStatus.Text = S.Get("CloudProvider_TestingConnection");
++        AuthIcon.Symbol = Wpf.Ui.Controls.SymbolRegular.ArrowSync24;
++
++        try
++        {
++            var result = await Services.WebDavConnectionTester.TestAsync(
++                TokenPathBox.Text?.Trim() ?? "",
++                WebDavUsernameBox.Text?.Trim() ?? "",
++                WebDavPasswordBox.Password ?? "");
++
++            AuthStatus.Text = result.Message;
++            AuthIcon.Symbol = result.Success
++                ? Wpf.Ui.Controls.SymbolRegular.ShieldCheckmark24
++                : Wpf.Ui.Controls.SymbolRegular.ShieldDismiss24;
++        }
++        finally
++        {
++            TestWebDavButton.IsEnabled = true;
++            TestWebDavButton.Content = S.Get("CloudProvider_TestConnection");
++        }
++    }
++
+     /// <summary>
+     /// Writes config.json without showing a dialog. Returns true on success.
+     /// </summary>
+@@ -356,6 +414,8 @@ public partial class CloudProviderPage : Page
+ 
+         var provider = GetSelectedProvider();
+         var tokenPath = TokenPathBox.Text?.Trim() ?? "";
++        var webDavUsername = WebDavUsernameBox.Text?.Trim() ?? "";
++        var webDavPassword = WebDavPasswordBox.Password ?? "";
+ 
+         // "local" in the UI maps to "folder" provider in the DLL with the
+         // default localcloud path, so the DLL has a concrete storage location.
+@@ -363,16 +423,51 @@ public partial class CloudProviderPage : Page
+         if (provider == "local")
+             configProvider = "folder";
+ 
++        if (provider == "webdav")
++        {
++            if (string.IsNullOrWhiteSpace(tokenPath) ||
++                string.IsNullOrWhiteSpace(webDavUsername) ||
++                string.IsNullOrEmpty(webDavPassword))
++            {
++                await Services.Dialog.ShowWarningAsync(
++                    S.Get("CloudProvider_MissingPath"),
++                    S.Get("CloudProvider_WebDavMissingCredentials"));
++                return false;
++            }
++            if (!Uri.TryCreate(tokenPath, UriKind.Absolute, out var uri) ||
++                !string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
++            {
++                await Services.Dialog.ShowWarningAsync(
++                    S.Get("CloudProvider_MissingPath"),
++                    S.Get("CloudProvider_WebDavRequiresHttps"));
++                return false;
++            }
++            if (!string.IsNullOrEmpty(uri.Query) || !string.IsNullOrEmpty(uri.Fragment))
++            {
++                await Services.Dialog.ShowWarningAsync(
++                    S.Get("CloudProvider_MissingPath"),
++                    S.Get("CloudProvider_WebDavNoQueryFragment"));
++                return false;
++            }
++        }
++
+         var configPath = Path.Combine(configDir, "config.json");
+ 
+         try
+         {
+             Services.ConfigHelper.SaveConfig(configPath,
+-                new[] { "provider", "sync_path", "token_path" },
++                new[] { "provider", "sync_path", "token_path", "webdav_url", "webdav_username", "webdav_password", "webdav_auth_mode" },
+                 writer =>
+                 {
+                     writer.WriteString("provider", configProvider);
+-                    if (configProvider == "folder")
++                    if (configProvider == "webdav")
++                    {
++                        writer.WriteString("webdav_url", tokenPath);
++                        writer.WriteString("webdav_username", webDavUsername);
++                        writer.WriteString("webdav_password", webDavPassword);
++                        writer.WriteString("webdav_auth_mode", "auto");
++                    }
++                    else if (configProvider == "folder")
+                         writer.WriteString("sync_path", tokenPath);
+                     else if (configProvider is not "local")
+                         writer.WriteString("token_path", tokenPath);
+@@ -431,6 +526,41 @@ public partial class CloudProviderPage : Page
+             return;
+         }
+ 
++        if (tag == "webdav")
++        {
++            var url = TokenPathBox.Text?.Trim();
++            var username = WebDavUsernameBox.Text?.Trim();
++            var password = WebDavPasswordBox.Password ?? "";
++
++            if (string.IsNullOrEmpty(url))
++            {
++                AuthStatus.Text = S.Get("CloudProvider_WebDavNoUrl");
++                AuthIcon.Symbol = Wpf.Ui.Controls.SymbolRegular.ShieldKeyhole24;
++            }
++            else if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) ||
++                     !string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
++            {
++                AuthStatus.Text = S.Get("CloudProvider_WebDavRequiresHttps");
++                AuthIcon.Symbol = Wpf.Ui.Controls.SymbolRegular.ShieldDismiss24;
++            }
++            else if (!string.IsNullOrEmpty(uri.Query) || !string.IsNullOrEmpty(uri.Fragment))
++            {
++                AuthStatus.Text = S.Get("CloudProvider_WebDavNoQueryFragment");
++                AuthIcon.Symbol = Wpf.Ui.Controls.SymbolRegular.ShieldDismiss24;
++            }
++            else if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
++            {
++                AuthStatus.Text = S.Get("CloudProvider_WebDavMissingCredentials");
++                AuthIcon.Symbol = Wpf.Ui.Controls.SymbolRegular.ShieldKeyhole24;
++            }
++            else
++            {
++                AuthStatus.Text = S.Format("CloudProvider_WebDavConfigured", url);
++                AuthIcon.Symbol = Wpf.Ui.Controls.SymbolRegular.ShieldCheckmark24;
++            }
++            return;
++        }
++
+         var tokenPath = TokenPathBox.Text?.Trim();
+         if (string.IsNullOrEmpty(tokenPath))
+         {
+diff --git a/ui/Pages/DashboardPage.xaml.cs b/ui/Pages/DashboardPage.xaml.cs
+index 1420a17..a6ee15f 100644
+--- a/ui/Pages/DashboardPage.xaml.cs
++++ b/ui/Pages/DashboardPage.xaml.cs
+@@ -131,6 +131,17 @@ public partial class DashboardPage : Page
+             return;
+         }
+ 
++        if (config.IsWebDav)
++        {
++            ProviderStatus.Text = config.HasWebDavConfig
++                ? S.Format("Dashboard_Configured", config.DisplayName)
++                : S.Format("Dashboard_AuthStatus", config.DisplayName, S.Get("CloudProvider_WebDavMissingCredentials"));
++            ProviderIcon.Symbol = config.HasWebDavConfig
++                ? Wpf.Ui.Controls.SymbolRegular.CloudCheckmark24
++                : Wpf.Ui.Controls.SymbolRegular.CloudOff24;
++            return;
++        }
++
+         // OAuth providers (gdrive, onedrive)
+         if (config.TokenPath != null && preCheckedStatus != null)
+         {
+diff --git a/ui/Pages/SettingsPage.xaml b/ui/Pages/SettingsPage.xaml
+index 467fd0a..029b695 100644
+--- a/ui/Pages/SettingsPage.xaml
++++ b/ui/Pages/SettingsPage.xaml
+@@ -77,10 +77,38 @@
+             </ui:CardControl>
+ 
+             <StackPanel x:Name="SyncSection">
++                <TextBlock Text="{res:Loc Settings_DllSource}"
++                           FontSize="20" FontWeight="SemiBold"
++                           Foreground="{DynamicResource TextFillColorPrimaryBrush}"
++                           Margin="0,0,0,12" />
++
++                <ui:CardControl Margin="0,0,0,8">
++                    <ui:CardControl.Header>
++                        <StackPanel>
++                            <TextBlock x:Name="DllSourceText"
++                                       Text="{res:Loc Settings_DllSourceUnknown}"
++                                       FontWeight="SemiBold"
++                                       Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
++                            <TextBlock x:Name="DllSourceDetailText"
++                                       Text=""
++                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
++                                       TextWrapping="Wrap" />
++                            <TextBlock x:Name="DllHashText"
++                                       Text=""
++                                       FontFamily="Cascadia Mono,Consolas,monospace"
++                                       FontSize="11"
++                                       Foreground="{DynamicResource TextFillColorTertiaryBrush}"
++                                       TextWrapping="Wrap"
++                                       Margin="0,4,0,0" />
++                        </StackPanel>
++                    </ui:CardControl.Header>
++                    <ui:SymbolIcon x:Name="DllSourceIcon" Symbol="PuzzlePiece24" FontSize="24" />
++                </ui:CardControl>
++
+                 <TextBlock Text="{res:Loc Settings_Sync}"
+                            FontSize="20" FontWeight="SemiBold"
+                            Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+-                           Margin="0,0,0,4" />
++                           Margin="0,24,0,4" />
+ 
+                 <TextBlock Text="{res:Loc Settings_SyncHint}"
+                            Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+diff --git a/ui/Pages/SettingsPage.xaml.cs b/ui/Pages/SettingsPage.xaml.cs
+index 89f8916..a8e911c 100644
+--- a/ui/Pages/SettingsPage.xaml.cs
++++ b/ui/Pages/SettingsPage.xaml.cs
+@@ -8,6 +8,7 @@ using System.Windows;
+ using System.Windows.Controls;
+ using CloudRedirect.Resources;
+ using CloudRedirect.Services;
++using Wpf.Ui.Controls;
+ 
+ namespace CloudRedirect.Pages;
+ 
+@@ -34,6 +35,7 @@ public partial class SettingsPage : Page
+         ("Settings_LanguageEnglish", "en"),
+         ("Settings_LanguageSpanish", "es"),
+         ("Settings_LanguagePortuguese", "pt-BR"),
++        ("Settings_LanguageChineseSimplified", "zh-CN"),
+     ];
+ 
+     public SettingsPage()
+@@ -61,7 +63,8 @@ public partial class SettingsPage : Page
+         bool? SyncLuas,
+         bool? AutoUpdateDll,
+         bool? ParentalIgnorePlaytime,
+-        bool? ParentalBypassPlaytime);
++        bool? ParentalBypassPlaytime,
++        DllIdentityInfo DllIdentity);
+ 
+     // M15: Move language/mode/sync-toggle config reads off the UI thread.
+     // Loaded used to call ReadLanguageSetting + ReadModeSetting +
+@@ -79,7 +82,7 @@ public partial class SettingsPage : Page
+             if (mode == "cloud_redirect")
+                 ReadSyncTogglesInto(ref a, ref p, ref l, ref u, ref pip, ref pbp);
+ 
+-            return new SettingsSnapshot(lang, mode, a, p, l, u, pip, pbp);
++            return new SettingsSnapshot(lang, mode, a, p, l, u, pip, pbp, Services.DllIdentity.GetCurrent());
+         });
+ 
+         ApplySettingsSnapshot(snapshot);
+@@ -93,14 +96,15 @@ public partial class SettingsPage : Page
+         if (snap.Mode == "cloud_redirect")
+         {
+             SyncSection.Visibility = Visibility.Visible;
++            ApplyDllIdentity(snap.DllIdentity);
+             ApplySyncToggles(snap.SyncAchievements, snap.SyncPlaytime, snap.SyncLuas, snap.AutoUpdateDll,
+-                             snap.ParentalIgnorePlaytime, snap.ParentalBypassPlaytime);
++                             snap.ParentalIgnorePlaytime, snap.ParentalBypassPlaytime, snap.DllIdentity);
+         }
+         else
+         {
+             SyncSection.Visibility = Visibility.Collapsed;
+             ApplySyncToggles(false, false, false, false,
+-                             snap.ParentalIgnorePlaytime, snap.ParentalBypassPlaytime);
++                             snap.ParentalIgnorePlaytime, snap.ParentalBypassPlaytime, snap.DllIdentity);
+         }
+     }
+ 
+@@ -129,8 +133,27 @@ public partial class SettingsPage : Page
+         }
+     }
+ 
++    private void ApplyDllIdentity(DllIdentityInfo identity)
++    {
++        DllSourceText.Text = identity.DisplayText;
++        DllSourceDetailText.Text = identity.DetailText;
++        DllSourceIcon.Symbol = identity.Kind switch
++        {
++            DllSourceKind.CustomWebDav => SymbolRegular.Code24,
++            DllSourceKind.Official => SymbolRegular.CheckmarkCircle24,
++            DllSourceKind.HashMismatch => SymbolRegular.Warning24,
++            DllSourceKind.NotInstalled => SymbolRegular.PlugDisconnected24,
++            _ => SymbolRegular.QuestionCircle24,
++        };
++
++        var deployed = identity.DeployedHash is { Length: >= 12 } ? identity.DeployedHash[..12] : "-";
++        var embedded = identity.EmbeddedHash is { Length: >= 12 } ? identity.EmbeddedHash[..12] : "-";
++        DllHashText.Text = S.Format("Settings_DllSourceHashFormat", deployed, embedded);
++    }
++
+     private void ApplySyncToggles(bool? achievements, bool? playtime, bool? luas, bool? autoUpdateDll,
+-                                   bool? parentalIgnorePlaytime, bool? parentalBypassPlaytime)
++                                   bool? parentalIgnorePlaytime, bool? parentalBypassPlaytime,
++                                   DllIdentityInfo identity)
+     {
+         _syncLoading = true;
+         try
+@@ -138,7 +161,17 @@ public partial class SettingsPage : Page
+             if (achievements == true) SyncAchievementsToggle.IsChecked = true;
+             if (playtime == true) SyncPlaytimeToggle.IsChecked = true;
+             if (luas == true) SyncLuasToggle.IsChecked = true;
+-            if (autoUpdateDll == true) AutoUpdateDllToggle.IsChecked = true;
++            AutoUpdateDllToggle.IsEnabled = !identity.IsCustomBuild;
++            if (identity.IsCustomBuild)
++            {
++                AutoUpdateDllToggle.IsChecked = false;
++                if (autoUpdateDll == true)
++                    SaveSyncToggles();
++            }
++            else if (autoUpdateDll == true)
++            {
++                AutoUpdateDllToggle.IsChecked = true;
++            }
+             if (parentalIgnorePlaytime == true) ParentalIgnorePlaytimeToggle.IsChecked = true;
+             if (parentalBypassPlaytime == true) ParentalBypassPlaytimeToggle.IsChecked = true;
+         }
+diff --git a/ui/Resources/Strings.es.resx b/ui/Resources/Strings.es.resx
+index cf1132d..4054bc7 100644
+--- a/ui/Resources/Strings.es.resx
++++ b/ui/Resources/Strings.es.resx
+@@ -1,4 +1,4 @@
+-<?xml version="1.0" encoding="utf-8"?>
++﻿<?xml version="1.0" encoding="utf-8"?>
+ <root>
+   <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+     <xsd:element name="root" msdata:IsDataSet="true">
+@@ -539,6 +539,9 @@ Si omites esto, las partidas se almacenarán localmente en tu carpeta de Steam.<
+   <data name="Dashboard_NoTokenPath" xml:space="preserve">
+     <value>{0} -- No hay ruta de token configurada</value>
+   </data>
++  <data name="Dashboard_Configured" xml:space="preserve">
++    <value>{0} -- Configurado</value>
++  </data>
+   <data name="Dashboard_LogNotFound" xml:space="preserve">
+     <value>Archivo de registro no encontrado. Inicia Steam con CloudRedirect instalado primero.</value>
+   </data>
+@@ -601,6 +604,9 @@ Si omites esto, las partidas se almacenarán localmente en tu carpeta de Steam.<
+   <data name="CloudProvider_Description" xml:space="preserve">
+     <value>Configura tu proveedor de Steam Cloud. Solo Google Drive/OneDrive/Carpeta local por ahora.</value>
+   </data>
++  <data name="CloudProvider_DescriptionWebDav" xml:space="preserve">
++    <value>Configura tu proveedor de Steam Cloud. Admite Google Drive, OneDrive, WebDAV o una carpeta local/de red.</value>
++  </data>
+   <data name="CloudProvider_Provider" xml:space="preserve">
+     <value>Proveedor</value>
+   </data>
+@@ -610,6 +616,9 @@ Si omites esto, las partidas se almacenarán localmente en tu carpeta de Steam.<
+   <data name="CloudProvider_OneDrive" xml:space="preserve">
+     <value>OneDrive</value>
+   </data>
++  <data name="CloudProvider_WebDav" xml:space="preserve">
++    <value>WebDAV</value>
++  </data>
+   <data name="CloudProvider_FolderMappedDrive" xml:space="preserve">
+     <value>Carpeta / Unidad asignada</value>
+   </data>
+@@ -622,6 +631,24 @@ Si omites esto, las partidas se almacenarán localmente en tu carpeta de Steam.<
+   <data name="CloudProvider_TokenPlaceholder" xml:space="preserve">
+     <value>Ruta al archivo de tokens OAuth</value>
+   </data>
++  <data name="CloudProvider_WebDavUrlPath" xml:space="preserve">
++    <value>URL de WebDAV</value>
++  </data>
++  <data name="CloudProvider_WebDavUrlPlaceholder" xml:space="preserve">
++    <value>https://example.com/remote.php/dav/files/user/CloudRedirect</value>
++  </data>
++  <data name="CloudProvider_WebDavUrlHint" xml:space="preserve">
++    <value>Usa una URL HTTPS de carpeta WebDAV dedicada a CloudRedirect.</value>
++  </data>
++  <data name="CloudProvider_WebDavUsername" xml:space="preserve">
++    <value>Usuario</value>
++  </data>
++  <data name="CloudProvider_WebDavUsernamePlaceholder" xml:space="preserve">
++    <value>Usuario de WebDAV</value>
++  </data>
++  <data name="CloudProvider_WebDavPassword" xml:space="preserve">
++    <value>Contraseña</value>
++  </data>
+   <data name="CloudProvider_Browse" xml:space="preserve">
+     <value>Examinar</value>
+   </data>
+@@ -704,6 +731,18 @@ Si omites esto, las partidas se almacenarán localmente en tu carpeta de Steam.<
+   <data name="CloudProvider_NoTokenFilePath" xml:space="preserve">
+     <value>No se especificó ruta de archivo de token</value>
+   </data>
++  <data name="CloudProvider_WebDavNoUrl" xml:space="preserve">
++    <value>No se especificó URL de WebDAV</value>
++  </data>
++  <data name="CloudProvider_WebDavMissingCredentials" xml:space="preserve">
++    <value>Introduce la URL de WebDAV, el usuario y la contraseña.</value>
++  </data>
++  <data name="CloudProvider_WebDavRequiresHttps" xml:space="preserve">
++    <value>La URL de WebDAV debe comenzar con https://</value>
++  </data>
++  <data name="CloudProvider_WebDavConfigured" xml:space="preserve">
++    <value>WebDAV configurado: {0}</value>
++  </data>
+ 
+   <data name="Apps_Title" xml:space="preserve">
+     <value>Apps</value>
+@@ -979,7 +1018,7 @@ La copia contiene: {1} archivo(s) ({2})
+ Apps: {3}
+ 
+ IMPORTANTE: Antes de restaurar, debes desactivar Steam Cloud para este juego:
+-  Steam > clic derecho en el juego > Propiedades > General >
++  Steam &gt; clic derecho en el juego &gt; Propiedades &gt; General &gt;
+   desmarca "Mantener partidas guardadas en Steam Cloud"
+ 
+ Si Steam Cloud está activado, Steam puede sobrescribir los archivos restaurados.
+@@ -1417,6 +1456,9 @@ Esto puede causar pérdida de datos en algunos casos.
+   <data name="Provider_OneDrive" xml:space="preserve">
+     <value>OneDrive</value>
+   </data>
++  <data name="Provider_WebDav" xml:space="preserve">
++    <value>WebDAV</value>
++  </data>
+   <data name="Provider_FolderNetworkDrive" xml:space="preserve">
+     <value>Carpeta / Unidad de red</value>
+   </data>
+@@ -1488,6 +1530,12 @@ Esto puede causar pérdida de datos en algunos casos.
+   <data name="Common_UpdateFailed" xml:space="preserve">
+     <value>La actualización falló</value>
+   </data>
++  <data name="Common_ErrorDetailsFormat" xml:space="preserve">
++    <value>Error: {0}</value>
++  </data>
++  <data name="Common_UnknownError" xml:space="preserve">
++    <value>Error desconocido</value>
++  </data>
+ 
+   <data name="OAuth_AuthSuccessTitle" xml:space="preserve">
+     <value>Autorización exitosa</value>
+@@ -1532,6 +1580,9 @@ Esto puede causar pérdida de datos en algunos casos.
+   <data name="Settings_LanguagePortuguese" xml:space="preserve">
+     <value>Português (Brasil)</value>
+   </data>
++  <data name="Settings_LanguageChineseSimplified" xml:space="preserve">
++    <value>简体中文</value>
++  </data>
+   <data name="Settings_Sync" xml:space="preserve">
+     <value>Sincronización</value>
+   </data>
+@@ -1589,6 +1640,25 @@ Esto puede causar pérdida de datos en algunos casos.
+     <value>Cuando está activado, el SetManifestID especificado en el lua se tratará como si estuviera comentado. Si está desactivado, se respetará el SetManifestID, lo que significa que tu juego quedará bloqueado en la versión especificada en el lua. Esta opción nunca modifica los archivos lua en disco.</value>
+   </data>
+ 
++  <data name="Settings_Parental" xml:space="preserve">
++    <value>Controles parentales</value>
++  </data>
++  <data name="Settings_ParentalHint" xml:space="preserve">
++    <value>Ajustes relacionados con el tiempo de juego y las restricciones familiares.</value>
++  </data>
++  <data name="Settings_ParentalIgnorePlaytime" xml:space="preserve">
++    <value>Ignorar restricciones de tiempo de juego</value>
++  </data>
++  <data name="Settings_ParentalIgnorePlaytimeHint" xml:space="preserve">
++    <value>Desactiva las restricciones de tiempo de juego. Informa el tiempo hasta el límite configurado, pero no más allá.</value>
++  </data>
++  <data name="Settings_ParentalBypassPlaytime" xml:space="preserve">
++    <value>Desactivar restricciones familiares</value>
++  </data>
++  <data name="Settings_ParentalBypassPlaytimeHint" xml:space="preserve">
++    <value>No se aplican restricciones familiares del lado del cliente.</value>
++  </data>
++
+   <data name="Pin_PerAppTitle" xml:space="preserve">
+     <value>Apps lua</value>
+   </data>
+@@ -1619,6 +1689,12 @@ Esto puede causar pérdida de datos en algunos casos.
+   <data name="Pin_FailedSavePinConfig" xml:space="preserve">
+     <value>No se pudo guardar la configuración de fijado: {0}</value>
+   </data>
++  <data name="Pin_DepotLabel" xml:space="preserve">
++    <value>Depot</value>
++  </data>
++  <data name="Pin_DepotCountFormat" xml:space="preserve">
++    <value>{0} depot(s)</value>
++  </data>
+ 
+   <data name="Search_Placeholder" xml:space="preserve">
+     <value>Buscar por nombre o ID de app...</value>
+@@ -1630,5 +1706,76 @@ Esto puede causar pérdida de datos en algunos casos.
+   <data name="AppUpdate_UpdateNow" xml:space="preserve">
+     <value>Actualizar ahora</value>
+   </data>
+-
++  <data name="AppUpdate_ReleaseNotes" xml:space="preserve">
++    <value>Notas de la versión</value>
++  </data>
++  <data name="AppUpdate_AvailableTitleFormat" xml:space="preserve">
++    <value>Actualización disponible -- v{0}</value>
++  </data>
++  <data name="AppUpdate_AvailableDescription" xml:space="preserve">
++    <value>Una nueva versión de CloudRedirect está lista para instalar.</value>
++  </data>
++  <data name="AppUpdate_DownloadingVersionFormat" xml:space="preserve">
++    <value>Descargando v{0}...</value>
++  </data>
++  <data name="AppUpdate_FailedTitle" xml:space="preserve">
++    <value>La actualización falló</value>
++  </data>
++  <data name="AppUpdate_DownloadingUpdate" xml:space="preserve">
++    <value>Descargando actualización...</value>
++  </data>
++  <data name="AppUpdate_SuspiciousSizeFormat" xml:space="preserve">
++    <value>El archivo descargado tiene un tamaño sospechoso ({0} bytes)</value>
++  </data>
++  <data name="AppUpdate_SuspiciousSizeOverFormat" xml:space="preserve">
++    <value>El archivo descargado tiene un tamaño sospechoso (&gt;{0} bytes)</value>
++  </data>
++  <data name="AppUpdate_DownloadingProgressFormat" xml:space="preserve">
++    <value>Descargando... {0}%</value>
++  </data>
++  <data name="AppUpdate_InvalidExecutable" xml:space="preserve">
++    <value>El archivo descargado no es un ejecutable válido</value>
++  </data>
++  <data name="AppUpdate_Installing" xml:space="preserve">
++    <value>Instalando actualización...</value>
++  </data>
++  <data name="AppUpdate_CurrentExeUnknown" xml:space="preserve">
++    <value>No se pudo determinar la ruta del ejecutable actual</value>
++  </data>
++  <data name="AppUpdate_ReplaceExeFailedFormat" xml:space="preserve">
++    <value>No se pudo reemplazar el exe: {0}</value>
++  </data>
++  <data name="AppUpdate_Relaunching" xml:space="preserve">
++    <value>Reiniciando...</value>
++  </data>
++  <data name="AppUpdate_UpdateFailedFormat" xml:space="preserve">
++    <value>La actualización falló: {0}</value>
++  </data>
++
++
++  <data name="CloudProvider_WebDavTestUnauthorized" xml:space="preserve"><value>La autenticación falló. Comprueba el usuario y la contraseña, o usa una contraseña de aplicación.</value></data>
++  <data name="CloudProvider_WebDavTestForbidden" xml:space="preserve"><value>El servidor rechazó el acceso a esta carpeta WebDAV.</value></data>
++  <data name="Settings_DllSourceReadFailed" xml:space="preserve"><value>No se pudo leer el DLL desplegado.</value></data>
++  <data name="CloudProvider_WebDavTestMethodNotAllowed" xml:space="preserve"><value>El servidor no permite PROPFIND en esta URL. Comprueba que sea una URL de carpeta WebDAV.</value></data>
++  <data name="CloudProvider_WebDavTestNotFound" xml:space="preserve"><value>No se encontró la carpeta WebDAV. Comprueba la ruta de la URL.</value></data>
++  <data name="Settings_DllSourceNotInstalledHint" xml:space="preserve"><value>Despliega el DLL antes de iniciar Steam.</value></data>
++  <data name="Settings_DllSourceNotInstalled" xml:space="preserve"><value>DLL no instalado</value></data>
++  <data name="CloudProvider_WebDavTestTimeout" xml:space="preserve"><value>La prueba de WebDAV agotó el tiempo de espera.</value></data>
++  <data name="Settings_DllSourceCustomDifferentEmbedded" xml:space="preserve"><value>Hay un DLL WebDAV personalizado desplegado, pero difiere del DLL incluido en esta aplicación.</value></data>
++  <data name="Settings_DllSourceSteamMissing" xml:space="preserve"><value>No se encontró Steam, por lo que no se pudo inspeccionar el DLL desplegado.</value></data>
++  <data name="CloudProvider_WebDavTestHttpError" xml:space="preserve"><value>La prueba de WebDAV falló: HTTP {0} {1}</value></data>
++  <data name="CloudProvider_TestConnection" xml:space="preserve"><value>Probar conexión</value></data>
++  <data name="Settings_DllSourceUnknown" xml:space="preserve"><value>Origen del DLL desconocido</value></data>
++  <data name="Settings_DllSourceHashMismatch" xml:space="preserve"><value>El hash del DLL no coincide</value></data>
++  <data name="CloudProvider_WebDavTestSuccess" xml:space="preserve"><value>Conexión WebDAV correcta (HTTP {0}).</value></data>
++  <data name="Settings_DllSourceOfficial" xml:space="preserve"><value>DLL oficial</value></data>
++  <data name="Settings_DllSourceMatchesEmbedded" xml:space="preserve"><value>El DLL desplegado en Steam coincide con el DLL incluido en esta aplicación.</value></data>
++  <data name="CloudProvider_TestingConnection" xml:space="preserve"><value>Probando conexión...</value></data>
++  <data name="Settings_DllSourceCustomWebDav" xml:space="preserve"><value>DLL WebDAV personalizado</value></data>
++  <data name="Settings_DllSourceHashMismatchHint" xml:space="preserve"><value>El DLL desplegado no coincide con el DLL incluido.</value></data>
++  <data name="CloudProvider_WebDavNoQueryFragment" xml:space="preserve"><value>La URL de WebDAV no debe incluir una consulta ni un fragmento.</value></data>
++  <data name="Settings_DllSource" xml:space="preserve"><value>Origen del DLL</value></data>
++  <data name="Settings_DllSourceDeployCustomHint" xml:space="preserve"><value>La aplicación contiene un DLL WebDAV personalizado, pero Steam aún no lo está usando. Despliega/actualiza el DLL desde el panel.</value></data>
++  <data name="Settings_DllSourceHashFormat" xml:space="preserve"><value>Desplegado: {0}  Incluido: {1}</value></data>
++  <data name="CloudProvider_WebDavTestNetworkError" xml:space="preserve"><value>Error de red al probar WebDAV: {0}</value></data>
+ </root>
+diff --git a/ui/Resources/Strings.pt-BR.resx b/ui/Resources/Strings.pt-BR.resx
+index 15b50aa..4722095 100644
+--- a/ui/Resources/Strings.pt-BR.resx
++++ b/ui/Resources/Strings.pt-BR.resx
+@@ -1,4 +1,4 @@
+-<?xml version="1.0" encoding="utf-8"?>
++﻿<?xml version="1.0" encoding="utf-8"?>
+ <root>
+   <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+     <xsd:element name="root" msdata:IsDataSet="true">
+@@ -539,6 +539,9 @@ Se pular esta etapa, os saves serão armazenados localmente na sua pasta do Stea
+   <data name="Dashboard_NoTokenPath" xml:space="preserve">
+     <value>{0} -- Nenhum caminho de token configurado</value>
+   </data>
++  <data name="Dashboard_Configured" xml:space="preserve">
++    <value>{0} -- Configurado</value>
++  </data>
+   <data name="Dashboard_LogNotFound" xml:space="preserve">
+     <value>Arquivo de log não encontrado. Inicie o Steam com o CloudRedirect instalado primeiro.</value>
+   </data>
+@@ -601,6 +604,9 @@ Forçar encerramento?</value>
+   <data name="CloudProvider_Description" xml:space="preserve">
+     <value>Configure seu provedor de Steam Cloud. Apenas Google Drive/OneDrive/Pasta local por enquanto.</value>
+   </data>
++  <data name="CloudProvider_DescriptionWebDav" xml:space="preserve">
++    <value>Configure seu provedor de Steam Cloud. Compatível com Google Drive, OneDrive, WebDAV ou pasta local/de rede.</value>
++  </data>
+   <data name="CloudProvider_Provider" xml:space="preserve">
+     <value>Provedor</value>
+   </data>
+@@ -610,6 +616,9 @@ Forçar encerramento?</value>
+   <data name="CloudProvider_OneDrive" xml:space="preserve">
+     <value>OneDrive</value>
+   </data>
++  <data name="CloudProvider_WebDav" xml:space="preserve">
++    <value>WebDAV</value>
++  </data>
+   <data name="CloudProvider_FolderMappedDrive" xml:space="preserve">
+     <value>Pasta / Drive Mapeado</value>
+   </data>
+@@ -622,6 +631,24 @@ Forçar encerramento?</value>
+   <data name="CloudProvider_TokenPlaceholder" xml:space="preserve">
+     <value>Caminho para o arquivo de tokens OAuth</value>
+   </data>
++  <data name="CloudProvider_WebDavUrlPath" xml:space="preserve">
++    <value>URL do WebDAV</value>
++  </data>
++  <data name="CloudProvider_WebDavUrlPlaceholder" xml:space="preserve">
++    <value>https://example.com/remote.php/dav/files/user/CloudRedirect</value>
++  </data>
++  <data name="CloudProvider_WebDavUrlHint" xml:space="preserve">
++    <value>Use uma URL HTTPS de pasta WebDAV dedicada ao CloudRedirect.</value>
++  </data>
++  <data name="CloudProvider_WebDavUsername" xml:space="preserve">
++    <value>Usuário</value>
++  </data>
++  <data name="CloudProvider_WebDavUsernamePlaceholder" xml:space="preserve">
++    <value>Usuário do WebDAV</value>
++  </data>
++  <data name="CloudProvider_WebDavPassword" xml:space="preserve">
++    <value>Senha</value>
++  </data>
+   <data name="CloudProvider_Browse" xml:space="preserve">
+     <value>Procurar</value>
+   </data>
+@@ -704,6 +731,18 @@ Forçar encerramento?</value>
+   <data name="CloudProvider_NoTokenFilePath" xml:space="preserve">
+     <value>Nenhum caminho de arquivo de token especificado</value>
+   </data>
++  <data name="CloudProvider_WebDavNoUrl" xml:space="preserve">
++    <value>Nenhuma URL do WebDAV especificada</value>
++  </data>
++  <data name="CloudProvider_WebDavMissingCredentials" xml:space="preserve">
++    <value>Informe a URL do WebDAV, o usuário e a senha.</value>
++  </data>
++  <data name="CloudProvider_WebDavRequiresHttps" xml:space="preserve">
++    <value>A URL do WebDAV deve começar com https://</value>
++  </data>
++  <data name="CloudProvider_WebDavConfigured" xml:space="preserve">
++    <value>WebDAV configurado: {0}</value>
++  </data>
+ 
+   <data name="Apps_Title" xml:space="preserve">
+     <value>Apps</value>
+@@ -979,7 +1018,7 @@ O backup contém: {1} arquivo(s) ({2})
+ Apps: {3}
+ 
+ IMPORTANTE: Antes de restaurar, você deve desativar o Steam Cloud para este jogo:
+-  Steam > clique com o botão direito no jogo > Propriedades > Geral >
++  Steam &gt; clique com o botão direito no jogo &gt; Propriedades &gt; Geral &gt;
+   desmarque "Manter saves do jogo no Steam Cloud"
+ 
+ Se o Steam Cloud estiver ativado, o Steam pode sobrescrever os arquivos restaurados.
+@@ -1417,6 +1456,9 @@ Tem certeza?</value>
+   <data name="Provider_OneDrive" xml:space="preserve">
+     <value>OneDrive</value>
+   </data>
++  <data name="Provider_WebDav" xml:space="preserve">
++    <value>WebDAV</value>
++  </data>
+   <data name="Provider_FolderNetworkDrive" xml:space="preserve">
+     <value>Pasta / Drive de Rede</value>
+   </data>
+@@ -1488,6 +1530,12 @@ Tem certeza?</value>
+   <data name="Common_UpdateFailed" xml:space="preserve">
+     <value>Atualização Falhou</value>
+   </data>
++  <data name="Common_ErrorDetailsFormat" xml:space="preserve">
++    <value>Erro: {0}</value>
++  </data>
++  <data name="Common_UnknownError" xml:space="preserve">
++    <value>Erro desconhecido</value>
++  </data>
+ 
+   <data name="OAuth_AuthSuccessTitle" xml:space="preserve">
+     <value>Autorização Bem-sucedida</value>
+@@ -1532,6 +1580,9 @@ Tem certeza?</value>
+   <data name="Settings_LanguagePortuguese" xml:space="preserve">
+     <value>Português (Brasil)</value>
+   </data>
++  <data name="Settings_LanguageChineseSimplified" xml:space="preserve">
++    <value>简体中文</value>
++  </data>
+   <data name="Settings_Sync" xml:space="preserve">
+     <value>Sincronização</value>
+   </data>
+@@ -1589,6 +1640,25 @@ Tem certeza?</value>
+     <value>Quando ativado, o SetManifestID especificado no lua será tratado como se estivesse comentado. Se desativado, o SetManifestID será respeitado, o que significa que seu jogo ficará travado na versão especificada no lua. Esta opção nunca modifica os arquivos lua em disco.</value>
+   </data>
+ 
++  <data name="Settings_Parental" xml:space="preserve">
++    <value>Controle parental</value>
++  </data>
++  <data name="Settings_ParentalHint" xml:space="preserve">
++    <value>Configurações relacionadas ao tempo de jogo e às restrições familiares.</value>
++  </data>
++  <data name="Settings_ParentalIgnorePlaytime" xml:space="preserve">
++    <value>Ignorar restrições de tempo de jogo</value>
++  </data>
++  <data name="Settings_ParentalIgnorePlaytimeHint" xml:space="preserve">
++    <value>Desativa as restrições de tempo de jogo. Informa o tempo até o limite definido, mas não além dele.</value>
++  </data>
++  <data name="Settings_ParentalBypassPlaytime" xml:space="preserve">
++    <value>Desativar restrições familiares</value>
++  </data>
++  <data name="Settings_ParentalBypassPlaytimeHint" xml:space="preserve">
++    <value>Nenhuma restrição familiar do lado do cliente é aplicada.</value>
++  </data>
++
+   <data name="Pin_PerAppTitle" xml:space="preserve">
+     <value>Apps lua</value>
+   </data>
+@@ -1619,6 +1689,12 @@ Tem certeza?</value>
+   <data name="Pin_FailedSavePinConfig" xml:space="preserve">
+     <value>Não foi possível salvar a configuração de fixação: {0}</value>
+   </data>
++  <data name="Pin_DepotLabel" xml:space="preserve">
++    <value>Depot</value>
++  </data>
++  <data name="Pin_DepotCountFormat" xml:space="preserve">
++    <value>{0} depot(s)</value>
++  </data>
+ 
+   <data name="Search_Placeholder" xml:space="preserve">
+     <value>Buscar por nome ou ID do app...</value>
+@@ -1630,5 +1706,76 @@ Tem certeza?</value>
+   <data name="AppUpdate_UpdateNow" xml:space="preserve">
+     <value>Atualizar agora</value>
+   </data>
+-
++  <data name="AppUpdate_ReleaseNotes" xml:space="preserve">
++    <value>Notas da versão</value>
++  </data>
++  <data name="AppUpdate_AvailableTitleFormat" xml:space="preserve">
++    <value>Atualização disponível -- v{0}</value>
++  </data>
++  <data name="AppUpdate_AvailableDescription" xml:space="preserve">
++    <value>Uma nova versão do CloudRedirect está pronta para instalar.</value>
++  </data>
++  <data name="AppUpdate_DownloadingVersionFormat" xml:space="preserve">
++    <value>Baixando v{0}...</value>
++  </data>
++  <data name="AppUpdate_FailedTitle" xml:space="preserve">
++    <value>Atualização falhou</value>
++  </data>
++  <data name="AppUpdate_DownloadingUpdate" xml:space="preserve">
++    <value>Baixando atualização...</value>
++  </data>
++  <data name="AppUpdate_SuspiciousSizeFormat" xml:space="preserve">
++    <value>O arquivo baixado tem tamanho suspeito ({0} bytes)</value>
++  </data>
++  <data name="AppUpdate_SuspiciousSizeOverFormat" xml:space="preserve">
++    <value>O arquivo baixado tem tamanho suspeito (&gt;{0} bytes)</value>
++  </data>
++  <data name="AppUpdate_DownloadingProgressFormat" xml:space="preserve">
++    <value>Baixando... {0}%</value>
++  </data>
++  <data name="AppUpdate_InvalidExecutable" xml:space="preserve">
++    <value>O arquivo baixado não é um executável válido</value>
++  </data>
++  <data name="AppUpdate_Installing" xml:space="preserve">
++    <value>Instalando atualização...</value>
++  </data>
++  <data name="AppUpdate_CurrentExeUnknown" xml:space="preserve">
++    <value>Não foi possível determinar o caminho do executável atual</value>
++  </data>
++  <data name="AppUpdate_ReplaceExeFailedFormat" xml:space="preserve">
++    <value>Não foi possível substituir o exe: {0}</value>
++  </data>
++  <data name="AppUpdate_Relaunching" xml:space="preserve">
++    <value>Reiniciando...</value>
++  </data>
++  <data name="AppUpdate_UpdateFailedFormat" xml:space="preserve">
++    <value>Atualização falhou: {0}</value>
++  </data>
++
++
++  <data name="CloudProvider_WebDavTestUnauthorized" xml:space="preserve"><value>A autenticação falhou. Verifique o usuário e a senha ou use uma senha de app.</value></data>
++  <data name="CloudProvider_WebDavTestForbidden" xml:space="preserve"><value>O servidor rejeitou o acesso a esta pasta WebDAV.</value></data>
++  <data name="Settings_DllSourceReadFailed" xml:space="preserve"><value>Não foi possível ler a DLL implantada.</value></data>
++  <data name="CloudProvider_WebDavTestMethodNotAllowed" xml:space="preserve"><value>O servidor não permite PROPFIND nesta URL. Verifique se ela é uma URL de pasta WebDAV.</value></data>
++  <data name="CloudProvider_WebDavTestNotFound" xml:space="preserve"><value>A pasta WebDAV não foi encontrada. Verifique o caminho da URL.</value></data>
++  <data name="Settings_DllSourceNotInstalledHint" xml:space="preserve"><value>Implante a DLL antes de iniciar o Steam.</value></data>
++  <data name="Settings_DllSourceNotInstalled" xml:space="preserve"><value>DLL não instalada</value></data>
++  <data name="CloudProvider_WebDavTestTimeout" xml:space="preserve"><value>O teste do WebDAV expirou.</value></data>
++  <data name="Settings_DllSourceCustomDifferentEmbedded" xml:space="preserve"><value>Uma DLL WebDAV personalizada está implantada, mas difere da DLL incorporada neste app.</value></data>
++  <data name="Settings_DllSourceSteamMissing" xml:space="preserve"><value>O Steam não foi encontrado, então não foi possível inspecionar a DLL implantada.</value></data>
++  <data name="CloudProvider_WebDavTestHttpError" xml:space="preserve"><value>O teste do WebDAV falhou: HTTP {0} {1}</value></data>
++  <data name="CloudProvider_TestConnection" xml:space="preserve"><value>Testar conexão</value></data>
++  <data name="Settings_DllSourceUnknown" xml:space="preserve"><value>Origem da DLL desconhecida</value></data>
++  <data name="Settings_DllSourceHashMismatch" xml:space="preserve"><value>Hash da DLL não corresponde</value></data>
++  <data name="CloudProvider_WebDavTestSuccess" xml:space="preserve"><value>Conexão WebDAV OK (HTTP {0}).</value></data>
++  <data name="Settings_DllSourceOfficial" xml:space="preserve"><value>DLL oficial</value></data>
++  <data name="Settings_DllSourceMatchesEmbedded" xml:space="preserve"><value>A DLL implantada no Steam corresponde à DLL incorporada neste app.</value></data>
++  <data name="CloudProvider_TestingConnection" xml:space="preserve"><value>Testando conexão...</value></data>
++  <data name="Settings_DllSourceCustomWebDav" xml:space="preserve"><value>DLL WebDAV personalizada</value></data>
++  <data name="Settings_DllSourceHashMismatchHint" xml:space="preserve"><value>A DLL implantada não corresponde à DLL incorporada.</value></data>
++  <data name="CloudProvider_WebDavNoQueryFragment" xml:space="preserve"><value>A URL do WebDAV não deve incluir consulta nem fragmento.</value></data>
++  <data name="Settings_DllSource" xml:space="preserve"><value>Origem da DLL</value></data>
++  <data name="Settings_DllSourceDeployCustomHint" xml:space="preserve"><value>O app contém uma DLL WebDAV personalizada, mas o Steam ainda não a está usando. Implante/atualize a DLL pelo painel.</value></data>
++  <data name="Settings_DllSourceHashFormat" xml:space="preserve"><value>Implantada: {0}  Incorporada: {1}</value></data>
++  <data name="CloudProvider_WebDavTestNetworkError" xml:space="preserve"><value>Erro de rede ao testar WebDAV: {0}</value></data>
+ </root>
+diff --git a/ui/Resources/Strings.resx b/ui/Resources/Strings.resx
+index c695380..d0c1e87 100644
+--- a/ui/Resources/Strings.resx
++++ b/ui/Resources/Strings.resx
+@@ -553,6 +553,9 @@ If you skip this, saves will be stored locally in your Steam folder.</value>
+   <data name="Dashboard_NoTokenPath" xml:space="preserve">
+     <value>{0} -- No token path configured</value>
+   </data>
++  <data name="Dashboard_Configured" xml:space="preserve">
++    <value>{0} -- Configured</value>
++  </data>
+   <data name="Dashboard_LogNotFound" xml:space="preserve">
+     <value>Log file not found. Start Steam with CloudRedirect installed first.</value>
+   </data>
+@@ -618,6 +621,9 @@ Force-kill it?</value>
+   <data name="CloudProvider_Description" xml:space="preserve">
+     <value>Configure your Steam Cloud provider. Google Drive/OneDrive/Local Folder only for now.</value>
+   </data>
++  <data name="CloudProvider_DescriptionWebDav" xml:space="preserve">
++    <value>Configure your Steam Cloud provider. Supports Google Drive, OneDrive, WebDAV, or a local/network folder.</value>
++  </data>
+   <data name="CloudProvider_Provider" xml:space="preserve">
+     <value>Provider</value>
+   </data>
+@@ -627,6 +633,9 @@ Force-kill it?</value>
+   <data name="CloudProvider_OneDrive" xml:space="preserve">
+     <value>OneDrive</value>
+   </data>
++  <data name="CloudProvider_WebDav" xml:space="preserve">
++    <value>WebDAV</value>
++  </data>
+   <data name="CloudProvider_FolderMappedDrive" xml:space="preserve">
+     <value>Folder / Mapped Drive</value>
+   </data>
+@@ -639,6 +648,24 @@ Force-kill it?</value>
+   <data name="CloudProvider_TokenPlaceholder" xml:space="preserve">
+     <value>Path to OAuth tokens file</value>
+   </data>
++  <data name="CloudProvider_WebDavUrlPath" xml:space="preserve">
++    <value>WebDAV URL</value>
++  </data>
++  <data name="CloudProvider_WebDavUrlPlaceholder" xml:space="preserve">
++    <value>https://example.com/remote.php/dav/files/user/CloudRedirect</value>
++  </data>
++  <data name="CloudProvider_WebDavUrlHint" xml:space="preserve">
++    <value>Use an HTTPS WebDAV folder URL dedicated to CloudRedirect.</value>
++  </data>
++  <data name="CloudProvider_WebDavUsername" xml:space="preserve">
++    <value>Username</value>
++  </data>
++  <data name="CloudProvider_WebDavUsernamePlaceholder" xml:space="preserve">
++    <value>WebDAV username</value>
++  </data>
++  <data name="CloudProvider_WebDavPassword" xml:space="preserve">
++    <value>Password</value>
++  </data>
+   <data name="CloudProvider_Browse" xml:space="preserve">
+     <value>Browse</value>
+   </data>
+@@ -722,6 +749,51 @@ Force-kill it?</value>
+   <data name="CloudProvider_NoTokenFilePath" xml:space="preserve">
+     <value>No token file path specified</value>
+   </data>
++  <data name="CloudProvider_WebDavNoUrl" xml:space="preserve">
++    <value>No WebDAV URL specified</value>
++  </data>
++  <data name="CloudProvider_WebDavMissingCredentials" xml:space="preserve">
++    <value>Please enter the WebDAV URL, username, and password.</value>
++  </data>
++  <data name="CloudProvider_WebDavRequiresHttps" xml:space="preserve">
++    <value>WebDAV URL must start with https://</value>
++  </data>
++  <data name="CloudProvider_WebDavConfigured" xml:space="preserve">
++    <value>WebDAV configured: {0}</value>
++  </data>
++  <data name="CloudProvider_WebDavNoQueryFragment" xml:space="preserve">
++    <value>WebDAV URL must not include a query string or fragment.</value>
++  </data>
++  <data name="CloudProvider_TestConnection" xml:space="preserve">
++    <value>Test Connection</value>
++  </data>
++  <data name="CloudProvider_TestingConnection" xml:space="preserve">
++    <value>Testing connection...</value>
++  </data>
++  <data name="CloudProvider_WebDavTestSuccess" xml:space="preserve">
++    <value>WebDAV connection OK (HTTP {0}).</value>
++  </data>
++  <data name="CloudProvider_WebDavTestUnauthorized" xml:space="preserve">
++    <value>Authentication failed. Check the username and password or use an app password.</value>
++  </data>
++  <data name="CloudProvider_WebDavTestForbidden" xml:space="preserve">
++    <value>The server rejected access to this WebDAV folder.</value>
++  </data>
++  <data name="CloudProvider_WebDavTestNotFound" xml:space="preserve">
++    <value>The WebDAV folder was not found. Check the URL path.</value>
++  </data>
++  <data name="CloudProvider_WebDavTestMethodNotAllowed" xml:space="preserve">
++    <value>The server does not allow PROPFIND on this URL. Check that it is a WebDAV folder URL.</value>
++  </data>
++  <data name="CloudProvider_WebDavTestHttpError" xml:space="preserve">
++    <value>WebDAV test failed: HTTP {0} {1}</value>
++  </data>
++  <data name="CloudProvider_WebDavTestTimeout" xml:space="preserve">
++    <value>WebDAV test timed out.</value>
++  </data>
++  <data name="CloudProvider_WebDavTestNetworkError" xml:space="preserve">
++    <value>Network error while testing WebDAV: {0}</value>
++  </data>
+ 
+   <!-- ═══════════════════════════════════════════════════════════════════ -->
+   <!-- AppsPage XAML                                                      -->
+@@ -1458,6 +1530,9 @@ Are you sure?</value>
+   <data name="Provider_OneDrive" xml:space="preserve">
+     <value>OneDrive</value>
+   </data>
++  <data name="Provider_WebDav" xml:space="preserve">
++    <value>WebDAV</value>
++  </data>
+   <data name="Provider_FolderNetworkDrive" xml:space="preserve">
+     <value>Folder / Network Drive</value>
+   </data>
+@@ -1539,6 +1614,12 @@ Are you sure?</value>
+   <data name="Common_UpdateFailed" xml:space="preserve">
+     <value>Update Failed</value>
+   </data>
++  <data name="Common_ErrorDetailsFormat" xml:space="preserve">
++    <value>Error: {0}</value>
++  </data>
++  <data name="Common_UnknownError" xml:space="preserve">
++    <value>Unknown error</value>
++  </data>
+ 
+   <!-- OAuthService browser pages (user-facing HTML) -->
+   <data name="OAuth_AuthSuccessTitle" xml:space="preserve">
+@@ -1587,6 +1668,9 @@ Are you sure?</value>
+   <data name="Settings_LanguagePortuguese" xml:space="preserve">
+     <value>Português (Brasil)</value>
+   </data>
++  <data name="Settings_LanguageChineseSimplified" xml:space="preserve">
++    <value>简体中文</value>
++  </data>
+   <data name="Settings_Sync" xml:space="preserve">
+     <value>Sync</value>
+   </data>
+@@ -1617,6 +1701,48 @@ Are you sure?</value>
+   <data name="Settings_AutoUpdateDllHint" xml:space="preserve">
+     <value>Automatically check for and install newer versions of the CloudRedirect DLL when Steam launches. The update takes effect on the next Steam restart.</value>
+   </data>
++  <data name="Settings_DllSource" xml:space="preserve">
++    <value>DLL Source</value>
++  </data>
++  <data name="Settings_DllSourceOfficial" xml:space="preserve">
++    <value>Official DLL</value>
++  </data>
++  <data name="Settings_DllSourceCustomWebDav" xml:space="preserve">
++    <value>Custom WebDAV DLL</value>
++  </data>
++  <data name="Settings_DllSourceHashMismatch" xml:space="preserve">
++    <value>DLL hash mismatch</value>
++  </data>
++  <data name="Settings_DllSourceNotInstalled" xml:space="preserve">
++    <value>DLL not installed</value>
++  </data>
++  <data name="Settings_DllSourceUnknown" xml:space="preserve">
++    <value>DLL source unknown</value>
++  </data>
++  <data name="Settings_DllSourceMatchesEmbedded" xml:space="preserve">
++    <value>The DLL deployed to Steam matches the DLL embedded in this app.</value>
++  </data>
++  <data name="Settings_DllSourceCustomDifferentEmbedded" xml:space="preserve">
++    <value>A custom WebDAV DLL is deployed, but it differs from the DLL embedded in this app.</value>
++  </data>
++  <data name="Settings_DllSourceDeployCustomHint" xml:space="preserve">
++    <value>The app contains a custom WebDAV DLL, but Steam is not using it yet. Deploy/update the DLL from the dashboard.</value>
++  </data>
++  <data name="Settings_DllSourceHashMismatchHint" xml:space="preserve">
++    <value>The deployed DLL does not match the embedded DLL.</value>
++  </data>
++  <data name="Settings_DllSourceNotInstalledHint" xml:space="preserve">
++    <value>Deploy the DLL before starting Steam.</value>
++  </data>
++  <data name="Settings_DllSourceSteamMissing" xml:space="preserve">
++    <value>Steam was not found, so the deployed DLL could not be inspected.</value>
++  </data>
++  <data name="Settings_DllSourceReadFailed" xml:space="preserve">
++    <value>The deployed DLL could not be read.</value>
++  </data>
++  <data name="Settings_DllSourceHashFormat" xml:space="preserve">
++    <value>Deployed: {0}  Embedded: {1}</value>
++  </data>
+ 
+   <!-- ═══════════════════════════════════════════════════════════════════ -->
+   <!-- Cloud Redirect Toggle                                               -->
+@@ -1683,6 +1809,12 @@ Are you sure?</value>
+   <data name="Pin_FailedSavePinConfig" xml:space="preserve">
+     <value>Couldn't save pin configuration: {0}</value>
+   </data>
++  <data name="Pin_DepotLabel" xml:space="preserve">
++    <value>Depot</value>
++  </data>
++  <data name="Pin_DepotCountFormat" xml:space="preserve">
++    <value>{0} depot(s)</value>
++  </data>
+ 
+   <!-- ═══════════════════════════════════════════════════════════════════ -->
+   <!-- Search                                                              -->
+@@ -1717,5 +1849,50 @@ Are you sure?</value>
+   <data name="AppUpdate_UpdateNow" xml:space="preserve">
+     <value>Update Now</value>
+   </data>
++  <data name="AppUpdate_ReleaseNotes" xml:space="preserve">
++    <value>Release Notes</value>
++  </data>
++  <data name="AppUpdate_AvailableTitleFormat" xml:space="preserve">
++    <value>Update available -- v{0}</value>
++  </data>
++  <data name="AppUpdate_AvailableDescription" xml:space="preserve">
++    <value>A new version of CloudRedirect is ready to install.</value>
++  </data>
++  <data name="AppUpdate_DownloadingVersionFormat" xml:space="preserve">
++    <value>Downloading v{0}...</value>
++  </data>
++  <data name="AppUpdate_FailedTitle" xml:space="preserve">
++    <value>Update failed</value>
++  </data>
++  <data name="AppUpdate_DownloadingUpdate" xml:space="preserve">
++    <value>Downloading update...</value>
++  </data>
++  <data name="AppUpdate_SuspiciousSizeFormat" xml:space="preserve">
++    <value>Downloaded file has suspicious size ({0} bytes)</value>
++  </data>
++  <data name="AppUpdate_SuspiciousSizeOverFormat" xml:space="preserve">
++    <value>Downloaded file has suspicious size (&gt;{0} bytes)</value>
++  </data>
++  <data name="AppUpdate_DownloadingProgressFormat" xml:space="preserve">
++    <value>Downloading... {0}%</value>
++  </data>
++  <data name="AppUpdate_InvalidExecutable" xml:space="preserve">
++    <value>Downloaded file is not a valid executable</value>
++  </data>
++  <data name="AppUpdate_Installing" xml:space="preserve">
++    <value>Installing update...</value>
++  </data>
++  <data name="AppUpdate_CurrentExeUnknown" xml:space="preserve">
++    <value>Could not determine current executable path</value>
++  </data>
++  <data name="AppUpdate_ReplaceExeFailedFormat" xml:space="preserve">
++    <value>Could not replace exe: {0}</value>
++  </data>
++  <data name="AppUpdate_Relaunching" xml:space="preserve">
++    <value>Relaunching...</value>
++  </data>
++  <data name="AppUpdate_UpdateFailedFormat" xml:space="preserve">
++    <value>Update failed: {0}</value>
++  </data>
+ 
+ </root>
+diff --git a/ui/Resources/Strings.zh-CN.resx b/ui/Resources/Strings.zh-CN.resx
+new file mode 100644
+index 0000000..49c60eb
+--- /dev/null
++++ b/ui/Resources/Strings.zh-CN.resx
+@@ -0,0 +1,1737 @@
++﻿<?xml version="1.0" encoding="utf-8"?>
++<root>
++  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
++    <xsd:element name="root" msdata:IsDataSet="true">
++      <xsd:complexType>
++        <xsd:choice maxOccurs="unbounded">
++          <xsd:element name="data">
++            <xsd:complexType>
++              <xsd:sequence>
++                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
++                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
++              </xsd:sequence>
++              <xsd:attribute name="name" type="xsd:string" msdata:Ordinal="0" />
++              <xsd:attribute name="type" type="xsd:string" />
++              <xsd:attribute name="mimetype" type="xsd:string" />
++            </xsd:complexType>
++          </xsd:element>
++          <xsd:element name="resheader">
++            <xsd:complexType>
++              <xsd:sequence>
++                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
++              </xsd:sequence>
++              <xsd:attribute name="name" type="xsd:string" use="required" />
++            </xsd:complexType>
++          </xsd:element>
++        </xsd:choice>
++      </xsd:complexType>
++    </xsd:element>
++  </xsd:schema>
++  <resheader name="resmimetype">
++    <value>text/microsoft-resx</value>
++  </resheader>
++  <resheader name="version">
++    <value>2.0</value>
++  </resheader>
++  <resheader name="reader">
++    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
++  </resheader>
++  <resheader name="writer">
++    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
++  </resheader>
++  <data name="MainWindow_Title" xml:space="preserve">
++    <value>CloudRedirect</value>
++  </data>
++  <data name="MainWindow_TitleBar" xml:space="preserve">
++    <value>CloudRedirect</value>
++  </data>
++  <data name="Nav_Dashboard" xml:space="preserve">
++    <value>仪表盘</value>
++  </data>
++  <data name="Nav_Setup" xml:space="preserve">
++    <value>安装设置</value>
++  </data>
++  <data name="Nav_CloudProvider" xml:space="preserve">
++    <value>云服务提供商</value>
++  </data>
++  <data name="Nav_Apps" xml:space="preserve">
++    <value>应用</value>
++  </data>
++  <data name="Nav_Cleanup" xml:space="preserve">
++    <value>清理</value>
++  </data>
++  <data name="Nav_ManifestPinning" xml:space="preserve">
++    <value>清单固定</value>
++  </data>
++  <data name="Nav_Settings" xml:space="preserve">
++    <value>设置</value>
++  </data>
++  <data name="Nav_RestartSteam" xml:space="preserve">
++    <value>重启 Steam</value>
++  </data>
++  <data name="Nav_ChoiceMode" xml:space="preserve">
++    <value>模式</value>
++  </data>
++  <data name="Choice_Title" xml:space="preserve">
++    <value>选择使用模式</value>
++  </data>
++  <data name="Choice_Description" xml:space="preserve">
++    <value>选择你想如何使用 CloudRedirect。之后也可以从 STFixer 升级到 Cloud Redirect。</value>
++  </data>
++  <data name="Choice_STFixer_Title" xml:space="preserve">
++    <value>STFixer 模式</value>
++  </data>
++  <data name="Choice_STFixer_Description" xml:space="preserve">
++    <value>核心修复。让 Capcom 游戏可以保存，在部分 SteamTools 服务器不可用时启用 SteamTools 激活，并启用清单固定。不启用云存档。</value>
++  </data>
++  <data name="Choice_STFixer_Features" xml:space="preserve">
++    <value>包含：Capcom 存档修复、SteamTools 离线补丁、DLL 部署、清单版本固定</value>
++  </data>
++  <data name="Choice_CloudRedirect_Title" xml:space="preserve">
++    <value>Cloud Redirect 模式</value>
++  </data>
++  <data name="Choice_CloudRedirect_Description" xml:space="preserve">
++    <value>包含 ST Fixer 的全部功能，并额外加入云存档重定向。将 lua 游戏的 Steam Cloud 重定向到 Google Drive、OneDrive 或本地文件夹。</value>
++  </data>
++  <data name="Choice_CloudRedirect_Features" xml:space="preserve">
++    <value>包含：全部 STFixer 功能 + 云存档重定向、云服务同步、应用管理、污染清理</value>
++  </data>
++  <data name="Choice_CurrentMode_STFixer" xml:space="preserve">
++    <value>当前模式：STFixer</value>
++  </data>
++  <data name="Choice_CurrentMode_STFixer_Desc" xml:space="preserve">
++    <value>你可以选择下面的选项升级到 Cloud Redirect 模式。此操作为单向操作 -- Cloud Redirect 包含 STFixer 的全部功能以及云功能。</value>
++  </data>
++  <data name="Choice_CurrentMode_CloudRedirect" xml:space="preserve">
++    <value>当前模式：Cloud Redirect</value>
++  </data>
++  <data name="Choice_CurrentMode_CloudRedirect_Desc" xml:space="preserve">
++    <value>所有功能均已启用。云存档拦截处于活动状态。</value>
++  </data>
++  <data name="Choice_FailedSaveMode" xml:space="preserve">
++    <value>无法保存你的选择：{0}</value>
++  </data>
++  <data name="Setup_Title" xml:space="preserve">
++    <value>安装设置</value>
++  </data>
++  <data name="Setup_Description" xml:space="preserve">
++    <value>将补丁应用并部署 CloudRedirect 到你的 Steam 安装目录。</value>
++  </data>
++  <data name="Setup_Description_STFixer" xml:space="preserve">
++    <value>应用 Capcom 存档修复和清单固定补丁。</value>
++  </data>
++  <data name="Setup_ShowDiagnostics" xml:space="preserve">
++    <value>显示诊断信息</value>
++  </data>
++  <data name="Setup_ShowDiagnosticsHint" xml:space="preserve">
++    <value>Steam 版本、路径和单独补丁控制项</value>
++  </data>
++  <data name="Setup_SteamVersion" xml:space="preserve">
++    <value>Steam 版本</value>
++  </data>
++  <data name="Setup_Checking" xml:space="preserve">
++    <value>正在检查...</value>
++  </data>
++  <data name="Setup_SteamPath" xml:space="preserve">
++    <value>Steam 路径</value>
++  </data>
++  <data name="Setup_Detecting" xml:space="preserve">
++    <value>正在检测...</value>
++  </data>
++  <data name="Setup_Change" xml:space="preserve">
++    <value>更改</value>
++  </data>
++  <data name="Setup_RunAllPatches" xml:space="preserve">
++    <value>运行全部补丁</value>
++  </data>
++  <data name="Setup_OfflineSetupHeader" xml:space="preserve">
++    <value>SteamTools 离线设置</value>
++  </data>
++  <data name="Setup_OfflineSetupDescription" xml:space="preserve">
++    <value>为 SteamTools 打补丁，使其在激活服务器不可用时仍能工作。首次安装时需要此步骤。</value>
++  </data>
++  <data name="Setup_OfflineSetup" xml:space="preserve">
++    <value>离线设置</value>
++  </data>
++  <data name="Setup_NotChecked" xml:space="preserve">
++    <value>未检查</value>
++  </data>
++  <data name="Setup_ApplyOfflineSetup" xml:space="preserve">
++    <value>应用离线设置</value>
++  </data>
++  <data name="Setup_RevertPatch" xml:space="preserve">
++    <value>还原补丁</value>
++  </data>
++  <data name="Setup_StExeHeader" xml:space="preserve">
++    <value>SteamTools.exe 补丁</value>
++  </data>
++  <data name="Setup_StExeDescription" xml:space="preserve">
++    <value>阻止 SteamTools 桌面应用在每次启动时覆盖已打补丁的 DLL。否则 SteamTools 会撤销核心补丁。</value>
++  </data>
++  <data name="Setup_DllDeploy" xml:space="preserve">
++    <value>DLL 部署</value>
++  </data>
++  <data name="Setup_PatchSteamToolsExe" xml:space="preserve">
++    <value>修补 SteamTools.exe</value>
++  </data>
++  <data name="Setup_CloudRedirectPatchHeader" xml:space="preserve">
++    <value>Cloud Redirect 补丁</value>
++  </data>
++  <data name="Setup_CloudRedirectPatchHeader_STFixer" xml:space="preserve">
++    <value>存档修复和清单固定补丁</value>
++  </data>
++  <data name="Setup_CloudRedirectPatchDescription" xml:space="preserve">
++    <value>修补 SteamTools 载荷，使 lua 应用的云存档通过 CloudRedirect 系统路由。</value>
++  </data>
++  <data name="Setup_CloudRedirectPatchDescription_STFixer" xml:space="preserve">
++    <value>修补 SteamTools 载荷，以修复 Capcom 存档路由并为 lua 应用启用清单固定。</value>
++  </data>
++  <data name="Setup_PatchStatus" xml:space="preserve">
++    <value>补丁状态</value>
++  </data>
++  <data name="Setup_ApplyPatch" xml:space="preserve">
++    <value>应用补丁</value>
++  </data>
++  <data name="Setup_DeployHeader" xml:space="preserve">
++    <value>部署 CloudRedirect</value>
++  </data>
++  <data name="Setup_DeployDescription" xml:space="preserve">
++    <value>将核心 DLL 复制到你的 Steam 文件夹。</value>
++  </data>
++  <data name="Setup_DllStatus" xml:space="preserve">
++    <value>DLL 状态</value>
++  </data>
++  <data name="Setup_DeployDll" xml:space="preserve">
++    <value>部署 DLL</value>
++  </data>
++  <data name="Setup_UninstallDll" xml:space="preserve">
++    <value>卸载 DLL</value>
++  </data>
++  <data name="Setup_LogOutput" xml:space="preserve">
++    <value>日志输出</value>
++  </data>
++  <data name="Setup_Ready" xml:space="preserve">
++    <value>就绪。</value>
++  </data>
++  <data name="Setup_SteamNotFoundManual" xml:space="preserve">
++    <value>未找到 -- 点击“更改”手动设置</value>
++  </data>
++  <data name="Setup_SteamNotFound" xml:space="preserve">
++    <value>未找到 Steam</value>
++  </data>
++  <data name="Setup_VersionCouldNotDetermine" xml:space="preserve">
++    <value>无法确定 Steam 版本</value>
++  </data>
++  <data name="Setup_VersionSupported" xml:space="preserve">
++    <value>{0}（受支持）</value>
++  </data>
++  <data name="Setup_VersionUnsupported" xml:space="preserve">
++    <value>{0}（不受支持 -- 比预期版本 {2} 更{1}）</value>
++  </data>
++  <data name="Setup_DirectionNewer" xml:space="preserve">
++    <value>新</value>
++  </data>
++  <data name="Setup_DirectionOlder" xml:space="preserve">
++    <value>旧</value>
++  </data>
++  <data name="Setup_PatchState_Patched" xml:space="preserve">
++    <value>已打补丁</value>
++  </data>
++  <data name="Setup_PatchState_Unpatched" xml:space="preserve">
++    <value>未打补丁</value>
++  </data>
++  <data name="Setup_PatchState_PartiallyPatched" xml:space="preserve">
++    <value>部分已打补丁</value>
++  </data>
++  <data name="Setup_PatchState_NotInstalled" xml:space="preserve">
++    <value>未安装 SteamTools</value>
++  </data>
++  <data name="Setup_PatchState_UnknownVersion" xml:space="preserve">
++    <value>未知版本</value>
++  </data>
++  <data name="Setup_PatchState_OutOfDate" xml:space="preserve">
++    <value>已过期</value>
++  </data>
++  <data name="Setup_PatchState_Unknown" xml:space="preserve">
++    <value>未知</value>
++  </data>
++  <data name="Setup_OfflinePatched" xml:space="preserve">
++    <value>已打补丁（离线模式已启用）</value>
++  </data>
++  <data name="Setup_StExePatched" xml:space="preserve">
++    <value>已打补丁（DLL 部署已禁用）</value>
++  </data>
++  <data name="Setup_StExeActive" xml:space="preserve">
++    <value>活动中 -- 将覆盖已打补丁的 DLL！</value>
++  </data>
++  <data name="Setup_StExeNotFound" xml:space="preserve">
++    <value>未找到 SteamTools Desktop</value>
++  </data>
++  <data name="Setup_CouldNotCheck" xml:space="preserve">
++    <value>无法检查：{0}</value>
++  </data>
++  <data name="Setup_DllInstalledOutdated" xml:space="preserve">
++    <value>已安装但已过期（{0}）-- 有更新可用</value>
++  </data>
++  <data name="Setup_DllInstalled" xml:space="preserve">
++    <value>已安装（{0} 字节，{1}）</value>
++  </data>
++  <data name="Setup_UpdateDll" xml:space="preserve">
++    <value>更新 DLL</value>
++  </data>
++  <data name="Setup_Deploy" xml:space="preserve">
++    <value>部署</value>
++  </data>
++  <data name="Setup_DllNotInstalledReady" xml:space="preserve">
++    <value>未安装 -- 可部署</value>
++  </data>
++  <data name="Setup_DllNotInstalledNoEmbed" xml:space="preserve">
++    <value>未安装 -- 此构建未嵌入 DLL</value>
++  </data>
++  <data name="Setup_InvalidSteamFolder" xml:space="preserve">
++    <value>无效的 Steam 文件夹</value>
++  </data>
++  <data name="Setup_BrowseSteamFolderTitle" xml:space="preserve">
++    <value>选择 Steam 安装文件夹</value>
++  </data>
++  <data name="Setup_InvalidSteamFolderMessage" xml:space="preserve">
++    <value>所选文件夹不包含 steam.exe。
++
++请选择 Steam 的安装文件夹。</value>
++  </data>
++  <data name="Setup_PatchAppliedSuccessfully" xml:space="preserve">
++    <value>补丁已成功应用</value>
++  </data>
++  <data name="Setup_PatchFailedSeeLog" xml:space="preserve">
++    <value>补丁失败 -- 请查看日志</value>
++  </data>
++  <data name="Setup_FailedSeeLog" xml:space="preserve">
++    <value>失败 -- 请查看日志</value>
++  </data>
++  <data name="Setup_DeployFailed" xml:space="preserve">
++    <value>部署失败</value>
++  </data>
++  <data name="Setup_NotInstalled" xml:space="preserve">
++    <value>未安装</value>
++  </data>
++  <data name="Setup_UninstallFailedSteam" xml:space="preserve">
++    <value>卸载失败 -- Steam 是否正在运行？</value>
++  </data>
++  <data name="Setup_DllNotEmbedded" xml:space="preserve">
++    <value>未找到</value>
++  </data>
++  <data name="Setup_DllNotEmbeddedMessage" xml:space="preserve">
++    <value>此构建未嵌入 cloud_redirect.dll。
++
++请在构建 C++ DLL 后重新构建 UI。</value>
++  </data>
++  <data name="Setup_ConfirmRunAll" xml:space="preserve">
++    <value>这将应用全部补丁并部署 DLL：
++
++  1. SteamTools 离线设置
++  2. 修补 SteamTools.exe
++  3. Cloud Redirect 补丁
++  4. 部署 cloud_redirect.dll
++
++如果 Steam 正在运行，它将自动关闭。
++将创建备份。
++
++继续？</value>
++  </data>
++  <data name="Setup_ConfirmOfflineSetup" xml:space="preserve">
++    <value>这会修补 SteamTools，使其在激活服务器不可用时仍能工作。
++
++如果 Steam 正在运行，它将自动关闭。
++将创建一个备份。
++
++继续？</value>
++  </data>
++  <data name="Setup_ConfirmRevertOffline" xml:space="preserve">
++    <value>这将还原离线设置补丁，恢复 SteamTools 原始激活行为。
++
++如果 Steam 正在运行，它将自动关闭。
++
++继续？</value>
++  </data>
++  <data name="Setup_ConfirmPatchStExe" xml:space="preserve">
++    <value>这会修补 SteamTools.exe，阻止它在每次启动时覆盖已打补丁的 DLL。
++
++如果 Steam 正在运行，它将自动关闭。
++将创建一个备份。
++
++继续？</value>
++  </data>
++  <data name="Setup_ConfirmRevertStExe" xml:space="preserve">
++    <value>这会将 SteamTools.exe 恢复到原始状态，使其再次允许在启动时覆盖 DLL。
++
++如果 Steam 正在运行，它将自动关闭。
++
++继续？</value>
++  </data>
++  <data name="Setup_ConfirmApplyPatch" xml:space="preserve">
++    <value>这会修补 steamclient64.dll，以重定向云端 RPC。
++
++如果 Steam 正在运行，它将自动关闭。
++将创建一个备份。
++
++继续？</value>
++  </data>
++  <data name="Setup_ConfirmRevertPatch" xml:space="preserve">
++    <value>这将还原 steamclient64.dll 上的云重定向补丁，恢复原始行为。
++
++如果 Steam 正在运行，它将自动关闭。
++
++继续？</value>
++  </data>
++  <data name="Setup_ConfirmDeploy" xml:space="preserve">
++    <value>这会将 cloud_redirect.dll 部署到你的 Steam 文件夹。
++
++如果 Steam 正在运行，它将自动关闭。
++
++继续？</value>
++  </data>
++  <data name="Setup_ConfirmUninstall" xml:space="preserve">
++    <value>这会从你的 Steam 文件夹中删除 cloud_redirect.dll。
++
++如果 Steam 正在运行，它将自动关闭。
++
++继续？</value>
++  </data>
++  <data name="Setup_ConfigureProviderTitle" xml:space="preserve">
++    <value>配置云服务提供商</value>
++  </data>
++  <data name="Setup_ConfigureProviderExisting" xml:space="preserve">
++    <value>{0}
++
++当前云服务提供商：{1}
++
++是否要查看或更改云服务提供商设置？</value>
++  </data>
++  <data name="Setup_ConfigureProviderNew" xml:space="preserve">
++    <value>{0}
++
++是否要设置云服务提供商（Google Drive、OneDrive 或网络文件夹）来同步你的存档？
++
++如果跳过，存档将本地保存在你的 Steam 文件夹中。</value>
++  </data>
++  <data name="Setup_AllPatchesApplied" xml:space="preserve">
++    <value>全部补丁已成功应用！</value>
++  </data>
++  <data name="Setup_PatchingFinishedWithErrors" xml:space="preserve">
++    <value>补丁流程已完成（部分步骤失败 -- 请查看日志）。</value>
++  </data>
++  <data name="Setup_ConfigureProvider" xml:space="preserve">
++    <value>配置提供商</value>
++  </data>
++  <data name="Setup_UseLocalStorage" xml:space="preserve">
++    <value>使用本地存储</value>
++  </data>
++  <data name="Setup_ConfirmOfflineSetupTitle" xml:space="preserve">
++    <value>SteamTools 离线设置</value>
++  </data>
++  <data name="Setup_RevertOfflineSetupTitle" xml:space="preserve">
++    <value>还原离线设置</value>
++  </data>
++  <data name="Setup_PatchSteamToolsExeTitle" xml:space="preserve">
++    <value>修补 SteamTools.exe</value>
++  </data>
++  <data name="Setup_RevertStExeTitle" xml:space="preserve">
++    <value>还原 SteamTools.exe 补丁</value>
++  </data>
++  <data name="Setup_ApplyPatchTitle" xml:space="preserve">
++    <value>应用补丁</value>
++  </data>
++  <data name="Setup_RevertCloudRedirectTitle" xml:space="preserve">
++    <value>还原 Cloud Redirect 补丁</value>
++  </data>
++  <data name="Setup_DeployDllTitle" xml:space="preserve">
++    <value>部署 DLL</value>
++  </data>
++  <data name="Setup_UninstallDllTitle" xml:space="preserve">
++    <value>卸载 DLL</value>
++  </data>
++  <data name="Dashboard_Title" xml:space="preserve">
++    <value>仪表盘</value>
++  </data>
++  <data name="Dashboard_UpdateNow" xml:space="preserve">
++    <value>立即更新</value>
++  </data>
++  <data name="Dashboard_UpdateAvailable" xml:space="preserve">
++    <value>有更新可用</value>
++  </data>
++  <data name="Dashboard_UpdateAvailableDescription" xml:space="preserve">
++    <value>有较新版本的 CloudRedirect DLL 可用。请更新。</value>
++  </data>
++  <data name="Dashboard_CloudProvider" xml:space="preserve">
++    <value>云服务提供商</value>
++  </data>
++  <data name="Dashboard_NotConfigured" xml:space="preserve">
++    <value>未配置</value>
++  </data>
++  <data name="Dashboard_SteamInstallation" xml:space="preserve">
++    <value>Steam 安装</value>
++  </data>
++  <data name="Dashboard_Detecting" xml:space="preserve">
++    <value>正在检测...</value>
++  </data>
++  <data name="Dashboard_AppsSyncing" xml:space="preserve">
++    <value>正在同步的应用</value>
++  </data>
++  <data name="Dashboard_AppCountDefault" xml:space="preserve">
++    <value>已配置 0 个应用</value>
++  </data>
++  <data name="Dashboard_CloudRedirectDll" xml:space="preserve">
++    <value>CloudRedirect DLL</value>
++  </data>
++  <data name="Dashboard_DllChecking" xml:space="preserve">
++    <value>正在检查...</value>
++  </data>
++  <data name="Dashboard_QuickActions" xml:space="preserve">
++    <value>快速操作</value>
++  </data>
++  <data name="Dashboard_OpenLogFile" xml:space="preserve">
++    <value>打开日志文件</value>
++  </data>
++  <data name="Dashboard_RestartSteam" xml:space="preserve">
++    <value>重启 Steam</value>
++  </data>
++  <data name="Dashboard_NotFound" xml:space="preserve">
++    <value>未找到</value>
++  </data>
++  <data name="Dashboard_DllNotInstalled" xml:space="preserve">
++    <value>未安装</value>
++  </data>
++  <data name="Dashboard_DllInstalledUpdateAvailable" xml:space="preserve">
++    <value>已安装（有更新可用）</value>
++  </data>
++  <data name="Dashboard_DllInstalled" xml:space="preserve">
++    <value>已安装</value>
++  </data>
++  <data name="Dashboard_AppCountFormat" xml:space="preserve">
++    <value>{0} 个应用有云数据</value>
++  </data>
++  <data name="Dashboard_FolderAccessible" xml:space="preserve">
++    <value>{0} -- 文件夹可访问</value>
++  </data>
++  <data name="Dashboard_FolderNotFound" xml:space="preserve">
++    <value>{0} -- 未找到文件夹</value>
++  </data>
++  <data name="Dashboard_NoSyncFolder" xml:space="preserve">
++    <value>{0} -- 未配置同步文件夹</value>
++  </data>
++  <data name="Dashboard_Authenticated" xml:space="preserve">
++    <value>{0} -- 已认证</value>
++  </data>
++  <data name="Dashboard_AuthStatus" xml:space="preserve">
++    <value>{0} -- {1}</value>
++  </data>
++  <data name="Dashboard_NoTokenPath" xml:space="preserve">
++    <value>{0} -- 未配置令牌路径</value>
++  </data>
++  <data name="Dashboard_Configured" xml:space="preserve">
++    <value>{0} -- 已配置</value>
++  </data>
++  <data name="Dashboard_LogNotFound" xml:space="preserve">
++    <value>未找到日志文件。请先在已安装 CloudRedirect 的情况下启动 Steam。</value>
++  </data>
++  <data name="Dashboard_ClosingSteam" xml:space="preserve">
++    <value>正在关闭 Steam...</value>
++  </data>
++  <data name="Dashboard_Updating" xml:space="preserve">
++    <value>正在更新...</value>
++  </data>
++  <data name="Dashboard_UpdateFailed" xml:space="preserve">
++    <value>更新失败</value>
++  </data>
++  <data name="Dashboard_DllInstalledUpdated" xml:space="preserve">
++    <value>已安装（已更新）</value>
++  </data>
++  <data name="Dashboard_DllUpdatedTitle" xml:space="preserve">
++    <value>DLL 已更新</value>
++  </data>
++  <data name="Dashboard_DllUpdatedRestartPrompt" xml:space="preserve">
++    <value>cloud_redirect.dll 已更新。
++
++现在重启 Steam？</value>
++  </data>
++  <data name="Dashboard_FailedUpdateDll" xml:space="preserve">
++    <value>更新 DLL 失败：{0}</value>
++  </data>
++  <data name="Dashboard_RestartSteamPrompt" xml:space="preserve">
++    <value>这将关闭并重新启动 Steam。
++继续？</value>
++  </data>
++  <data name="Dashboard_ShuttingDownSteam" xml:space="preserve">
++    <value>正在关闭 Steam...</value>
++  </data>
++  <data name="Dashboard_SteamStillRunning" xml:space="preserve">
++    <value>Steam 仍在运行</value>
++  </data>
++  <data name="Dashboard_SteamStillRunningPrompt" xml:space="preserve">
++    <value>Steam 在 15 秒内没有关闭。
++是否强制结束它？</value>
++  </data>
++  <data name="Dashboard_ForceKilling" xml:space="preserve">
++    <value>正在强制结束 Steam...</value>
++  </data>
++  <data name="Dashboard_StartingSteam" xml:space="preserve">
++    <value>正在启动 Steam...</value>
++  </data>
++  <data name="Dashboard_FailedRestartSteam" xml:space="preserve">
++    <value>重启 Steam 失败：{0}</value>
++  </data>
++  <data name="Dashboard_SteamExeNotFound" xml:space="preserve">
++    <value>未找到 steam.exe。</value>
++  </data>
++  <data name="Dashboard_CouldNotFindSteam" xml:space="preserve">
++    <value>无法找到 Steam 安装。</value>
++  </data>
++  <data name="CloudProvider_Title" xml:space="preserve">
++    <value>云服务提供商</value>
++  </data>
++  <data name="CloudProvider_Description" xml:space="preserve">
++    <value>配置你的 Steam Cloud 提供商。目前仅支持 Google Drive、OneDrive 和本地文件夹。</value>
++  </data>
++  <data name="CloudProvider_DescriptionWebDav" xml:space="preserve">
++    <value>配置 Steam Cloud 提供程序。支持 Google Drive、OneDrive、WebDAV 或本地/网络文件夹。</value>
++  </data>
++  <data name="CloudProvider_Provider" xml:space="preserve">
++    <value>提供商</value>
++  </data>
++  <data name="CloudProvider_GoogleDrive" xml:space="preserve">
++    <value>Google Drive</value>
++  </data>
++  <data name="CloudProvider_OneDrive" xml:space="preserve">
++    <value>OneDrive</value>
++  </data>
++  <data name="CloudProvider_WebDav" xml:space="preserve">
++    <value>WebDAV</value>
++  </data>
++  <data name="CloudProvider_FolderMappedDrive" xml:space="preserve">
++    <value>文件夹 / 映射驱动器</value>
++  </data>
++  <data name="CloudProvider_LocalOnly" xml:space="preserve">
++    <value>仅本地（不同步到云端）</value>
++  </data>
++  <data name="CloudProvider_TokenFilePath" xml:space="preserve">
++    <value>令牌文件路径</value>
++  </data>
++  <data name="CloudProvider_TokenPlaceholder" xml:space="preserve">
++    <value>OAuth 令牌文件路径</value>
++  </data>
++  <data name="CloudProvider_WebDavUrlPath" xml:space="preserve">
++    <value>WebDAV 地址</value>
++  </data>
++  <data name="CloudProvider_WebDavUrlPlaceholder" xml:space="preserve">
++    <value>https://example.com/remote.php/dav/files/user/CloudRedirect</value>
++  </data>
++  <data name="CloudProvider_WebDavUrlHint" xml:space="preserve">
++    <value>请使用专门给 CloudRedirect 的 HTTPS WebDAV 文件夹地址。</value>
++  </data>
++  <data name="CloudProvider_WebDavUsername" xml:space="preserve">
++    <value>用户名</value>
++  </data>
++  <data name="CloudProvider_WebDavUsernamePlaceholder" xml:space="preserve">
++    <value>WebDAV 用户名</value>
++  </data>
++  <data name="CloudProvider_WebDavPassword" xml:space="preserve">
++    <value>密码</value>
++  </data>
++  <data name="CloudProvider_Browse" xml:space="preserve">
++    <value>浏览</value>
++  </data>
++  <data name="CloudProvider_Authentication" xml:space="preserve">
++    <value>认证</value>
++  </data>
++  <data name="CloudProvider_AuthenticationStatus" xml:space="preserve">
++    <value>认证状态</value>
++  </data>
++  <data name="CloudProvider_NoTokensLoaded" xml:space="preserve">
++    <value>未加载令牌</value>
++  </data>
++  <data name="CloudProvider_SignIn" xml:space="preserve">
++    <value>登录</value>
++  </data>
++  <data name="CloudProvider_Cancel" xml:space="preserve">
++    <value>取消</value>
++  </data>
++  <data name="CloudProvider_SaveConfiguration" xml:space="preserve">
++    <value>保存配置</value>
++  </data>
++  <data name="CloudProvider_NoConfigFound" xml:space="preserve">
++    <value>未找到 config.json -- 使用默认值</value>
++  </data>
++  <data name="CloudProvider_ErrorReadingConfig" xml:space="preserve">
++    <value>读取配置时出错：{0}</value>
++  </data>
++  <data name="CloudProvider_SyncFolderPath" xml:space="preserve">
++    <value>同步文件夹路径</value>
++  </data>
++  <data name="CloudProvider_SyncFolderPlaceholder" xml:space="preserve">
++    <value>同步文件夹路径（例如 Z:\CloudRedirect）</value>
++  </data>
++  <data name="CloudProvider_SyncFolderHint" xml:space="preserve">
++    <value>选择任意文件夹 -- 包括映射网络驱动器、U 盘或 NAS 共享。</value>
++  </data>
++  <data name="CloudProvider_LocalStoragePath" xml:space="preserve">
++    <value>本地存储路径</value>
++  </data>
++  <data name="CloudProvider_LocalStorageHint" xml:space="preserve">
++    <value>存档将本地保存在你的 Steam 文件夹中。不会同步到云端。</value>
++  </data>
++  <data name="CloudProvider_SelectSyncFolder" xml:space="preserve">
++    <value>选择同步文件夹</value>
++  </data>
++  <data name="CloudProvider_SelectTokenFile" xml:space="preserve">
++    <value>选择 OAuth 令牌文件</value>
++  </data>
++  <data name="CloudProvider_MissingPath" xml:space="preserve">
++    <value>缺少路径</value>
++  </data>
++  <data name="CloudProvider_MissingPathMessage" xml:space="preserve">
++    <value>请先设置令牌文件路径。</value>
++  </data>
++  <data name="CloudProvider_Saved" xml:space="preserve">
++    <value>已保存</value>
++  </data>
++  <data name="CloudProvider_SavedMessage" xml:space="preserve">
++    <value>配置已成功保存。</value>
++  </data>
++  <data name="CloudProvider_FailedSaveConfig" xml:space="preserve">
++    <value>保存配置失败：{0}</value>
++  </data>
++  <data name="CloudProvider_LocalModeStored" xml:space="preserve">
++    <value>本地模式 -- 存档位置：{0}</value>
++  </data>
++  <data name="CloudProvider_LocalModeNoSync" xml:space="preserve">
++    <value>本地模式 -- 不同步到云端</value>
++  </data>
++  <data name="CloudProvider_NoSyncFolder" xml:space="preserve">
++    <value>未指定同步文件夹</value>
++  </data>
++  <data name="CloudProvider_FolderAccessible" xml:space="preserve">
++    <value>文件夹可访问：{0}</value>
++  </data>
++  <data name="CloudProvider_FolderNotFound" xml:space="preserve">
++    <value>未找到文件夹：{0}</value>
++  </data>
++  <data name="CloudProvider_NoTokenFilePath" xml:space="preserve">
++    <value>未指定令牌文件路径</value>
++  </data>
++  <data name="CloudProvider_WebDavNoUrl" xml:space="preserve">
++    <value>未填写 WebDAV 地址</value>
++  </data>
++  <data name="CloudProvider_WebDavMissingCredentials" xml:space="preserve">
++    <value>请填写 WebDAV 地址、用户名和密码。</value>
++  </data>
++  <data name="CloudProvider_WebDavRequiresHttps" xml:space="preserve">
++    <value>WebDAV 地址必须以 https:// 开头</value>
++  </data>
++  <data name="CloudProvider_WebDavConfigured" xml:space="preserve">
++    <value>WebDAV 已配置：{0}</value>
++  </data>
++  <data name="Apps_Title" xml:space="preserve">
++    <value>应用</value>
++  </data>
++  <data name="Apps_Description" xml:space="preserve">
++    <value>你注入的应用的云存档数据。</value>
++  </data>
++  <data name="Apps_RestoreSaves" xml:space="preserve">
++    <value>恢复存档</value>
++  </data>
++  <data name="Apps_Files" xml:space="preserve">
++    <value>个文件</value>
++  </data>
++  <data name="Apps_ChangeNumber" xml:space="preserve">
++    <value>变更号：</value>
++  </data>
++  <data name="Apps_DeleteTooltip" xml:space="preserve">
++    <value>删除此应用的全部存档</value>
++  </data>
++  <data name="Apps_Back" xml:space="preserve">
++    <value>返回</value>
++  </data>
++  <data name="Apps_Refresh" xml:space="preserve">
++    <value>刷新</value>
++  </data>
++  <data name="Apps_RestoreDescription" xml:space="preserve">
++    <value>从之前的删除备份中恢复文件。每次删除都会创建不可变的带时间戳备份。恢复会将文件复制回去，不会修改备份。</value>
++  </data>
++  <data name="Apps_LoadingBackups" xml:space="preserve">
++    <value>正在加载备份...</value>
++  </data>
++  <data name="Apps_DeleteAllSavesTitle" xml:space="preserve">
++    <value>删除全部存档</value>
++  </data>
++  <data name="Apps_DeletePromptHeader" xml:space="preserve">
++    <value>删除 {0}（{1}）的全部存档数据？
++
++</value>
++  </data>
++  <data name="Apps_DeletePromptWillDelete" xml:space="preserve">
++    <value>这将</value>
++  </data>
++  <data name="Apps_DeletePromptDelete" xml:space="preserve">
++    <value>删除</value>
++  </data>
++  <data name="Apps_DeletePromptLocalStorage" xml:space="preserve">
++    <value>  - CloudRedirect 本地存储：{0} 个文件（{1}）
++</value>
++  </data>
++  <data name="Apps_DeletePromptCloudCopies" xml:space="preserve">
++    <value>{0} 上的云端副本</value>
++  </data>
++  <data name="Apps_DeletePromptUserdata" xml:space="preserve">
++    <value>  - Steam userdata：{0}
++</value>
++  </data>
++  <data name="Apps_DeletePromptGameSaves" xml:space="preserve">
++    <value>  - 游戏存档：{0}
++</value>
++  </data>
++  <data name="Apps_DeletePromptSkipped" xml:space="preserve">
++    <value>
++  （已跳过 {0} 个无法解析的路径：{1}）
++</value>
++  </data>
++  <data name="Apps_DeletePromptWarning" xml:space="preserve">
++    <value>这将删除你的存档。</value>
++  </data>
++  <data name="Apps_DeletePromptExplanation" xml:space="preserve">
++    <value>本地存档会被备份，但恢复过程比较复杂。你需要在 Steam 中禁用该游戏的云存储，恢复备份，然后再启动游戏。如果继续，你的云存档将会丢失。这些云存档不会被备份。</value>
++  </data>
++  <data name="Apps_DeletePromptConsequence" xml:space="preserve">
++    <value>如果继续，游戏会表现得像你从未玩过一样。下次启动时将从头开始。</value>
++  </data>
++  <data name="Apps_DeletePromptBeSure" xml:space="preserve">
++    <value>请确认无误。</value>
++  </data>
++  <data name="Apps_FinalConfirmTitle" xml:space="preserve">
++    <value>最终确认</value>
++  </data>
++  <data name="Apps_FinalConfirmMessage" xml:space="preserve">
++    <value>这将删除 {0}（{1}）的全部存档数据。
++
++本地存档会被备份，但云端副本将永久丢失。恢复存档比较麻烦。
++
++确定吗？</value>
++  </data>
++  <data name="Apps_PartialDeleteTitle" xml:space="preserve">
++    <value>部分删除完成</value>
++  </data>
++  <data name="Apps_PartialDeleteMessage" xml:space="preserve">
++    <value>部分数据无法删除：
++
++{0}
++
++本地备份已保存到：
++{1}
++
++你可以从“恢复存档”面板恢复。</value>
++  </data>
++  <data name="Apps_DeletedTitle" xml:space="preserve">
++    <value>已删除</value>
++  </data>
++  <data name="Apps_DeletedMessage" xml:space="preserve">
++    <value>{0}（{1}）的全部存档数据已删除。
++
++备份已保存到：
++{2}
++
++你可以从“恢复存档”面板恢复。</value>
++  </data>
++  <data name="Apps_DeleteFailedTitle" xml:space="preserve">
++    <value>删除失败</value>
++  </data>
++  <data name="Apps_PruneTooltip" xml:space="preserve">
++    <value>删除此应用不再引用的孤立云端 blob</value>
++  </data>
++  <data name="Apps_ScanForOrphans" xml:space="preserve">
++    <value>扫描云端孤立项</value>
++  </data>
++  <data name="Apps_ScanOrphansExplainTitle" xml:space="preserve">
++    <value>扫描云端孤立项</value>
++  </data>
++  <data name="Apps_ScanOrphansExplainMessage" xml:space="preserve">
++    <value>“孤立项”是指云存储中存在、但此电脑上没有任何应用仍引用的存档文件 -- 通常由存档改名、应用卸载或同步中断遗留。它们会占用空间，并可能在冲突时遮蔽较新的存档。
++
++此次扫描只读取云端列表；不会删除任何内容。扫描结束后，每个受影响的应用都会显示“查看孤立项”按钮，你可以检查文件并决定是否清理。
++
++扫描期间必须关闭 Steam，以免正在上传的文件被误判为孤立项。继续？</value>
++  </data>
++  <data name="Apps_ScanningOrphansFormat" xml:space="preserve">
++    <value>正在扫描...（{0}/{1}）</value>
++  </data>
++  <data name="Apps_ScanLocalOnlyTitle" xml:space="preserve">
++    <value>没有云服务提供商</value>
++  </data>
++  <data name="Apps_ScanLocalOnlyMessage" xml:space="preserve">
++    <value>CloudRedirect 已配置为仅本地存储。没有可扫描孤立 blob 的云端。</value>
++  </data>
++  <data name="Apps_ScanFailedTitle" xml:space="preserve">
++    <value>扫描失败</value>
++  </data>
++  <data name="Apps_ScanCompleteCleanFormat" xml:space="preserve">
++    <value>已扫描 {0} 个应用 -- 未发现孤立云端 blob。</value>
++  </data>
++  <data name="Apps_ScanCompleteFoundFormat" xml:space="preserve">
++    <value>在 {1} 个应用中发现 {0} 个孤立云端 blob。</value>
++  </data>
++  <data name="Apps_ScanCompletePartialFormat" xml:space="preserve">
++    <value>{0} 个应用无法验证（列表不完整）。</value>
++  </data>
++  <data name="Apps_OrphanSummaryFormat" xml:space="preserve">
++    <value>{0} 个未引用的云端 blob</value>
++  </data>
++  <data name="Apps_PruneAll" xml:space="preserve">
++    <value>全部清理</value>
++  </data>
++  <data name="Apps_ReviewOrphans" xml:space="preserve">
++    <value>查看孤立项</value>
++  </data>
++  <data name="Apps_CollapseOrphans" xml:space="preserve">
++    <value>折叠</value>
++  </data>
++  <data name="Apps_PruneScanningTitle" xml:space="preserve">
++    <value>正在扫描云端 blob...</value>
++  </data>
++  <data name="Apps_PruneButton" xml:space="preserve">
++    <value>清理</value>
++  </data>
++  <data name="Apps_PruneButtonScanning" xml:space="preserve">
++    <value>正在扫描...</value>
++  </data>
++  <data name="Apps_PruneButtonPruning" xml:space="preserve">
++    <value>正在清理...</value>
++  </data>
++  <data name="Apps_PruneLocalOnlyTitle" xml:space="preserve">
++    <value>没有云服务提供商</value>
++  </data>
++  <data name="Apps_PruneLocalOnlyMessage" xml:space="preserve">
++    <value>CloudRedirect 已配置为仅本地存储。没有可清理孤立 blob 的云服务提供商。</value>
++  </data>
++  <data name="Apps_PruneNoOrphansTitle" xml:space="preserve">
++    <value>没有孤立 blob</value>
++  </data>
++  <data name="Apps_PruneNoOrphansMessageFormat" xml:space="preserve">
++    <value>{1} 的全部 {0} 个云端 blob 都被本地存档索引引用。无需清理。</value>
++  </data>
++  <data name="Apps_PruneListingIncompleteTitle" xml:space="preserve">
++    <value>云端列表不完整</value>
++  </data>
++  <data name="Apps_PruneListingIncompleteMessage" xml:space="preserve">
++    <value>无法获取完整的云端 blob 列表。基于不完整数据清理可能误删合法存档，因此操作已中止。请在云服务连接稳定后重试。
++
++详细信息：{0}</value>
++  </data>
++  <data name="Apps_PruneConfirmTitle" xml:space="preserve">
++    <value>清理孤立云端 blob</value>
++  </data>
++  <data name="Apps_PruneConfirmHeaderFormat" xml:space="preserve">
++    <value>删除 {1}（{2}）的 {0} 个孤立云端 blob？
++
++</value>
++  </data>
++  <data name="Apps_PruneConfirmExplanation" xml:space="preserve">
++    <value>这些 blob 存在于你的云服务提供商（{0}）中，但未被本地存档索引（file_tokens.dat）引用。它们可能由之前的会话、删除失败或手动覆盖遗留，正常同步流程不会再下载或清理它们。
++
++</value>
++  </data>
++  <data name="Apps_PruneConfirmPreviewHeader" xml:space="preserve">
++    <value>将删除的文件：
++</value>
++  </data>
++  <data name="Apps_PruneConfirmMoreFormat" xml:space="preserve">
++    <value>   ...以及另外 {0} 个
++</value>
++  </data>
++  <data name="Apps_PruneConfirmWarning" xml:space="preserve">
++    <value>此操作无法撤销。本地存档不会受到影响。</value>
++  </data>
++  <data name="Apps_PruneFinalConfirmTitle" xml:space="preserve">
++    <value>确认清理</value>
++  </data>
++  <data name="Apps_PruneFinalConfirmMessageFormat" xml:space="preserve">
++    <value>永久删除 {1} 的 {0} 个孤立云端 blob？此操作无法撤销。</value>
++  </data>
++  <data name="Apps_PruneCompleteTitle" xml:space="preserve">
++    <value>清理完成</value>
++  </data>
++  <data name="Apps_PruneCompleteMessageFormat" xml:space="preserve">
++    <value>已删除 {1} 的 {0} 个孤立云端 blob。</value>
++  </data>
++  <data name="Apps_PrunePartialTitle" xml:space="preserve">
++    <value>清理部分完成</value>
++  </data>
++  <data name="Apps_PrunePartialMessageFormat" xml:space="preserve">
++    <value>已删除 {2} 的 {0}/{1} 个孤立云端 blob。{3} 个文件无法删除：
++
++{4}
++
++详细信息：{5}</value>
++  </data>
++  <data name="Apps_PruneFailedTitle" xml:space="preserve">
++    <value>清理失败</value>
++  </data>
++  <data name="Apps_PruneFailedMessageFormat" xml:space="preserve">
++    <value>无法删除 {1} 的任何孤立 blob（共 {0} 个）。
++
++详细信息：{2}</value>
++  </data>
++  <data name="Apps_SteamNotFound" xml:space="preserve">
++    <value>未找到 Steam</value>
++  </data>
++  <data name="Apps_NoDeleteBackups" xml:space="preserve">
++    <value>未找到删除备份。</value>
++  </data>
++  <data name="Apps_BackupCountFormat" xml:space="preserve">
++    <value>找到 {0} 个备份</value>
++  </data>
++  <data name="Apps_FailedLoadBackups" xml:space="preserve">
++    <value>加载备份失败：{0}</value>
++  </data>
++  <data name="Apps_RestoreSavesExperimentalTitle" xml:space="preserve">
++    <value>恢复存档（实验性）</value>
++  </data>
++  <data name="Apps_RestoreConfirmMessage" xml:space="preserve">
++    <value>从 {0} 的备份恢复存档数据？
++
++备份包含：{1} 个文件（{2}）
++应用：{3}
++
++重要：恢复前必须为此游戏禁用 Steam Cloud：
++  Steam &gt; 右键点击游戏 &gt; 属性 &gt; 通用 &gt;
++  取消勾选“在 Steam 云中保存游戏存档”
++
++如果启用了 Steam Cloud，Steam 可能会覆盖恢复的文件。
++
++此功能为实验性。原位置已有的文件将被跳过。
++备份本身永远不会被修改或删除。</value>
++  </data>
++  <data name="Apps_Restoring" xml:space="preserve">
++    <value>正在恢复...</value>
++  </data>
++  <data name="Apps_Restore" xml:space="preserve">
++    <value>恢复</value>
++  </data>
++  <data name="Apps_RestoreCompleteTitle" xml:space="preserve">
++    <value>恢复完成</value>
++  </data>
++  <data name="Apps_RestoredFormat" xml:space="preserve">
++    <value>已恢复 {0} 个文件。</value>
++  </data>
++  <data name="Apps_RestoredRemotecacheFormat" xml:space="preserve">
++    <value> {0} 个 remotecache。</value>
++  </data>
++  <data name="Apps_SkippedFormat" xml:space="preserve">
++    <value>
++已跳过 {0} 个文件（原位置已存在）。</value>
++  </data>
++  <data name="Apps_ErrorsFormat" xml:space="preserve">
++    <value>
++
++{0} 个错误：
++{1}</value>
++  </data>
++  <data name="Apps_RestoreFailedTitle" xml:space="preserve">
++    <value>恢复失败</value>
++  </data>
++  <data name="Apps_AppFallbackName" xml:space="preserve">
++    <value>应用 {0}</value>
++  </data>
++  <data name="Cleanup_Title" xml:space="preserve">
++    <value>清理</value>
++  </data>
++  <data name="Cleanup_Description" xml:space="preserve">
++    <value>SteamTools 曾将所有 lua 应用的云存档都通过应用 760 重定向，导致每个游戏的 remote/ 文件夹被其他游戏的文件污染。扫描以查看受影响的应用，然后选择要移除的文件。</value>
++  </data>
++  <data name="Cleanup_ScanForContamination" xml:space="preserve">
++    <value>扫描污染</value>
++  </data>
++  <data name="Cleanup_RestoreFromBackup" xml:space="preserve">
++    <value>从备份恢复</value>
++  </data>
++  <data name="Cleanup_UndoBannerDescription" xml:space="preserve">
++    <value>备份是安全的 -- 点击撤销即可将所有文件恢复到原始位置。</value>
++  </data>
++  <data name="Cleanup_Undo" xml:space="preserve">
++    <value>撤销</value>
++  </data>
++  <data name="Cleanup_Dismiss" xml:space="preserve">
++    <value>关闭</value>
++  </data>
++  <data name="Cleanup_ScanningApps" xml:space="preserve">
++    <value>正在扫描应用...</value>
++  </data>
++  <data name="Cleanup_DangerZone" xml:space="preserve">
++    <value>危险区域</value>
++  </data>
++  <data name="Cleanup_CleanAllSuspectFiles" xml:space="preserve">
++    <value>清理全部可疑文件</value>
++  </data>
++  <data name="Cleanup_Back" xml:space="preserve">
++    <value>返回</value>
++  </data>
++  <data name="Cleanup_RefreshBackups" xml:space="preserve">
++    <value>刷新备份</value>
++  </data>
++  <data name="Cleanup_RestoreDescription" xml:space="preserve">
++    <value>从之前的清理备份中恢复文件。每次清理都会创建不可变的带时间戳备份。恢复会将文件复制回去，不会修改备份。</value>
++  </data>
++  <data name="Cleanup_LoadingBackups" xml:space="preserve">
++    <value>正在加载备份...</value>
++  </data>
++  <data name="Cleanup_SteamNotFound" xml:space="preserve">
++    <value>未找到 Steam</value>
++  </data>
++  <data name="Cleanup_NoNamespaceApps" xml:space="preserve">
++    <value>未找到包含文件的命名空间应用。</value>
++  </data>
++  <data name="Cleanup_ScanStatusFormat" xml:space="preserve">
++    <value>已扫描 {0} 个应用，{2} 个应用中有 {1} 个可疑文件</value>
++  </data>
++  <data name="Cleanup_NukeDescriptionFormat" xml:space="preserve">
++    <value>一次移除 {2} 个应用中的全部 {0} 个可疑文件（{1}）。所有内容都会备份，并可从“恢复”标签页还原。</value>
++  </data>
++  <data name="Cleanup_ScanFailed" xml:space="preserve">
++    <value>扫描失败：{0}</value>
++  </data>
++  <data name="Cleanup_Cleaning" xml:space="preserve">
++    <value>正在清理...</value>
++  </data>
++  <data name="Cleanup_ConfirmCleanAllTitle" xml:space="preserve">
++    <value>清理全部可疑文件</value>
++  </data>
++  <data name="Cleanup_ConfirmCleanAllMessage" xml:space="preserve">
++    <value>这会将 {2} 个应用中的 {0} 个可疑文件（{1}）移动到备份文件夹。
++
++备份位置：cloud_redirect/cleanup_tab_backup/
++
++所有内容都可以从“恢复”标签页还原。
++
++确定吗？</value>
++  </data>
++  <data name="Cleanup_CleanupCompleteTitle" xml:space="preserve">
++    <value>清理完成</value>
++  </data>
++  <data name="Cleanup_CleanupCompleteMessage" xml:space="preserve">
++    <value>已将 {0} 个文件移动到备份。
++如有需要，可从“恢复”标签页还原。</value>
++  </data>
++  <data name="Cleanup_CleanupFailedTitle" xml:space="preserve">
++    <value>清理失败</value>
++  </data>
++  <data name="Cleanup_CleanedBannerFormat" xml:space="preserve">
++    <value>已将 {0} 个文件清理到备份。</value>
++  </data>
++  <data name="Cleanup_BackToScan" xml:space="preserve">
++    <value>返回扫描</value>
++  </data>
++  <data name="Cleanup_NoBackupsFound" xml:space="preserve">
++    <value>未找到备份。</value>
++  </data>
++  <data name="Cleanup_BackupCountFormat" xml:space="preserve">
++    <value>找到 {0} 个备份</value>
++  </data>
++  <data name="Cleanup_FailedLoadBackups" xml:space="preserve">
++    <value>加载备份失败：{0}</value>
++  </data>
++  <data name="Cleanup_RestoreFromBackupTitle" xml:space="preserve">
++    <value>从备份恢复</value>
++  </data>
++  <data name="Cleanup_RestoreConfirmMessage" xml:space="preserve">
++    <value>这会将 {0} 处备份中的文件复制回原始位置。
++
++账号：{1}
++文件：{2}
++应用：{3}
++
++原始位置已有的文件将被跳过。
++备份本身永远不会被修改或删除。
++
++继续？</value>
++  </data>
++  <data name="Cleanup_RestoreCompleteTitle" xml:space="preserve">
++    <value>恢复完成</value>
++  </data>
++  <data name="Cleanup_RestoredFormat" xml:space="preserve">
++    <value>已恢复 {0} 个文件，{1} 个 remotecache。</value>
++  </data>
++  <data name="Cleanup_SkippedFormat" xml:space="preserve">
++    <value>
++已跳过 {0} 个文件（原位置已存在）。</value>
++  </data>
++  <data name="Cleanup_ErrorsFormat" xml:space="preserve">
++    <value>
++
++发生 {0} 个错误：
++{1}</value>
++  </data>
++  <data name="Cleanup_RestoreFailedTitle" xml:space="preserve">
++    <value>恢复失败</value>
++  </data>
++  <data name="Cleanup_UndoFailedTitle" xml:space="preserve">
++    <value>撤销失败</value>
++  </data>
++  <data name="Cleanup_UndoSteamNotFound" xml:space="preserve">
++    <value>未找到 Steam。</value>
++  </data>
++  <data name="Cleanup_UndoNoBackupFound" xml:space="preserve">
++    <value>找不到上次清理的备份。请使用“从备份恢复”手动查找。</value>
++  </data>
++  <data name="Cleanup_UndoCompleteTitle" xml:space="preserve">
++    <value>撤销完成</value>
++  </data>
++  <data name="Cleanup_Badge_CrossApp" xml:space="preserve">
++    <value>跨应用</value>
++  </data>
++  <data name="Cleanup_Badge_WrongAppId" xml:space="preserve">
++    <value>错误 appid</value>
++  </data>
++  <data name="Cleanup_Badge_Mangled" xml:space="preserve">
++    <value>已损坏命名</value>
++  </data>
++  <data name="Cleanup_Badge_Orphan" xml:space="preserve">
++    <value>孤立项</value>
++  </data>
++  <data name="Cleanup_Badge_Legit" xml:space="preserve">
++    <value>合法</value>
++  </data>
++  <data name="Cleanup_Badge_Unknown" xml:space="preserve">
++    <value>未知</value>
++  </data>
++  <data name="Cleanup_SuspectFiles" xml:space="preserve">
++    <value>可疑文件</value>
++  </data>
++  <data name="Cleanup_Unknown" xml:space="preserve">
++    <value>未知</value>
++  </data>
++  <data name="Cleanup_Legitimate" xml:space="preserve">
++    <value>合法</value>
++  </data>
++  <data name="Cleanup_GroupHeaderFormat" xml:space="preserve">
++    <value>{0}（{1}）</value>
++  </data>
++  <data name="Cleanup_Clean" xml:space="preserve">
++    <value>干净</value>
++  </data>
++  <data name="Cleanup_Suspect" xml:space="preserve">
++    <value>{0} 个可疑</value>
++  </data>
++  <data name="Cleanup_FilesCount" xml:space="preserve">
++    <value>{0} 个文件</value>
++  </data>
++  <data name="Cleanup_ReviewFiles" xml:space="preserve">
++    <value>查看文件</value>
++  </data>
++  <data name="Cleanup_ViewFiles" xml:space="preserve">
++    <value>查看文件</value>
++  </data>
++  <data name="Cleanup_Collapse" xml:space="preserve">
++    <value>折叠</value>
++  </data>
++  <data name="Cleanup_SelectAllSuspect" xml:space="preserve">
++    <value>选择全部可疑项</value>
++  </data>
++  <data name="Cleanup_DeselectAll" xml:space="preserve">
++    <value>取消全选</value>
++  </data>
++  <data name="Cleanup_CleanSelected" xml:space="preserve">
++    <value>清理所选项</value>
++  </data>
++  <data name="Cleanup_NothingSelectedTitle" xml:space="preserve">
++    <value>未选择任何内容</value>
++  </data>
++  <data name="Cleanup_NothingSelectedMessage" xml:space="preserve">
++    <value>请勾选复选框选择要移除的文件。</value>
++  </data>
++  <data name="Cleanup_ConfirmCleanupTitle" xml:space="preserve">
++    <value>确认清理</value>
++  </data>
++  <data name="Cleanup_ConfirmCleanupMessage" xml:space="preserve">
++    <value>这会将 {0} 个文件（{1}）移动到备份文件夹。
++
++备份位置：cloud_redirect/cleanup_tab_backup/{2}/
++
++文件可以从“恢复”标签页还原。继续？</value>
++  </data>
++  <data name="Settings_Title" xml:space="preserve">
++    <value>设置</value>
++  </data>
++  <data name="Settings_Updates" xml:space="preserve">
++    <value>更新</value>
++  </data>
++  <data name="Settings_CheckForUpdates" xml:space="preserve">
++    <value>检查更新</value>
++  </data>
++  <data name="Settings_CheckForUpdatesHint" xml:space="preserve">
++    <value>点击检查是否有新版本。</value>
++  </data>
++  <data name="Settings_Check" xml:space="preserve">
++    <value>检查</value>
++  </data>
++  <data name="Settings_Download" xml:space="preserve">
++    <value>下载</value>
++  </data>
++  <data name="Settings_DangerZone" xml:space="preserve">
++    <value>危险区域</value>
++  </data>
++  <data name="Settings_ResetCacheTitle" xml:space="preserve">
++    <value>重置本地 CloudRedirect 缓存</value>
++  </data>
++  <data name="Settings_ResetCacheDescription" xml:space="preserve">
++    <value>删除 CloudRedirect 本地缓存。此操作只会移除缓存，并强制云服务提供商重新同步。</value>
++  </data>
++  <data name="Settings_Reset" xml:space="preserve">
++    <value>重置</value>
++  </data>
++  <data name="Settings_About" xml:space="preserve">
++    <value>关于</value>
++  </data>
++  <data name="Settings_CloudRedirect" xml:space="preserve">
++    <value>CloudRedirect</value>
++  </data>
++  <data name="Settings_AboutDescription" xml:space="preserve">
++    <value>为未拥有的 Steam 游戏提供云存档</value>
++  </data>
++  <data name="Settings_GitHub" xml:space="preserve">
++    <value>GitHub</value>
++  </data>
++  <data name="Settings_VersionFormat" xml:space="preserve">
++    <value>{0}.{1}.{2}</value>
++  </data>
++  <data name="Settings_Checking" xml:space="preserve">
++    <value>正在检查...</value>
++  </data>
++  <data name="Settings_ContactingGitHub" xml:space="preserve">
++    <value>正在联系 GitHub...</value>
++  </data>
++  <data name="Settings_UpdateAvailableFormat" xml:space="preserve">
++    <value>有更新可用：{0}</value>
++  </data>
++  <data name="Settings_NewerVersionAvailable" xml:space="preserve">
++    <value>有较新版本可用。你当前运行的是 v{0}。</value>
++  </data>
++  <data name="Settings_UpToDate" xml:space="preserve">
++    <value>已是最新</value>
++  </data>
++  <data name="Settings_LatestVersionFormat" xml:space="preserve">
++    <value>你正在运行最新版本（v{0}）。</value>
++  </data>
++  <data name="Settings_LatestReleaseFormat" xml:space="preserve">
++    <value>最新版本：{0}</value>
++  </data>
++  <data name="Settings_CouldNotCompare" xml:space="preserve">
++    <value>无法自动比较版本。</value>
++  </data>
++  <data name="Settings_FailedToCheck" xml:space="preserve">
++    <value>检查失败：{0}</value>
++  </data>
++  <data name="Settings_ConfirmResetTitle" xml:space="preserve">
++    <value>确认重置</value>
++  </data>
++  <data name="Settings_ConfirmResetMessage" xml:space="preserve">
++    <value>这将删除 CloudRedirect 本地缓存，并强制云服务提供商重新同步。
++
++确定吗？</value>
++  </data>
++  <data name="Settings_Done" xml:space="preserve">
++    <value>完成</value>
++  </data>
++  <data name="Settings_ResetDoneMessage" xml:space="preserve">
++    <value>本地缓存已重置。云服务提供商将在下次启动时重新同步。</value>
++  </data>
++  <data name="Settings_FailedReset" xml:space="preserve">
++    <value>重置失败：{0}</value>
++  </data>
++  <data name="Disclaimer_WindowTitle" xml:space="preserve">
++    <value>警告</value>
++  </data>
++  <data name="Disclaimer_BuildBanner" xml:space="preserve">
++    <value>CloudRedirect v2.0.3</value>
++  </data>
++  <data name="Disclaimer_ExperimentalBanner" xml:space="preserve">
++    <value>!  实验性功能  -  存在数据丢失风险  !</value>
++  </data>
++  <data name="Disclaimer_WarningBold" xml:space="preserve">
++    <value>云存档重定向是实验性功能，并且仍在积极开发中。</value>
++  </data>
++  <data name="Disclaimer_ItMay" xml:space="preserve">
++    <value>它可能会：</value>
++  </data>
++  <data name="Disclaimer_Corrupt" xml:space="preserve">
++    <value>损坏</value>
++  </data>
++  <data name="Disclaimer_CorruptSuffix" xml:space="preserve">
++    <value>你的存档文件</value>
++  </data>
++  <data name="Disclaimer_Lose" xml:space="preserve">
++    <value>丢失</value>
++  </data>
++  <data name="Disclaimer_LoseSuffix" xml:space="preserve">
++    <value>你的存档数据</value>
++  </data>
++  <data name="Disclaimer_Overwrite" xml:space="preserve">
++    <value>覆盖</value>
++  </data>
++  <data name="Disclaimer_OverwriteSuffix" xml:space="preserve">
++    <value>用坏存档覆盖好存档</value>
++  </data>
++  <data name="Disclaimer_BackUpBold" xml:space="preserve">
++    <value>使用前请备份你的存档。</value>
++  </data>
++  <data name="Disclaimer_ExplanationText" xml:space="preserve">
++    <value>如果出现问题，你的本地存档可能会损坏或丢失。继续前，请确保已备份任何重要存档。</value>
++  </data>
++  <data name="Disclaimer_PleaseReadCarefully" xml:space="preserve">
++    <value>请仔细阅读...</value>
++  </data>
++  <data name="Disclaimer_Cancel" xml:space="preserve">
++    <value>取消</value>
++  </data>
++  <data name="Disclaimer_AcceptButton" xml:space="preserve">
++    <value>我理解这些风险</value>
++  </data>
++  <data name="Disclaimer_CountdownFormat" xml:space="preserve">
++    <value>请仔细阅读...（{0} 秒）</value>
++  </data>
++  <data name="Disclaimer_Warned" xml:space="preserve">
++    <value>你已收到警告。</value>
++  </data>
++  <data name="Dialog_OK" xml:space="preserve">
++    <value>确定</value>
++  </data>
++  <data name="Dialog_Yes" xml:space="preserve">
++    <value>是</value>
++  </data>
++  <data name="Dialog_No" xml:space="preserve">
++    <value>否</value>
++  </data>
++  <data name="Dialog_YesCountdownFormat" xml:space="preserve">
++    <value>是（{0}）</value>
++  </data>
++  <data name="Dialog_YesDeleteEverything" xml:space="preserve">
++    <value>是 -- 删除所有内容</value>
++  </data>
++  <data name="Steam_IsRunningTitle" xml:space="preserve">
++    <value>Steam 正在运行</value>
++  </data>
++  <data name="Steam_IsRunningMessage" xml:space="preserve">
++    <value>继续前必须关闭 Steam。请关闭 Steam 后重试。</value>
++  </data>
++  <data name="Provider_GoogleDrive" xml:space="preserve">
++    <value>Google Drive</value>
++  </data>
++  <data name="Provider_OneDrive" xml:space="preserve">
++    <value>OneDrive</value>
++  </data>
++  <data name="Provider_WebDav" xml:space="preserve">
++    <value>WebDAV</value>
++  </data>
++  <data name="Provider_FolderNetworkDrive" xml:space="preserve">
++    <value>文件夹 / 网络驱动器</value>
++  </data>
++  <data name="Provider_LocalOnly" xml:space="preserve">
++    <value>仅本地</value>
++  </data>
++  <data name="Backup_UnknownApp" xml:space="preserve">
++    <value>未知应用</value>
++  </data>
++  <data name="Backup_AppIdFormat" xml:space="preserve">
++    <value>AppID {0}</value>
++  </data>
++  <data name="Backup_Legacy" xml:space="preserve">
++    <value>旧版</value>
++  </data>
++  <data name="Backup_Recent" xml:space="preserve">
++    <value>最近</value>
++  </data>
++  <data name="Backup_FileCountFormat" xml:space="preserve">
++    <value>{0} 个文件</value>
++  </data>
++  <data name="Backup_OperationsFormat" xml:space="preserve">
++    <value>{0} 个操作</value>
++  </data>
++  <data name="Backup_OtherAppsFormat" xml:space="preserve">
++    <value>（+ {0} 个其他应用{1}）</value>
++  </data>
++  <data name="Backup_Preview" xml:space="preserve">
++    <value>预览</value>
++  </data>
++  <data name="Backup_HidePreview" xml:space="preserve">
++    <value>隐藏预览</value>
++  </data>
++  <data name="Backup_Loading" xml:space="preserve">
++    <value>正在加载...</value>
++  </data>
++  <data name="Backup_NoFilesOnDisk" xml:space="preserve">
++    <value>磁盘上未找到备份文件</value>
++  </data>
++  <data name="Preview_SummaryFormat" xml:space="preserve">
++    <value>预览：将恢复 {0} 个文件，跳过 {1} 个（已存在），{2} 个 remotecache</value>
++  </data>
++  <data name="Preview_Failed" xml:space="preserve">
++    <value>预览失败</value>
++  </data>
++  <data name="Preview_ErrorsHeader" xml:space="preserve">
++    <value>错误：
++{0}</value>
++  </data>
++  <data name="Preview_FailedTitle" xml:space="preserve">
++    <value>预览失败</value>
++  </data>
++  <data name="EmbeddedDll_NotEmbedded" xml:space="preserve">
++    <value>此构建未嵌入 cloud_redirect.dll</value>
++  </data>
++  <data name="EmbeddedDll_InUse" xml:space="preserve">
++    <value>cloud_redirect.dll 正在使用中（请先关闭 Steam）</value>
++  </data>
++  <data name="Common_Info" xml:space="preserve">
++    <value>信息</value>
++  </data>
++  <data name="Common_Error" xml:space="preserve">
++    <value>错误</value>
++  </data>
++  <data name="Common_UpdateFailed" xml:space="preserve">
++    <value>更新失败</value>
++  </data>
++  <data name="Common_ErrorDetailsFormat" xml:space="preserve">
++    <value>错误：{0}</value>
++  </data>
++  <data name="Common_UnknownError" xml:space="preserve">
++    <value>未知错误</value>
++  </data>
++  <data name="OAuth_AuthSuccessTitle" xml:space="preserve">
++    <value>授权成功</value>
++  </data>
++  <data name="OAuth_AuthSuccessBody" xml:space="preserve">
++    <value>你可以关闭此标签页并返回 CloudRedirect。</value>
++  </data>
++  <data name="OAuth_AuthFailedTitle" xml:space="preserve">
++    <value>授权失败</value>
++  </data>
++  <data name="OAuth_AuthFailedBody" xml:space="preserve">
++    <value>请关闭此标签页后重试。</value>
++  </data>
++  <data name="Settings_Language" xml:space="preserve">
++    <value>语言</value>
++  </data>
++  <data name="Settings_LanguageHint" xml:space="preserve">
++    <value>选择你的首选语言。更改将在重启后生效。</value>
++  </data>
++  <data name="Settings_RestartRequired" xml:space="preserve">
++    <value>需要重启才能更改语言。</value>
++  </data>
++  <data name="Settings_RestartNow" xml:space="preserve">
++    <value>立即重启</value>
++  </data>
++  <data name="Settings_FailedSaveLanguage" xml:space="preserve">
++    <value>无法保存语言偏好：{0}</value>
++  </data>
++  <data name="Settings_FailedSaveSync" xml:space="preserve">
++    <value>无法保存同步设置：{0}</value>
++  </data>
++  <data name="Settings_SystemDefault" xml:space="preserve">
++    <value>系统默认</value>
++  </data>
++  <data name="Settings_LanguageEnglish" xml:space="preserve">
++    <value>English</value>
++  </data>
++  <data name="Settings_LanguageSpanish" xml:space="preserve">
++    <value>Español</value>
++  </data>
++  <data name="Settings_LanguagePortuguese" xml:space="preserve">
++    <value>Português (Brasil)</value>
++  </data>
++  <data name="Settings_LanguageChineseSimplified" xml:space="preserve">
++    <value>简体中文</value>
++  </data>
++  <data name="Settings_Sync" xml:space="preserve">
++    <value>同步</value>
++  </data>
++  <data name="Settings_SyncHint" xml:space="preserve">
++    <value>这些设置控制哪些数据会通过云服务提供商在你的电脑之间同步。更改将在重启 Steam 后生效。</value>
++  </data>
++  <data name="Settings_SyncAchievements" xml:space="preserve">
++    <value>同步成就</value>
++  </data>
++  <data name="Settings_SyncAchievementsHint" xml:space="preserve">
++    <value>上传并合并 lua 应用在不同电脑上的成就进度。</value>
++  </data>
++  <data name="Settings_SyncPlaytime" xml:space="preserve">
++    <value>同步游戏时间</value>
++  </data>
++  <data name="Settings_SyncPlaytimeHint" xml:space="preserve">
++    <value>上传并合并 lua 应用在不同电脑上的游戏时间数据。</value>
++  </data>
++  <data name="Settings_SyncLuas" xml:space="preserve">
++    <value>同步 Lua 文件</value>
++  </data>
++  <data name="Settings_SyncLuasHint" xml:space="preserve">
++    <value>在电脑之间同步 lua 文件本身，这样就不必再次安装它们。</value>
++  </data>
++  <data name="Settings_AutoUpdateDll" xml:space="preserve">
++    <value>自动更新 DLL</value>
++  </data>
++  <data name="Settings_AutoUpdateDllHint" xml:space="preserve">
++    <value>Steam 启动时自动检查并安装较新版本的 CloudRedirect DLL。更新将在下次重启 Steam 时生效。</value>
++  </data>
++  <data name="Settings_CloudRedirectEnabled" xml:space="preserve">
++    <value>启用云存档重定向</value>
++  </data>
++  <data name="Settings_CloudRedirectEnabledHint" xml:space="preserve">
++    <value>启用后，lua 应用的云存档会被拦截并存储到本地（也可选择同步到云服务提供商）。禁用后，仅清单固定和补丁保持活动。更改将在重启 Steam 后生效。</value>
++  </data>
++  <data name="Settings_ManifestPinning" xml:space="preserve">
++    <value>清单固定</value>
++  </data>
++  <data name="Settings_ManifestPinningHint" xml:space="preserve">
++    <value>控制 lua 应用是否可以固定到指定版本。每个应用的固定项可在 Steam 文件夹中的配置文件里设置。更改将在重启 Steam 后生效。</value>
++  </data>
++  <data name="Settings_ManifestPinningEnabled" xml:space="preserve">
++    <value>启用清单固定</value>
++  </data>
++  <data name="Settings_ManifestPinningEnabledHint" xml:space="preserve">
++    <value>启用后，lua 应用可以锁定到指定版本。</value>
++  </data>
++  <data name="Settings_AutoComment" xml:space="preserve">
++    <value>自动注释 SetManifestID</value>
++  </data>
++  <data name="Settings_AutoCommentHint" xml:space="preserve">
++    <value>启用后，lua 中指定的 SetManifestID 将被视为已注释。如果禁用，则会遵循 SetManifestID，这意味着你的游戏会锁定到 lua 中指定的版本。此设置绝不会修改磁盘上的 lua 文件。</value>
++  </data>
++  <data name="Pin_PerAppTitle" xml:space="preserve">
++    <value>Lua 应用</value>
++  </data>
++  <data name="Pin_PerAppHint" xml:space="preserve">
++    <value>这些是你的 lua 游戏/应用。启用下面的应用即可将其固定到 lua 中指定的版本。开启自动注释时，只有这里启用的应用会被固定。更改将在重启 Steam 后生效。</value>
++  </data>
++  <data name="Pin_AppId" xml:space="preserve">
++    <value>App ID</value>
++  </data>
++  <data name="Pin_DepotId" xml:space="preserve">
++    <value>Depot ID</value>
++  </data>
++  <data name="Pin_ManifestId" xml:space="preserve">
++    <value>Manifest ID</value>
++  </data>
++  <data name="Pin_Add" xml:space="preserve">
++    <value>添加</value>
++  </data>
++  <data name="Pin_Remove" xml:space="preserve">
++    <value>移除</value>
++  </data>
++  <data name="Pin_NoEntries" xml:space="preserve">
++    <value>未找到带 setManifestid 的 lua 文件。</value>
++  </data>
++  <data name="Pin_AppFallbackName" xml:space="preserve">
++    <value>应用 {0}</value>
++  </data>
++  <data name="Pin_FailedSavePinConfig" xml:space="preserve">
++    <value>无法保存固定配置：{0}</value>
++  </data>
++  <data name="Pin_DepotLabel" xml:space="preserve">
++    <value>Depot</value>
++  </data>
++  <data name="Pin_DepotCountFormat" xml:space="preserve">
++    <value>{0} 个 depot</value>
++  </data>
++  <data name="Search_Placeholder" xml:space="preserve">
++    <value>按名称或 App ID 搜索...</value>
++  </data>
++  <data name="Settings_Parental" xml:space="preserve">
++    <value>家长控制</value>
++  </data>
++  <data name="Settings_ParentalHint" xml:space="preserve">
++    <value>与游戏时间和家庭限制相关的设置。</value>
++  </data>
++  <data name="Settings_ParentalIgnorePlaytime" xml:space="preserve">
++    <value>忽略游戏时间限制</value>
++  </data>
++  <data name="Settings_ParentalIgnorePlaytimeHint" xml:space="preserve">
++    <value>禁用游戏时间限制。仍会报告到设定上限为止的时间，但不会报告超过上限的部分。</value>
++  </data>
++  <data name="Settings_ParentalBypassPlaytime" xml:space="preserve">
++    <value>禁用家庭限制</value>
++  </data>
++  <data name="Settings_ParentalBypassPlaytimeHint" xml:space="preserve">
++    <value>不执行客户端侧家庭限制。</value>
++  </data>
++  <data name="AppUpdate_Skip" xml:space="preserve">
++    <value>跳过</value>
++  </data>
++  <data name="AppUpdate_UpdateNow" xml:space="preserve">
++    <value>立即更新</value>
++  </data>
++  <data name="AppUpdate_ReleaseNotes" xml:space="preserve">
++    <value>发行说明</value>
++  </data>
++  <data name="AppUpdate_AvailableTitleFormat" xml:space="preserve">
++    <value>有更新可用 -- v{0}</value>
++  </data>
++  <data name="AppUpdate_AvailableDescription" xml:space="preserve">
++    <value>CloudRedirect 新版本已准备好安装。</value>
++  </data>
++  <data name="AppUpdate_DownloadingVersionFormat" xml:space="preserve">
++    <value>正在下载 v{0}...</value>
++  </data>
++  <data name="AppUpdate_FailedTitle" xml:space="preserve">
++    <value>更新失败</value>
++  </data>
++  <data name="AppUpdate_DownloadingUpdate" xml:space="preserve">
++    <value>正在下载更新...</value>
++  </data>
++  <data name="AppUpdate_SuspiciousSizeFormat" xml:space="preserve">
++    <value>下载的文件大小异常（{0} 字节）</value>
++  </data>
++  <data name="AppUpdate_SuspiciousSizeOverFormat" xml:space="preserve">
++    <value>下载的文件大小异常（&gt;{0} 字节）</value>
++  </data>
++  <data name="AppUpdate_DownloadingProgressFormat" xml:space="preserve">
++    <value>正在下载... {0}%</value>
++  </data>
++  <data name="AppUpdate_InvalidExecutable" xml:space="preserve">
++    <value>下载的文件不是有效的可执行文件</value>
++  </data>
++  <data name="AppUpdate_Installing" xml:space="preserve">
++    <value>正在安装更新...</value>
++  </data>
++  <data name="AppUpdate_CurrentExeUnknown" xml:space="preserve">
++    <value>无法确定当前可执行文件路径</value>
++  </data>
++  <data name="AppUpdate_ReplaceExeFailedFormat" xml:space="preserve">
++    <value>无法替换 exe：{0}</value>
++  </data>
++  <data name="AppUpdate_Relaunching" xml:space="preserve">
++    <value>正在重新启动...</value>
++  </data>
++  <data name="AppUpdate_UpdateFailedFormat" xml:space="preserve">
++    <value>更新失败：{0}</value>
++  </data>
++
++  <data name="CloudProvider_WebDavTestUnauthorized" xml:space="preserve"><value>认证失败。请检查用户名和密码，或使用应用密码。</value></data>
++  <data name="CloudProvider_WebDavTestForbidden" xml:space="preserve"><value>服务器拒绝访问此 WebDAV 文件夹。</value></data>
++  <data name="Settings_DllSourceReadFailed" xml:space="preserve"><value>无法读取已部署的 DLL。</value></data>
++  <data name="CloudProvider_WebDavTestMethodNotAllowed" xml:space="preserve"><value>服务器不允许对此 URL 执行 PROPFIND。请确认它是 WebDAV 文件夹 URL。</value></data>
++  <data name="CloudProvider_WebDavTestNotFound" xml:space="preserve"><value>未找到 WebDAV 文件夹。请检查 URL 路径。</value></data>
++  <data name="Settings_DllSourceNotInstalledHint" xml:space="preserve"><value>启动 Steam 前请先部署 DLL。</value></data>
++  <data name="Settings_DllSourceNotInstalled" xml:space="preserve"><value>DLL 未安装</value></data>
++  <data name="CloudProvider_WebDavTestTimeout" xml:space="preserve"><value>WebDAV 测试超时。</value></data>
++  <data name="Settings_DllSourceCustomDifferentEmbedded" xml:space="preserve"><value>已部署自定义 WebDAV DLL，但它与此应用内嵌的 DLL 不同。</value></data>
++  <data name="Settings_DllSourceSteamMissing" xml:space="preserve"><value>未找到 Steam，因此无法检查已部署的 DLL。</value></data>
++  <data name="CloudProvider_WebDavTestHttpError" xml:space="preserve"><value>WebDAV 测试失败：HTTP {0} {1}</value></data>
++  <data name="CloudProvider_TestConnection" xml:space="preserve"><value>测试连接</value></data>
++  <data name="Settings_DllSourceUnknown" xml:space="preserve"><value>DLL 来源未知</value></data>
++  <data name="Settings_DllSourceHashMismatch" xml:space="preserve"><value>DLL 哈希不匹配</value></data>
++  <data name="CloudProvider_WebDavTestSuccess" xml:space="preserve"><value>WebDAV 连接正常（HTTP {0}）。</value></data>
++  <data name="Settings_DllSourceOfficial" xml:space="preserve"><value>官方 DLL</value></data>
++  <data name="Settings_DllSourceMatchesEmbedded" xml:space="preserve"><value>部署到 Steam 的 DLL 与此应用内嵌的 DLL 一致。</value></data>
++  <data name="CloudProvider_TestingConnection" xml:space="preserve"><value>正在测试连接...</value></data>
++  <data name="Settings_DllSourceCustomWebDav" xml:space="preserve"><value>自定义 WebDAV DLL</value></data>
++  <data name="Settings_DllSourceHashMismatchHint" xml:space="preserve"><value>已部署的 DLL 与内嵌 DLL 不一致。</value></data>
++  <data name="CloudProvider_WebDavNoQueryFragment" xml:space="preserve"><value>WebDAV URL 不能包含查询字符串或片段。</value></data>
++  <data name="Settings_DllSource" xml:space="preserve"><value>DLL 来源</value></data>
++  <data name="Settings_DllSourceDeployCustomHint" xml:space="preserve"><value>此应用包含自定义 WebDAV DLL，但 Steam 尚未使用它。请在仪表盘部署/更新 DLL。</value></data>
++  <data name="Settings_DllSourceHashFormat" xml:space="preserve"><value>已部署：{0}  内嵌：{1}</value></data>
++  <data name="CloudProvider_WebDavTestNetworkError" xml:space="preserve"><value>测试 WebDAV 时发生网络错误：{0}</value></data>
++</root>
+diff --git a/ui/Services/DllIdentity.cs b/ui/Services/DllIdentity.cs
+new file mode 100644
+index 0000000..318872b
+--- /dev/null
++++ b/ui/Services/DllIdentity.cs
+@@ -0,0 +1,123 @@
++using System;
++using System.IO;
++
++namespace CloudRedirect.Services;
++
++internal enum DllSourceKind
++{
++    NotInstalled,
++    Official,
++    CustomWebDav,
++    HashMismatch,
++    Unknown,
++}
++
++internal sealed record DllIdentityInfo(
++    DllSourceKind Kind,
++    string DisplayText,
++    string DetailText,
++    string? DeployedHash,
++    string? EmbeddedHash,
++    bool IsCustomBuild);
++
++internal static class DllIdentity
++{
++    private const string CustomWebDavHash =
++        "352869A8509A022C9337D11FB5F701F59A90011C2D1E4D265C16885376B05C05";
++
++    public static DllIdentityInfo GetCurrent()
++    {
++        var steamPath = SteamDetector.FindSteamPath();
++        var embeddedHash = EmbeddedDll.GetEmbeddedHash();
++
++        if (steamPath == null)
++        {
++            return new DllIdentityInfo(
++                DllSourceKind.Unknown,
++                S("Settings_DllSourceUnknown"),
++                S("Settings_DllSourceSteamMissing"),
++                null,
++                embeddedHash,
++                IsCustomHash(embeddedHash));
++        }
++
++        var dllPath = Path.Combine(steamPath, "cloud_redirect.dll");
++        if (!File.Exists(dllPath))
++        {
++            return new DllIdentityInfo(
++                DllSourceKind.NotInstalled,
++                S("Settings_DllSourceNotInstalled"),
++                S("Settings_DllSourceNotInstalledHint"),
++                null,
++                embeddedHash,
++                IsCustomHash(embeddedHash));
++        }
++
++        string? deployedHash;
++        try
++        {
++            deployedHash = ComputeSha256(dllPath);
++        }
++        catch
++        {
++            return new DllIdentityInfo(
++                DllSourceKind.Unknown,
++                S("Settings_DllSourceUnknown"),
++                S("Settings_DllSourceReadFailed"),
++                null,
++                embeddedHash,
++                IsCustomHash(embeddedHash));
++        }
++
++        var deployedIsCustom = IsCustomHash(deployedHash);
++        var embeddedIsCustom = IsCustomHash(embeddedHash);
++        var deployedMatchesEmbedded = embeddedHash != null &&
++            string.Equals(deployedHash, embeddedHash, StringComparison.OrdinalIgnoreCase);
++
++        if (deployedIsCustom)
++        {
++            return new DllIdentityInfo(
++                DllSourceKind.CustomWebDav,
++                S("Settings_DllSourceCustomWebDav"),
++                deployedMatchesEmbedded
++                    ? S("Settings_DllSourceMatchesEmbedded")
++                    : S("Settings_DllSourceCustomDifferentEmbedded"),
++                deployedHash,
++                embeddedHash,
++                true);
++        }
++
++        if (deployedMatchesEmbedded && !embeddedIsCustom)
++        {
++            return new DllIdentityInfo(
++                DllSourceKind.Official,
++                S("Settings_DllSourceOfficial"),
++                S("Settings_DllSourceMatchesEmbedded"),
++                deployedHash,
++                embeddedHash,
++                false);
++        }
++
++        return new DllIdentityInfo(
++            DllSourceKind.HashMismatch,
++            S("Settings_DllSourceHashMismatch"),
++            embeddedIsCustom
++                ? S("Settings_DllSourceDeployCustomHint")
++                : S("Settings_DllSourceHashMismatchHint"),
++            deployedHash,
++            embeddedHash,
++            embeddedIsCustom);
++    }
++
++    private static bool IsCustomHash(string? hash)
++        => string.Equals(hash, CustomWebDavHash, StringComparison.OrdinalIgnoreCase);
++
++    private static string ComputeSha256(string path)
++    {
++        using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
++        using var sha = System.Security.Cryptography.SHA256.Create();
++        return Convert.ToHexString(sha.ComputeHash(fs));
++    }
++
++    private static string S(string key) => Resources.S.Get(key);
++}
+diff --git a/ui/Services/Providers/CliUiCloudProvider.cs b/ui/Services/Providers/CliUiCloudProvider.cs
+index e4f4de9..3dcb651 100644
+--- a/ui/Services/Providers/CliUiCloudProvider.cs
++++ b/ui/Services/Providers/CliUiCloudProvider.cs
+@@ -7,11 +7,11 @@ namespace CloudRedirect.Services.Providers;
+ /// <summary>
+ /// IUiCloudProvider implementation that delegates to cloud_redirect_cli.exe.
+ /// This consolidates provider logic in the native DLL rather than reimplementing
+-/// in C#. Used for gdrive and onedrive providers.
++/// in C#. Used for gdrive, onedrive, and webdav providers.
+ /// </summary>
+ internal sealed class CliUiCloudProvider : IUiCloudProvider
+ {
+-    private readonly string _provider; // "gdrive" or "onedrive"
++    private readonly string _provider; // "gdrive", "onedrive", or "webdav"
+     private readonly Action<string>? _log;
+ 
+     public CliUiCloudProvider(string provider, Action<string>? log)
+diff --git a/ui/Services/SteamDetector.cs b/ui/Services/SteamDetector.cs
+index a612949..67528f9 100644
+--- a/ui/Services/SteamDetector.cs
++++ b/ui/Services/SteamDetector.cs
+@@ -275,7 +275,20 @@ public static class SteamDetector
+             if (root.TryGetProperty("sync_path", out var sp))
+                 syncPath = sp.GetString();
+ 
+-            return new CloudConfig(provider, tokenPath, syncPath);
++            string? webDavUrl = null;
++            if (root.TryGetProperty("webdav_url", out var wu))
++                webDavUrl = wu.GetString();
++
++            string? webDavUsername = null;
++            if (root.TryGetProperty("webdav_username", out var wun))
++                webDavUsername = wun.GetString();
++
++            string? webDavPassword = null;
++            if (root.TryGetProperty("webdav_password", out var wp))
++                webDavPassword = wp.GetString();
++
++            return new CloudConfig(provider, tokenPath, syncPath,
++                webDavUrl, webDavUsername, webDavPassword);
+         }
+         catch
+         {
+@@ -287,12 +300,19 @@ public static class SteamDetector
+ /// <summary>
+ /// Parsed contents of cloud_redirect/config.json.
+ /// </summary>
+-public record CloudConfig(string Provider, string? TokenPath, string? SyncPath)
++public record CloudConfig(
++    string Provider,
++    string? TokenPath,
++    string? SyncPath,
++    string? WebDavUrl,
++    string? WebDavUsername,
++    string? WebDavPassword)
+ {
+     public string DisplayName => Provider switch
+     {
+         "gdrive" => S.Get("Provider_GoogleDrive"),
+         "onedrive" => S.Get("Provider_OneDrive"),
++        "webdav" => S.Get("Provider_WebDav"),
+         "folder" => S.Get("Provider_FolderNetworkDrive"),
+         "local" => S.Get("Provider_LocalOnly"),
+         _ => Provider
+@@ -300,4 +320,10 @@ public record CloudConfig(string Provider, string? TokenPath, string? SyncPath)
+ 
+     public bool IsFolder => Provider == "folder";
+     public bool IsLocal => Provider == "local";
++    public bool IsWebDav => Provider == "webdav";
++    public bool HasWebDavConfig =>
++        IsWebDav &&
++        !string.IsNullOrWhiteSpace(WebDavUrl) &&
++        !string.IsNullOrWhiteSpace(WebDavUsername) &&
++        !string.IsNullOrEmpty(WebDavPassword);
+ }
+diff --git a/ui/Services/UiCloudProviderFactory.cs b/ui/Services/UiCloudProviderFactory.cs
+index 5033e12..f462e68 100644
+--- a/ui/Services/UiCloudProviderFactory.cs
++++ b/ui/Services/UiCloudProviderFactory.cs
+@@ -17,6 +17,7 @@ internal static class UiCloudProviderFactory
+         {
+             "gdrive"   => new CliUiCloudProvider("gdrive", log),
+             "onedrive" => new CliUiCloudProvider("onedrive", log),
++            "webdav"   => new CliUiCloudProvider("webdav", log),
+             "folder"   => new FolderUiCloudProvider(log, config.SyncPath!),
+             _          => null,
+         };
+diff --git a/ui/Services/WebDavConnectionTester.cs b/ui/Services/WebDavConnectionTester.cs
+new file mode 100644
+index 0000000..1e6d478
+--- /dev/null
++++ b/ui/Services/WebDavConnectionTester.cs
+@@ -0,0 +1,79 @@
++using System;
++using System.Net;
++using System.Net.Http;
++using System.Text;
++using System.Threading;
++using System.Threading.Tasks;
++using CloudRedirect.Resources;
++
++namespace CloudRedirect.Services;
++
++internal sealed record WebDavTestResult(bool Success, string Message);
++
++internal static class WebDavConnectionTester
++{
++    public static async Task<WebDavTestResult> TestAsync(
++        string url,
++        string username,
++        string password,
++        CancellationToken cancellationToken = default)
++    {
++        if (!Uri.TryCreate(url.Trim(), UriKind.Absolute, out var uri) ||
++            !string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
++        {
++            return new WebDavTestResult(false, S.Get("CloudProvider_WebDavRequiresHttps"));
++        }
++
++        if (!string.IsNullOrEmpty(uri.Query) || !string.IsNullOrEmpty(uri.Fragment))
++            return new WebDavTestResult(false, S.Get("CloudProvider_WebDavNoQueryFragment"));
++
++        if (string.IsNullOrWhiteSpace(username) || string.IsNullOrEmpty(password))
++            return new WebDavTestResult(false, S.Get("CloudProvider_WebDavMissingCredentials"));
++
++        using var handler = new HttpClientHandler
++        {
++            Credentials = new NetworkCredential(username, password),
++            PreAuthenticate = true,
++        };
++        handler.AllowAutoRedirect = true;
++
++        using var client = new HttpClient(handler)
++        {
++            Timeout = TimeSpan.FromSeconds(20),
++        };
++        client.DefaultRequestHeaders.UserAgent.ParseAdd("CloudRedirect-WebDAV-Test/1.0");
++
++        using var request = new HttpRequestMessage(new HttpMethod("PROPFIND"), uri);
++        request.Headers.TryAddWithoutValidation("Depth", "0");
++        request.Content = new StringContent(
++            "<?xml version=\"1.0\" encoding=\"utf-8\"?><d:propfind xmlns:d=\"DAV:\"><d:prop><d:resourcetype/></d:prop></d:propfind>",
++            Encoding.UTF8,
++            "application/xml");
++
++        try
++        {
++            using var response = await client.SendAsync(request, cancellationToken);
++            var code = (int)response.StatusCode;
++            if (response.StatusCode == HttpStatusCode.MultiStatus || response.IsSuccessStatusCode)
++                return new WebDavTestResult(true, S.Format("CloudProvider_WebDavTestSuccess", code));
++
++            var message = response.StatusCode switch
++            {
++                HttpStatusCode.Unauthorized => S.Get("CloudProvider_WebDavTestUnauthorized"),
++                HttpStatusCode.Forbidden => S.Get("CloudProvider_WebDavTestForbidden"),
++                HttpStatusCode.NotFound => S.Get("CloudProvider_WebDavTestNotFound"),
++                HttpStatusCode.MethodNotAllowed => S.Get("CloudProvider_WebDavTestMethodNotAllowed"),
++                _ => S.Format("CloudProvider_WebDavTestHttpError", code, response.ReasonPhrase ?? "")
++            };
++            return new WebDavTestResult(false, message);
++        }
++        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
++        {
++            return new WebDavTestResult(false, S.Get("CloudProvider_WebDavTestTimeout"));
++        }
++        catch (HttpRequestException ex)
++        {
++            return new WebDavTestResult(false, S.Format("CloudProvider_WebDavTestNetworkError", ex.Message));
++        }
++    }
++}

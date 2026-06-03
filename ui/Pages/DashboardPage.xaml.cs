@@ -131,6 +131,17 @@ public partial class DashboardPage : Page
             return;
         }
 
+        if (config.IsWebDav)
+        {
+            ProviderStatus.Text = config.HasWebDavConfig
+                ? S.Format("Dashboard_Configured", config.DisplayName)
+                : S.Format("Dashboard_AuthStatus", config.DisplayName, S.Get("CloudProvider_WebDavMissingCredentials"));
+            ProviderIcon.Symbol = config.HasWebDavConfig
+                ? Wpf.Ui.Controls.SymbolRegular.CloudCheckmark24
+                : Wpf.Ui.Controls.SymbolRegular.CloudOff24;
+            return;
+        }
+
         // OAuth providers (gdrive, onedrive)
         if (config.TokenPath != null && preCheckedStatus != null)
         {

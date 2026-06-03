@@ -7,11 +7,11 @@ namespace CloudRedirect.Services.Providers;
 /// <summary>
 /// IUiCloudProvider implementation that delegates to cloud_redirect_cli.exe.
 /// This consolidates provider logic in the native DLL rather than reimplementing
-/// in C#. Used for gdrive and onedrive providers.
+/// in C#. Used for gdrive, onedrive, and webdav providers.
 /// </summary>
 internal sealed class CliUiCloudProvider : IUiCloudProvider
 {
-    private readonly string _provider; // "gdrive" or "onedrive"
+    private readonly string _provider; // "gdrive", "onedrive", or "webdav"
     private readonly Action<string>? _log;
 
     public CliUiCloudProvider(string provider, Action<string>? log)

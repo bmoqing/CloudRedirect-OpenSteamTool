@@ -3321,6 +3321,10 @@ static std::string ComputeFileSHA256(const std::string& path) {
 }
 
 static void TryAutoUpdateDll() {
+#ifdef CR_CUSTOM_WEB_DAV_BUILD
+    LOG("[AutoUpdate] Skipping official DLL auto-update for custom WebDAV build");
+    return;
+#endif
     LOG("[AutoUpdate] Checking for DLL update (local version: %s)...", CR_RELEASE_VERSION);
 
     // Fetch releases from GitHub
@@ -4042,6 +4046,8 @@ void Init(const std::string& steamPath) {
                 std::string syncPath = cfg["sync_path"].str();
                 if (providerName == "folder" && !syncPath.empty()) {
                     initPath = syncPath;
+                } else if (providerName == "webdav") {
+                    initPath = configPath;
                 }
 
                 if (!initPath.empty() && provider->Init(initPath)) {

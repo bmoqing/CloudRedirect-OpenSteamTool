@@ -52,7 +52,7 @@ static std::string GetConfigDir() {
 #endif
 }
 
-static std::string GetTokenPath(const std::string& provider) {
+static std::string GetProviderInitPath(const std::string& provider) {
     std::string configDir = GetConfigDir();
     if (configDir.empty()) return "";
 
@@ -71,10 +71,19 @@ static std::string GetTokenPath(const std::string& provider) {
             json.resize(read);
 
             Json::Value root = Json::Parse(json);
-            if (root.type == Json::Type::Object && root.has("provider") && root["provider"].str() == provider &&
-                root.has("token_path") && root["token_path"].type == Json::Type::String &&
-                !root["token_path"].str().empty()) {
-                return root["token_path"].str();
+            if (root.type == Json::Type::Object && root.has("provider") && root["provider"].str() == provider) {
+                if (provider == "webdav") {
+                    return configPath;
+                }
+                if (provider == "folder" &&
+                    root.has("sync_path") && root["sync_path"].type == Json::Type::String &&
+                    !root["sync_path"].str().empty()) {
+                    return root["sync_path"].str();
+                }
+                if (root.has("token_path") && root["token_path"].type == Json::Type::String &&
+                    !root["token_path"].str().empty()) {
+                    return root["token_path"].str();
+                }
             }
         } else {
             fclose(f);
@@ -147,8 +156,8 @@ static std::string JsonSuccess() {
 // ── Command implementations ─────────────────────────────────────────────
 
 std::string CmdAuthStatus(const std::string& provider) {
-    std::string tokenPath = GetTokenPath(provider);
-    if (tokenPath.empty()) {
+    std::string initPath = GetProviderInitPath(provider);
+    if (initPath.empty()) {
         return JsonError("Cannot determine config directory");
     }
     
@@ -157,7 +166,7 @@ std::string CmdAuthStatus(const std::string& provider) {
         return JsonError("Unknown provider: " + provider);
     }
     
-    if (!prov->Init(tokenPath)) {
+    if (!prov->Init(initPath)) {
         return JsonObject({
             {"authenticated", JsonBool(false)},
             {"error", JsonString("Failed to initialize provider")}
@@ -169,13 +178,14 @@ std::string CmdAuthStatus(const std::string& provider) {
     
     return JsonObject({
         {"authenticated", JsonBool(authenticated)},
-        {"token_path", JsonString(tokenPath)}
+        {"token_path", JsonString(initPath)},
+        {"init_path", JsonString(initPath)}
     });
 }
 
 std::string CmdListRemoteApps(const std::string& provider, const std::string& accountId) {
-    std::string tokenPath = GetTokenPath(provider);
-    if (tokenPath.empty()) {
+    std::string initPath = GetProviderInitPath(provider);
+    if (initPath.empty()) {
         return JsonError("Cannot determine config directory");
     }
     
@@ -184,7 +194,7 @@ std::string CmdListRemoteApps(const std::string& provider, const std::string& ac
         return JsonError("Unknown provider: " + provider);
     }
     
-    if (!prov->Init(tokenPath)) {
+    if (!prov->Init(initPath)) {
         return JsonError("Failed to initialize provider");
     }
     
@@ -236,8 +246,8 @@ std::string CmdListRemoteApps(const std::string& provider, const std::string& ac
 }
 
 std::string CmdListRemoteAppIds(const std::string& provider, const std::string& accountId) {
-    std::string tokenPath = GetTokenPath(provider);
-    if (tokenPath.empty()) {
+    std::string initPath = GetProviderInitPath(provider);
+    if (initPath.empty()) {
         return JsonError("Cannot determine config directory");
     }
     
@@ -246,7 +256,7 @@ std::string CmdListRemoteAppIds(const std::string& provider, const std::string& 
         return JsonError("Unknown provider: " + provider);
     }
     
-    if (!prov->Init(tokenPath)) {
+    if (!prov->Init(initPath)) {
         return JsonError("Failed to initialize provider");
     }
     
@@ -277,8 +287,8 @@ std::string CmdListRemoteAppIds(const std::string& provider, const std::string& 
 }
 
 std::string CmdListRemoteAppFiles(const std::string& provider, const std::string& accountId, const std::string& appId) {
-    std::string tokenPath = GetTokenPath(provider);
-    if (tokenPath.empty()) {
+    std::string initPath = GetProviderInitPath(provider);
+    if (initPath.empty()) {
         return JsonError("Cannot determine config directory");
     }
 
@@ -287,7 +297,7 @@ std::string CmdListRemoteAppFiles(const std::string& provider, const std::string
         return JsonError("Unknown provider: " + provider);
     }
 
-    if (!prov->Init(tokenPath)) {
+    if (!prov->Init(initPath)) {
         return JsonError("Failed to initialize provider");
     }
 
@@ -332,8 +342,8 @@ std::string CmdListRemoteAppFiles(const std::string& provider, const std::string
 }
 
 std::string CmdDeleteRemoteApp(const std::string& provider, const std::string& accountId, const std::string& appId) {
-    std::string tokenPath = GetTokenPath(provider);
-    if (tokenPath.empty()) {
+    std::string initPath = GetProviderInitPath(provider);
+    if (initPath.empty()) {
         return JsonError("Cannot determine config directory");
     }
     
@@ -342,7 +352,7 @@ std::string CmdDeleteRemoteApp(const std::string& provider, const std::string& a
         return JsonError("Unknown provider: " + provider);
     }
     
-    if (!prov->Init(tokenPath)) {
+    if (!prov->Init(initPath)) {
         return JsonError("Failed to initialize provider");
     }
     
@@ -375,8 +385,8 @@ std::string CmdDeleteRemoteApp(const std::string& provider, const std::string& a
 }
 
 std::string CmdListBlobs(const std::string& provider, const std::string& accountId, const std::string& appId) {
-    std::string tokenPath = GetTokenPath(provider);
-    if (tokenPath.empty()) {
+    std::string initPath = GetProviderInitPath(provider);
+    if (initPath.empty()) {
         return JsonError("Cannot determine config directory");
     }
     
@@ -385,7 +395,7 @@ std::string CmdListBlobs(const std::string& provider, const std::string& account
         return JsonError("Unknown provider: " + provider);
     }
     
-    if (!prov->Init(tokenPath)) {
+    if (!prov->Init(initPath)) {
         return JsonError("Failed to initialize provider");
     }
     
@@ -440,8 +450,8 @@ std::string CmdListBlobs(const std::string& provider, const std::string& account
 
 std::string CmdDeleteBlobs(const std::string& provider, const std::string& accountId, const std::string& appId,
                            const std::vector<std::string>& blobNames) {
-    std::string tokenPath = GetTokenPath(provider);
-    if (tokenPath.empty()) {
+    std::string initPath = GetProviderInitPath(provider);
+    if (initPath.empty()) {
         return JsonError("Cannot determine config directory");
     }
     
@@ -450,7 +460,7 @@ std::string CmdDeleteBlobs(const std::string& provider, const std::string& accou
         return JsonError("Unknown provider: " + provider);
     }
     
-    if (!prov->Init(tokenPath)) {
+    if (!prov->Init(initPath)) {
         return JsonError("Failed to initialize provider");
     }
     
@@ -498,8 +508,8 @@ std::string CmdDeleteBlobs(const std::string& provider, const std::string& accou
 
 std::string CmdSyncRemoteApp(const std::string& provider, const std::string& accountId, const std::string& appId,
                              const std::string& cloudRootArg) {
-    std::string tokenPath = GetTokenPath(provider);
-    if (tokenPath.empty()) {
+    std::string initPath = GetProviderInitPath(provider);
+    if (initPath.empty()) {
         return JsonError("Cannot determine config directory");
     }
 
@@ -514,7 +524,7 @@ std::string CmdSyncRemoteApp(const std::string& provider, const std::string& acc
         return JsonError("Unknown provider: " + provider);
     }
 
-    if (!prov->Init(tokenPath)) {
+    if (!prov->Init(initPath)) {
         return JsonError("Failed to initialize provider");
     }
 
@@ -562,8 +572,8 @@ std::string CmdSyncRemoteApp(const std::string& provider, const std::string& acc
 
 std::string CmdSyncAllRemoteApps(const std::string& provider, const std::string& accountId,
                                  const std::string& cloudRootArg) {
-    std::string tokenPath = GetTokenPath(provider);
-    if (tokenPath.empty()) {
+    std::string initPath = GetProviderInitPath(provider);
+    if (initPath.empty()) {
         return JsonError("Cannot determine config directory");
     }
 
@@ -577,7 +587,7 @@ std::string CmdSyncAllRemoteApps(const std::string& provider, const std::string&
         return JsonError("Unknown provider: " + provider);
     }
 
-    if (!prov->Init(tokenPath)) {
+    if (!prov->Init(initPath)) {
         return JsonError("Failed to initialize provider");
     }
 
@@ -639,8 +649,8 @@ std::string CmdPruneLocalLegacyMetadata(const std::string& cloudRootArg) {
 
 std::string CmdPublishFullManifest(const std::string& provider, const std::string& accountId, const std::string& appId,
                                    const std::string& cloudRootArg) {
-    std::string tokenPath = GetTokenPath(provider);
-    if (tokenPath.empty()) {
+    std::string initPath = GetProviderInitPath(provider);
+    if (initPath.empty()) {
         return JsonError("Cannot determine config directory");
     }
 
@@ -655,7 +665,7 @@ std::string CmdPublishFullManifest(const std::string& provider, const std::strin
         return JsonError("Unknown provider: " + provider);
     }
 
-    if (!prov->Init(tokenPath)) {
+    if (!prov->Init(initPath)) {
         return JsonError("Failed to initialize provider");
     }
 
@@ -707,8 +717,8 @@ std::string CmdPublishFullManifest(const std::string& provider, const std::strin
 
 std::string CmdGcBlobs(const std::string& provider, const std::string& accountId, const std::string& appId,
                        const std::string& cloudRootArg) {
-    std::string tokenPath = GetTokenPath(provider);
-    if (tokenPath.empty()) {
+    std::string initPath = GetProviderInitPath(provider);
+    if (initPath.empty()) {
         return JsonError("Cannot determine config directory");
     }
 
@@ -723,7 +733,7 @@ std::string CmdGcBlobs(const std::string& provider, const std::string& accountId
         return JsonError("Unknown provider: " + provider);
     }
 
-    if (!prov->Init(tokenPath)) {
+    if (!prov->Init(initPath)) {
         return JsonError("Failed to initialize provider");
     }
 

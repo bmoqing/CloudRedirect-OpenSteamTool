@@ -1,5 +1,13 @@
 # CloudRedirect
 
+## Custom Build Attribution
+
+This repository is a custom build based on
+[Selectively11/CloudRedirect](https://github.com/Selectively11/CloudRedirect).
+The upstream project provides the core CloudRedirect implementation. This fork adds
+Simplified Chinese localization, WebDAV provider support, custom build notes, and
+release packaging for the custom build.
+
 ""Steam Cloud"" for 'lua' games.
 
 > ****This software is experimental and under active development.**** The underlying techniques are fairly insane. What this software tries to do is nuts to attempt. This software could damage your save files and probably will! It could overwrite your saves, cause weird conflicts, make your saves disappear, make you cry. Back up any saves you care about before using this software.
@@ -37,6 +45,7 @@ CloudRedirect consists of a C++ DLL and a WPF companion app:
 
 - **Google Drive**
 - **OneDrive**
+- **WebDAV** -- custom build addition.
 - **Local folder / mapped drive** -- by request of literally one user.
 
 ## Usage

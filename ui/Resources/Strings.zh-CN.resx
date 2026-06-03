@@ -39,7 +39,6 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
-
   <data name="MainWindow_Title" xml:space="preserve">
     <value>CloudRedirect</value>
   </data>
@@ -47,568 +46,557 @@
     <value>CloudRedirect</value>
   </data>
   <data name="Nav_Dashboard" xml:space="preserve">
-    <value>Panel</value>
+    <value>仪表盘</value>
   </data>
   <data name="Nav_Setup" xml:space="preserve">
-    <value>Configuración</value>
+    <value>安装设置</value>
   </data>
   <data name="Nav_CloudProvider" xml:space="preserve">
-    <value>Proveedor de nube</value>
+    <value>云服务提供商</value>
   </data>
   <data name="Nav_Apps" xml:space="preserve">
-    <value>Apps</value>
+    <value>应用</value>
   </data>
   <data name="Nav_Cleanup" xml:space="preserve">
-    <value>Limpieza</value>
+    <value>清理</value>
   </data>
   <data name="Nav_ManifestPinning" xml:space="preserve">
-    <value>Fijación de manifiestos</value>
+    <value>清单固定</value>
   </data>
   <data name="Nav_Settings" xml:space="preserve">
-    <value>Ajustes</value>
+    <value>设置</value>
   </data>
   <data name="Nav_RestartSteam" xml:space="preserve">
-    <value>Reiniciar Steam</value>
+    <value>重启 Steam</value>
   </data>
   <data name="Nav_ChoiceMode" xml:space="preserve">
-    <value>Modo</value>
+    <value>模式</value>
   </data>
-
   <data name="Choice_Title" xml:space="preserve">
-    <value>Elige tu modo</value>
+    <value>选择使用模式</value>
   </data>
   <data name="Choice_Description" xml:space="preserve">
-    <value>Elige cómo quieres usar CloudRedirect. Siempre puedes cambiar de STFixer a Cloud Redirect después.</value>
+    <value>选择你想如何使用 CloudRedirect。之后也可以从 STFixer 升级到 Cloud Redirect。</value>
   </data>
   <data name="Choice_STFixer_Title" xml:space="preserve">
-    <value>Modo STFixer</value>
+    <value>STFixer 模式</value>
   </data>
   <data name="Choice_STFixer_Description" xml:space="preserve">
-    <value>Correcciones principales. Hace que los juegos de Capcom guarden, habilita la activación de SteamTools cuando algunos servidores de SteamTools están caídos, habilita la fijación de manifiestos. No habilita Cloud Saves.</value>
+    <value>核心修复。让 Capcom 游戏可以保存，在部分 SteamTools 服务器不可用时启用 SteamTools 激活，并启用清单固定。不启用云存档。</value>
   </data>
   <data name="Choice_STFixer_Features" xml:space="preserve">
-    <value>Incluye: Corrección de guardado Capcom, parche offline SteamTools, despliegue de DLL, fijación de versión de manifiestos</value>
+    <value>包含：Capcom 存档修复、SteamTools 离线补丁、DLL 部署、清单版本固定</value>
   </data>
   <data name="Choice_CloudRedirect_Title" xml:space="preserve">
-    <value>Modo Cloud Redirect</value>
+    <value>Cloud Redirect 模式</value>
   </data>
   <data name="Choice_CloudRedirect_Description" xml:space="preserve">
-    <value>Todo lo de ST Fixer, más redirección de Cloud Save. Redirige Steam Cloud para juegos lua a Google Drive/OneDrive/una carpeta local.</value>
+    <value>包含 ST Fixer 的全部功能，并额外加入云存档重定向。将 lua 游戏的 Steam Cloud 重定向到 Google Drive、OneDrive 或本地文件夹。</value>
   </data>
   <data name="Choice_CloudRedirect_Features" xml:space="preserve">
-    <value>Incluye: Todas las funciones de STFixer + redirección de guardado en la nube, sincronización con proveedor de nube, gestión de apps, limpieza de contaminación</value>
+    <value>包含：全部 STFixer 功能 + 云存档重定向、云服务同步、应用管理、污染清理</value>
   </data>
   <data name="Choice_CurrentMode_STFixer" xml:space="preserve">
-    <value>Modo actual: STFixer</value>
+    <value>当前模式：STFixer</value>
   </data>
   <data name="Choice_CurrentMode_STFixer_Desc" xml:space="preserve">
-    <value>Puedes cambiar al modo Cloud Redirect seleccionando la opción de abajo. Es unidireccional -- Cloud Redirect incluye todo lo de STFixer más las funciones de nube.</value>
+    <value>你可以选择下面的选项升级到 Cloud Redirect 模式。此操作为单向操作 -- Cloud Redirect 包含 STFixer 的全部功能以及云功能。</value>
   </data>
   <data name="Choice_CurrentMode_CloudRedirect" xml:space="preserve">
-    <value>Modo actual: Cloud Redirect</value>
+    <value>当前模式：Cloud Redirect</value>
   </data>
   <data name="Choice_CurrentMode_CloudRedirect_Desc" xml:space="preserve">
-    <value>Todas las funciones están habilitadas. La intercepción de guardado en la nube está activa.</value>
+    <value>所有功能均已启用。云存档拦截处于活动状态。</value>
   </data>
   <data name="Choice_FailedSaveMode" xml:space="preserve">
-    <value>No se pudo guardar tu selección: {0}</value>
+    <value>无法保存你的选择：{0}</value>
   </data>
-
   <data name="Setup_Title" xml:space="preserve">
-    <value>Configuración</value>
+    <value>安装设置</value>
   </data>
   <data name="Setup_Description" xml:space="preserve">
-    <value>Aplica parches y despliega CloudRedirect en tu instalación de Steam.</value>
+    <value>将补丁应用并部署 CloudRedirect 到你的 Steam 安装目录。</value>
   </data>
   <data name="Setup_Description_STFixer" xml:space="preserve">
-    <value>Aplica parches para la corrección de guardado de Capcom y fijación de manifiestos.</value>
+    <value>应用 Capcom 存档修复和清单固定补丁。</value>
   </data>
   <data name="Setup_ShowDiagnostics" xml:space="preserve">
-    <value>Mostrar diagnósticos</value>
+    <value>显示诊断信息</value>
   </data>
   <data name="Setup_ShowDiagnosticsHint" xml:space="preserve">
-    <value>Versión de Steam, ruta y controles de parches individuales</value>
+    <value>Steam 版本、路径和单独补丁控制项</value>
   </data>
   <data name="Setup_SteamVersion" xml:space="preserve">
-    <value>Versión de Steam</value>
+    <value>Steam 版本</value>
   </data>
   <data name="Setup_Checking" xml:space="preserve">
-    <value>Verificando...</value>
+    <value>正在检查...</value>
   </data>
   <data name="Setup_SteamPath" xml:space="preserve">
-    <value>Ruta de Steam</value>
+    <value>Steam 路径</value>
   </data>
   <data name="Setup_Detecting" xml:space="preserve">
-    <value>Detectando...</value>
+    <value>正在检测...</value>
   </data>
   <data name="Setup_Change" xml:space="preserve">
-    <value>Cambiar</value>
+    <value>更改</value>
   </data>
   <data name="Setup_RunAllPatches" xml:space="preserve">
-    <value>Ejecutar todos los parches</value>
+    <value>运行全部补丁</value>
   </data>
   <data name="Setup_OfflineSetupHeader" xml:space="preserve">
-    <value>Configuración sin conexión de SteamTools</value>
+    <value>SteamTools 离线设置</value>
   </data>
   <data name="Setup_OfflineSetupDescription" xml:space="preserve">
-    <value>Parchea SteamTools para que funcione incluso cuando sus servidores de activación están caídos. Requerido para instalaciones nuevas.</value>
+    <value>为 SteamTools 打补丁，使其在激活服务器不可用时仍能工作。首次安装时需要此步骤。</value>
   </data>
   <data name="Setup_OfflineSetup" xml:space="preserve">
-    <value>Configuración sin conexión</value>
+    <value>离线设置</value>
   </data>
   <data name="Setup_NotChecked" xml:space="preserve">
-    <value>No verificado</value>
+    <value>未检查</value>
   </data>
   <data name="Setup_ApplyOfflineSetup" xml:space="preserve">
-    <value>Aplicar configuración sin conexión</value>
+    <value>应用离线设置</value>
   </data>
   <data name="Setup_RevertPatch" xml:space="preserve">
-    <value>Revertir parche</value>
+    <value>还原补丁</value>
   </data>
   <data name="Setup_StExeHeader" xml:space="preserve">
-    <value>Parche de SteamTools.exe</value>
+    <value>SteamTools.exe 补丁</value>
   </data>
   <data name="Setup_StExeDescription" xml:space="preserve">
-    <value>Impide que la aplicación de escritorio SteamTools sobrescriba las DLL parcheadas en cada inicio. Sin esto, SteamTools deshará los parches principales.</value>
+    <value>阻止 SteamTools 桌面应用在每次启动时覆盖已打补丁的 DLL。否则 SteamTools 会撤销核心补丁。</value>
   </data>
   <data name="Setup_DllDeploy" xml:space="preserve">
-    <value>Despliegue de DLL</value>
+    <value>DLL 部署</value>
   </data>
   <data name="Setup_PatchSteamToolsExe" xml:space="preserve">
-    <value>Parchear SteamTools.exe</value>
+    <value>修补 SteamTools.exe</value>
   </data>
   <data name="Setup_CloudRedirectPatchHeader" xml:space="preserve">
-    <value>Parche de Cloud Redirect</value>
+    <value>Cloud Redirect 补丁</value>
   </data>
   <data name="Setup_CloudRedirectPatchHeader_STFixer" xml:space="preserve">
-    <value>Parche de corrección de guardado y fijación de manifiestos</value>
+    <value>存档修复和清单固定补丁</value>
   </data>
   <data name="Setup_CloudRedirectPatchDescription" xml:space="preserve">
-    <value>Parchea el payload de SteamTools para que las partidas guardadas en la nube de lua apps se redirijan a través del sistema CloudRedirect.</value>
+    <value>修补 SteamTools 载荷，使 lua 应用的云存档通过 CloudRedirect 系统路由。</value>
   </data>
   <data name="Setup_CloudRedirectPatchDescription_STFixer" xml:space="preserve">
-    <value>Parchea el payload de SteamTools para corregir el enrutamiento de guardados de Capcom y habilitar la fijación de manifiestos para lua apps.</value>
+    <value>修补 SteamTools 载荷，以修复 Capcom 存档路由并为 lua 应用启用清单固定。</value>
   </data>
   <data name="Setup_PatchStatus" xml:space="preserve">
-    <value>Estado del parche</value>
+    <value>补丁状态</value>
   </data>
   <data name="Setup_ApplyPatch" xml:space="preserve">
-    <value>Aplicar parche</value>
+    <value>应用补丁</value>
   </data>
   <data name="Setup_DeployHeader" xml:space="preserve">
-    <value>Desplegar CloudRedirect</value>
+    <value>部署 CloudRedirect</value>
   </data>
   <data name="Setup_DeployDescription" xml:space="preserve">
-    <value>Copia la DLL principal a tu carpeta de Steam.</value>
+    <value>将核心 DLL 复制到你的 Steam 文件夹。</value>
   </data>
   <data name="Setup_DllStatus" xml:space="preserve">
-    <value>Estado de la DLL</value>
+    <value>DLL 状态</value>
   </data>
   <data name="Setup_DeployDll" xml:space="preserve">
-    <value>Desplegar DLL</value>
+    <value>部署 DLL</value>
   </data>
   <data name="Setup_UninstallDll" xml:space="preserve">
-    <value>Desinstalar DLL</value>
+    <value>卸载 DLL</value>
   </data>
   <data name="Setup_LogOutput" xml:space="preserve">
-    <value>Registro de salida</value>
+    <value>日志输出</value>
   </data>
   <data name="Setup_Ready" xml:space="preserve">
-    <value>Listo.</value>
+    <value>就绪。</value>
   </data>
-
   <data name="Setup_SteamNotFoundManual" xml:space="preserve">
-    <value>No encontrado -- haz clic en Cambiar para establecerlo manualmente</value>
+    <value>未找到 -- 点击“更改”手动设置</value>
   </data>
   <data name="Setup_SteamNotFound" xml:space="preserve">
-    <value>Steam no encontrado</value>
+    <value>未找到 Steam</value>
   </data>
   <data name="Setup_VersionCouldNotDetermine" xml:space="preserve">
-    <value>No se pudo determinar la versión de Steam</value>
+    <value>无法确定 Steam 版本</value>
   </data>
   <data name="Setup_VersionSupported" xml:space="preserve">
-    <value>{0} (compatible)</value>
+    <value>{0}（受支持）</value>
   </data>
   <data name="Setup_VersionUnsupported" xml:space="preserve">
-    <value>{0} (NO COMPATIBLE -- {1} de lo esperado {2})</value>
+    <value>{0}（不受支持 -- 比预期版本 {2} 更{1}）</value>
   </data>
   <data name="Setup_DirectionNewer" xml:space="preserve">
-    <value>más reciente</value>
+    <value>新</value>
   </data>
   <data name="Setup_DirectionOlder" xml:space="preserve">
-    <value>más antiguo</value>
+    <value>旧</value>
   </data>
   <data name="Setup_PatchState_Patched" xml:space="preserve">
-    <value>Parcheado</value>
+    <value>已打补丁</value>
   </data>
   <data name="Setup_PatchState_Unpatched" xml:space="preserve">
-    <value>Sin parchear</value>
+    <value>未打补丁</value>
   </data>
   <data name="Setup_PatchState_PartiallyPatched" xml:space="preserve">
-    <value>Parcialmente parcheado</value>
+    <value>部分已打补丁</value>
   </data>
   <data name="Setup_PatchState_NotInstalled" xml:space="preserve">
-    <value>SteamTools no instalado</value>
+    <value>未安装 SteamTools</value>
   </data>
   <data name="Setup_PatchState_UnknownVersion" xml:space="preserve">
-    <value>Versión desconocida</value>
+    <value>未知版本</value>
   </data>
   <data name="Setup_PatchState_OutOfDate" xml:space="preserve">
-    <value>Desactualizado</value>
+    <value>已过期</value>
   </data>
   <data name="Setup_PatchState_Unknown" xml:space="preserve">
-    <value>Desconocido</value>
+    <value>未知</value>
   </data>
   <data name="Setup_OfflinePatched" xml:space="preserve">
-    <value>Parcheado (modo sin conexión activado)</value>
+    <value>已打补丁（离线模式已启用）</value>
   </data>
   <data name="Setup_StExePatched" xml:space="preserve">
-    <value>Parcheado (despliegue de DLL desactivado)</value>
+    <value>已打补丁（DLL 部署已禁用）</value>
   </data>
   <data name="Setup_StExeActive" xml:space="preserve">
-    <value>Activo -- ¡sobrescribirá las DLL parcheadas!</value>
+    <value>活动中 -- 将覆盖已打补丁的 DLL！</value>
   </data>
   <data name="Setup_StExeNotFound" xml:space="preserve">
-    <value>SteamTools Desktop no encontrado</value>
+    <value>未找到 SteamTools Desktop</value>
   </data>
   <data name="Setup_CouldNotCheck" xml:space="preserve">
-    <value>No se pudo verificar: {0}</value>
+    <value>无法检查：{0}</value>
   </data>
   <data name="Setup_DllInstalledOutdated" xml:space="preserve">
-    <value>Instalado pero desactualizado ({0}) -- actualización disponible</value>
+    <value>已安装但已过期（{0}）-- 有更新可用</value>
   </data>
   <data name="Setup_DllInstalled" xml:space="preserve">
-    <value>Instalado ({0} bytes, {1})</value>
+    <value>已安装（{0} 字节，{1}）</value>
   </data>
   <data name="Setup_UpdateDll" xml:space="preserve">
-    <value>Actualizar DLL</value>
+    <value>更新 DLL</value>
   </data>
   <data name="Setup_Deploy" xml:space="preserve">
-    <value>Desplegar</value>
+    <value>部署</value>
   </data>
   <data name="Setup_DllNotInstalledReady" xml:space="preserve">
-    <value>No instalado -- listo para desplegar</value>
+    <value>未安装 -- 可部署</value>
   </data>
   <data name="Setup_DllNotInstalledNoEmbed" xml:space="preserve">
-    <value>No instalado -- DLL no incluida en esta compilación</value>
+    <value>未安装 -- 此构建未嵌入 DLL</value>
   </data>
   <data name="Setup_InvalidSteamFolder" xml:space="preserve">
-    <value>Carpeta de Steam no válida</value>
+    <value>无效的 Steam 文件夹</value>
   </data>
   <data name="Setup_BrowseSteamFolderTitle" xml:space="preserve">
-    <value>Seleccionar carpeta de instalación de Steam</value>
+    <value>选择 Steam 安装文件夹</value>
   </data>
   <data name="Setup_InvalidSteamFolderMessage" xml:space="preserve">
-    <value>La carpeta seleccionada no contiene steam.exe.
+    <value>所选文件夹不包含 steam.exe。
 
-Selecciona la carpeta donde está instalado Steam.</value>
+请选择 Steam 的安装文件夹。</value>
   </data>
   <data name="Setup_PatchAppliedSuccessfully" xml:space="preserve">
-    <value>Parche aplicado correctamente</value>
+    <value>补丁已成功应用</value>
   </data>
   <data name="Setup_PatchFailedSeeLog" xml:space="preserve">
-    <value>El parche falló -- ver registro</value>
+    <value>补丁失败 -- 请查看日志</value>
   </data>
   <data name="Setup_FailedSeeLog" xml:space="preserve">
-    <value>Falló -- ver registro</value>
+    <value>失败 -- 请查看日志</value>
   </data>
   <data name="Setup_DeployFailed" xml:space="preserve">
-    <value>El despliegue falló</value>
+    <value>部署失败</value>
   </data>
   <data name="Setup_NotInstalled" xml:space="preserve">
-    <value>No instalado</value>
+    <value>未安装</value>
   </data>
   <data name="Setup_UninstallFailedSteam" xml:space="preserve">
-    <value>La desinstalación falló -- ¿está Steam en ejecución?</value>
+    <value>卸载失败 -- Steam 是否正在运行？</value>
   </data>
   <data name="Setup_DllNotEmbedded" xml:space="preserve">
-    <value>No encontrado</value>
+    <value>未找到</value>
   </data>
   <data name="Setup_DllNotEmbeddedMessage" xml:space="preserve">
-    <value>cloud_redirect.dll no está incluida en esta compilación.
+    <value>此构建未嵌入 cloud_redirect.dll。
 
-Recompila la interfaz después de compilar la DLL de C++.</value>
+请在构建 C++ DLL 后重新构建 UI。</value>
   </data>
   <data name="Setup_ConfirmRunAll" xml:space="preserve">
-    <value>Esto aplicará todos los parches y desplegará la DLL:
+    <value>这将应用全部补丁并部署 DLL：
 
-  1. Configuración sin conexión de SteamTools
-  2. Parchear SteamTools.exe
-  3. Parche de Cloud Redirect
-  4. Desplegar cloud_redirect.dll
+  1. SteamTools 离线设置
+  2. 修补 SteamTools.exe
+  3. Cloud Redirect 补丁
+  4. 部署 cloud_redirect.dll
 
-Si Steam está en ejecución, se cerrará automáticamente.
-Se crearán copias de seguridad.
+如果 Steam 正在运行，它将自动关闭。
+将创建备份。
 
-¿Continuar?</value>
+继续？</value>
   </data>
   <data name="Setup_ConfirmOfflineSetup" xml:space="preserve">
-    <value>Esto parchea SteamTools para que funcione incluso cuando sus servidores
-de activación están caídos.
+    <value>这会修补 SteamTools，使其在激活服务器不可用时仍能工作。
 
-Si Steam está en ejecución, se cerrará automáticamente.
-Se creará una copia de seguridad.
+如果 Steam 正在运行，它将自动关闭。
+将创建一个备份。
 
-¿Continuar?</value>
+继续？</value>
   </data>
   <data name="Setup_ConfirmRevertOffline" xml:space="preserve">
-    <value>Esto revertirá el parche de configuración sin conexión, restaurando
-el comportamiento original de activación de SteamTools.
+    <value>这将还原离线设置补丁，恢复 SteamTools 原始激活行为。
 
-Si Steam está en ejecución, se cerrará automáticamente.
+如果 Steam 正在运行，它将自动关闭。
 
-¿Continuar?</value>
+继续？</value>
   </data>
   <data name="Setup_ConfirmPatchStExe" xml:space="preserve">
-    <value>Esto parchea SteamTools.exe para evitar que sobrescriba
-las DLL parcheadas en cada inicio.
+    <value>这会修补 SteamTools.exe，阻止它在每次启动时覆盖已打补丁的 DLL。
 
-Si Steam está en ejecución, se cerrará automáticamente.
-Se creará una copia de seguridad.
+如果 Steam 正在运行，它将自动关闭。
+将创建一个备份。
 
-¿Continuar?</value>
+继续？</value>
   </data>
   <data name="Setup_ConfirmRevertStExe" xml:space="preserve">
-    <value>Esto restaurará SteamTools.exe a su estado original,
-permitiéndole sobrescribir las DLL en cada inicio.
+    <value>这会将 SteamTools.exe 恢复到原始状态，使其再次允许在启动时覆盖 DLL。
 
-Si Steam está en ejecución, se cerrará automáticamente.
+如果 Steam 正在运行，它将自动关闭。
 
-¿Continuar?</value>
+继续？</value>
   </data>
   <data name="Setup_ConfirmApplyPatch" xml:space="preserve">
-    <value>Esto parcheará steamclient64.dll para redirigir las RPC de la nube.
+    <value>这会修补 steamclient64.dll，以重定向云端 RPC。
 
-Si Steam está en ejecución, se cerrará automáticamente.
-Se creará una copia de seguridad.
+如果 Steam 正在运行，它将自动关闭。
+将创建一个备份。
 
-¿Continuar?</value>
+继续？</value>
   </data>
   <data name="Setup_ConfirmRevertPatch" xml:space="preserve">
-    <value>Esto revertirá el parche de redirección de nube en
-steamclient64.dll, restaurando el comportamiento original.
+    <value>这将还原 steamclient64.dll 上的云重定向补丁，恢复原始行为。
 
-Si Steam está en ejecución, se cerrará automáticamente.
+如果 Steam 正在运行，它将自动关闭。
 
-¿Continuar?</value>
+继续？</value>
   </data>
   <data name="Setup_ConfirmDeploy" xml:space="preserve">
-    <value>Esto desplegará cloud_redirect.dll en tu carpeta de Steam.
+    <value>这会将 cloud_redirect.dll 部署到你的 Steam 文件夹。
 
-Si Steam está en ejecución, se cerrará automáticamente.
+如果 Steam 正在运行，它将自动关闭。
 
-¿Continuar?</value>
+继续？</value>
   </data>
   <data name="Setup_ConfirmUninstall" xml:space="preserve">
-    <value>Esto eliminará cloud_redirect.dll de tu carpeta de Steam.
+    <value>这会从你的 Steam 文件夹中删除 cloud_redirect.dll。
 
-Si Steam está en ejecución, se cerrará automáticamente.
+如果 Steam 正在运行，它将自动关闭。
 
-¿Continuar?</value>
+继续？</value>
   </data>
   <data name="Setup_ConfigureProviderTitle" xml:space="preserve">
-    <value>Configurar proveedor de nube</value>
+    <value>配置云服务提供商</value>
   </data>
   <data name="Setup_ConfigureProviderExisting" xml:space="preserve">
     <value>{0}
 
-Proveedor de nube actual: {1}
+当前云服务提供商：{1}
 
-¿Deseas revisar o cambiar la configuración de tu proveedor de nube?</value>
+是否要查看或更改云服务提供商设置？</value>
   </data>
   <data name="Setup_ConfigureProviderNew" xml:space="preserve">
     <value>{0}
 
-¿Deseas configurar un proveedor de nube (Google Drive, OneDrive o una carpeta de red) para sincronizar tus partidas guardadas?
+是否要设置云服务提供商（Google Drive、OneDrive 或网络文件夹）来同步你的存档？
 
-Si omites esto, las partidas se almacenarán localmente en tu carpeta de Steam.</value>
+如果跳过，存档将本地保存在你的 Steam 文件夹中。</value>
   </data>
   <data name="Setup_AllPatchesApplied" xml:space="preserve">
-    <value>¡Todos los parches aplicados correctamente!</value>
+    <value>全部补丁已成功应用！</value>
   </data>
   <data name="Setup_PatchingFinishedWithErrors" xml:space="preserve">
-    <value>Parcheado finalizado (algunos pasos fallaron -- ver registro).</value>
+    <value>补丁流程已完成（部分步骤失败 -- 请查看日志）。</value>
   </data>
   <data name="Setup_ConfigureProvider" xml:space="preserve">
-    <value>Configurar proveedor</value>
+    <value>配置提供商</value>
   </data>
   <data name="Setup_UseLocalStorage" xml:space="preserve">
-    <value>Usar almacenamiento local</value>
+    <value>使用本地存储</value>
   </data>
   <data name="Setup_ConfirmOfflineSetupTitle" xml:space="preserve">
-    <value>Configuración sin conexión de SteamTools</value>
+    <value>SteamTools 离线设置</value>
   </data>
   <data name="Setup_RevertOfflineSetupTitle" xml:space="preserve">
-    <value>Revertir configuración sin conexión</value>
+    <value>还原离线设置</value>
   </data>
   <data name="Setup_PatchSteamToolsExeTitle" xml:space="preserve">
-    <value>Parchear SteamTools.exe</value>
+    <value>修补 SteamTools.exe</value>
   </data>
   <data name="Setup_RevertStExeTitle" xml:space="preserve">
-    <value>Revertir parche de SteamTools.exe</value>
+    <value>还原 SteamTools.exe 补丁</value>
   </data>
   <data name="Setup_ApplyPatchTitle" xml:space="preserve">
-    <value>Aplicar parche</value>
+    <value>应用补丁</value>
   </data>
   <data name="Setup_RevertCloudRedirectTitle" xml:space="preserve">
-    <value>Revertir parche de Cloud Redirect</value>
+    <value>还原 Cloud Redirect 补丁</value>
   </data>
   <data name="Setup_DeployDllTitle" xml:space="preserve">
-    <value>Desplegar DLL</value>
+    <value>部署 DLL</value>
   </data>
   <data name="Setup_UninstallDllTitle" xml:space="preserve">
-    <value>Desinstalar DLL</value>
+    <value>卸载 DLL</value>
   </data>
-
   <data name="Dashboard_Title" xml:space="preserve">
-    <value>Panel</value>
+    <value>仪表盘</value>
   </data>
   <data name="Dashboard_UpdateNow" xml:space="preserve">
-    <value>Actualizar ahora</value>
+    <value>立即更新</value>
   </data>
   <data name="Dashboard_UpdateAvailable" xml:space="preserve">
-    <value>Actualización disponible</value>
+    <value>有更新可用</value>
   </data>
   <data name="Dashboard_UpdateAvailableDescription" xml:space="preserve">
-    <value>Hay una versión más reciente de la DLL de CloudRedirect disponible. Por favor, actualiza.</value>
+    <value>有较新版本的 CloudRedirect DLL 可用。请更新。</value>
   </data>
   <data name="Dashboard_CloudProvider" xml:space="preserve">
-    <value>Proveedor de nube</value>
+    <value>云服务提供商</value>
   </data>
   <data name="Dashboard_NotConfigured" xml:space="preserve">
-    <value>No configurado</value>
+    <value>未配置</value>
   </data>
   <data name="Dashboard_SteamInstallation" xml:space="preserve">
-    <value>Instalación de Steam</value>
+    <value>Steam 安装</value>
   </data>
   <data name="Dashboard_Detecting" xml:space="preserve">
-    <value>Detectando...</value>
+    <value>正在检测...</value>
   </data>
   <data name="Dashboard_AppsSyncing" xml:space="preserve">
-    <value>Apps sincronizando</value>
+    <value>正在同步的应用</value>
   </data>
   <data name="Dashboard_AppCountDefault" xml:space="preserve">
-    <value>0 apps configuradas</value>
+    <value>已配置 0 个应用</value>
   </data>
   <data name="Dashboard_CloudRedirectDll" xml:space="preserve">
-    <value>DLL de CloudRedirect</value>
+    <value>CloudRedirect DLL</value>
   </data>
   <data name="Dashboard_DllChecking" xml:space="preserve">
-    <value>Verificando...</value>
+    <value>正在检查...</value>
   </data>
   <data name="Dashboard_QuickActions" xml:space="preserve">
-    <value>Acciones rápidas</value>
+    <value>快速操作</value>
   </data>
   <data name="Dashboard_OpenLogFile" xml:space="preserve">
-    <value>Abrir archivo de registro</value>
+    <value>打开日志文件</value>
   </data>
   <data name="Dashboard_RestartSteam" xml:space="preserve">
-    <value>Reiniciar Steam</value>
+    <value>重启 Steam</value>
   </data>
-
   <data name="Dashboard_NotFound" xml:space="preserve">
-    <value>No encontrado</value>
+    <value>未找到</value>
   </data>
   <data name="Dashboard_DllNotInstalled" xml:space="preserve">
-    <value>No instalado</value>
+    <value>未安装</value>
   </data>
   <data name="Dashboard_DllInstalledUpdateAvailable" xml:space="preserve">
-    <value>Instalado (actualización disponible)</value>
+    <value>已安装（有更新可用）</value>
   </data>
   <data name="Dashboard_DllInstalled" xml:space="preserve">
-    <value>Instalado</value>
+    <value>已安装</value>
   </data>
   <data name="Dashboard_AppCountFormat" xml:space="preserve">
-    <value>{0} app(s) con datos en la nube</value>
+    <value>{0} 个应用有云数据</value>
   </data>
   <data name="Dashboard_FolderAccessible" xml:space="preserve">
-    <value>{0} -- Carpeta accesible</value>
+    <value>{0} -- 文件夹可访问</value>
   </data>
   <data name="Dashboard_FolderNotFound" xml:space="preserve">
-    <value>{0} -- Carpeta no encontrada</value>
+    <value>{0} -- 未找到文件夹</value>
   </data>
   <data name="Dashboard_NoSyncFolder" xml:space="preserve">
-    <value>{0} -- No hay carpeta de sincronización configurada</value>
+    <value>{0} -- 未配置同步文件夹</value>
   </data>
   <data name="Dashboard_Authenticated" xml:space="preserve">
-    <value>{0} -- Autenticado</value>
+    <value>{0} -- 已认证</value>
   </data>
   <data name="Dashboard_AuthStatus" xml:space="preserve">
     <value>{0} -- {1}</value>
   </data>
   <data name="Dashboard_NoTokenPath" xml:space="preserve">
-    <value>{0} -- No hay ruta de token configurada</value>
+    <value>{0} -- 未配置令牌路径</value>
   </data>
   <data name="Dashboard_Configured" xml:space="preserve">
-    <value>{0} -- Configurado</value>
+    <value>{0} -- 已配置</value>
   </data>
   <data name="Dashboard_LogNotFound" xml:space="preserve">
-    <value>Archivo de registro no encontrado. Inicia Steam con CloudRedirect instalado primero.</value>
+    <value>未找到日志文件。请先在已安装 CloudRedirect 的情况下启动 Steam。</value>
   </data>
   <data name="Dashboard_ClosingSteam" xml:space="preserve">
-    <value>Cerrando Steam...</value>
+    <value>正在关闭 Steam...</value>
   </data>
   <data name="Dashboard_Updating" xml:space="preserve">
-    <value>Actualizando...</value>
+    <value>正在更新...</value>
   </data>
   <data name="Dashboard_UpdateFailed" xml:space="preserve">
-    <value>La actualización falló</value>
+    <value>更新失败</value>
   </data>
   <data name="Dashboard_DllInstalledUpdated" xml:space="preserve">
-    <value>Instalado (actualizado)</value>
+    <value>已安装（已更新）</value>
   </data>
   <data name="Dashboard_DllUpdatedTitle" xml:space="preserve">
-    <value>DLL actualizada</value>
+    <value>DLL 已更新</value>
   </data>
   <data name="Dashboard_DllUpdatedRestartPrompt" xml:space="preserve">
-    <value>cloud_redirect.dll ha sido actualizada.
+    <value>cloud_redirect.dll 已更新。
 
-¿Reiniciar Steam ahora?</value>
+现在重启 Steam？</value>
   </data>
   <data name="Dashboard_FailedUpdateDll" xml:space="preserve">
-    <value>Error al actualizar la DLL: {0}</value>
+    <value>更新 DLL 失败：{0}</value>
   </data>
   <data name="Dashboard_RestartSteamPrompt" xml:space="preserve">
-    <value>Esto cerrará Steam y lo reiniciará.
-¿Continuar?</value>
+    <value>这将关闭并重新启动 Steam。
+继续？</value>
   </data>
   <data name="Dashboard_ShuttingDownSteam" xml:space="preserve">
-    <value>Cerrando Steam...</value>
+    <value>正在关闭 Steam...</value>
   </data>
   <data name="Dashboard_SteamStillRunning" xml:space="preserve">
-    <value>Steam sigue en ejecución</value>
+    <value>Steam 仍在运行</value>
   </data>
   <data name="Dashboard_SteamStillRunningPrompt" xml:space="preserve">
-    <value>Steam no se cerró en 15 segundos.
-¿Forzar cierre?</value>
+    <value>Steam 在 15 秒内没有关闭。
+是否强制结束它？</value>
   </data>
   <data name="Dashboard_ForceKilling" xml:space="preserve">
-    <value>Forzando cierre de Steam...</value>
+    <value>正在强制结束 Steam...</value>
   </data>
   <data name="Dashboard_StartingSteam" xml:space="preserve">
-    <value>Iniciando Steam...</value>
+    <value>正在启动 Steam...</value>
   </data>
   <data name="Dashboard_FailedRestartSteam" xml:space="preserve">
-    <value>Error al reiniciar Steam: {0}</value>
+    <value>重启 Steam 失败：{0}</value>
   </data>
   <data name="Dashboard_SteamExeNotFound" xml:space="preserve">
-    <value>steam.exe no encontrado.</value>
+    <value>未找到 steam.exe。</value>
   </data>
   <data name="Dashboard_CouldNotFindSteam" xml:space="preserve">
-    <value>No se pudo encontrar la instalación de Steam.</value>
+    <value>无法找到 Steam 安装。</value>
   </data>
-
   <data name="CloudProvider_Title" xml:space="preserve">
-    <value>Proveedor de nube</value>
+    <value>云服务提供商</value>
   </data>
   <data name="CloudProvider_Description" xml:space="preserve">
-    <value>Configura tu proveedor de Steam Cloud. Solo Google Drive/OneDrive/Carpeta local por ahora.</value>
+    <value>配置你的 Steam Cloud 提供商。目前仅支持 Google Drive、OneDrive 和本地文件夹。</value>
   </data>
   <data name="CloudProvider_DescriptionWebDav" xml:space="preserve">
-    <value>Configura tu proveedor de Steam Cloud. Admite Google Drive, OneDrive, WebDAV o una carpeta local/de red.</value>
+    <value>配置 Steam Cloud 提供程序。支持 Google Drive、OneDrive、WebDAV 或本地/网络文件夹。</value>
   </data>
   <data name="CloudProvider_Provider" xml:space="preserve">
-    <value>Proveedor</value>
+    <value>提供商</value>
   </data>
   <data name="CloudProvider_GoogleDrive" xml:space="preserve">
     <value>Google Drive</value>
@@ -620,836 +608,817 @@ Si omites esto, las partidas se almacenarán localmente en tu carpeta de Steam.<
     <value>WebDAV</value>
   </data>
   <data name="CloudProvider_FolderMappedDrive" xml:space="preserve">
-    <value>Carpeta / Unidad asignada</value>
+    <value>文件夹 / 映射驱动器</value>
   </data>
   <data name="CloudProvider_LocalOnly" xml:space="preserve">
-    <value>Solo local (sin sincronización en la nube)</value>
+    <value>仅本地（不同步到云端）</value>
   </data>
   <data name="CloudProvider_TokenFilePath" xml:space="preserve">
-    <value>Ruta del archivo de token</value>
+    <value>令牌文件路径</value>
   </data>
   <data name="CloudProvider_TokenPlaceholder" xml:space="preserve">
-    <value>Ruta al archivo de tokens OAuth</value>
+    <value>OAuth 令牌文件路径</value>
   </data>
   <data name="CloudProvider_WebDavUrlPath" xml:space="preserve">
-    <value>URL de WebDAV</value>
+    <value>WebDAV 地址</value>
   </data>
   <data name="CloudProvider_WebDavUrlPlaceholder" xml:space="preserve">
     <value>https://example.com/remote.php/dav/files/user/CloudRedirect</value>
   </data>
   <data name="CloudProvider_WebDavUrlHint" xml:space="preserve">
-    <value>Usa una URL HTTPS de carpeta WebDAV dedicada a CloudRedirect.</value>
+    <value>请使用专门给 CloudRedirect 的 HTTPS WebDAV 文件夹地址。</value>
   </data>
   <data name="CloudProvider_WebDavUsername" xml:space="preserve">
-    <value>Usuario</value>
+    <value>用户名</value>
   </data>
   <data name="CloudProvider_WebDavUsernamePlaceholder" xml:space="preserve">
-    <value>Usuario de WebDAV</value>
+    <value>WebDAV 用户名</value>
   </data>
   <data name="CloudProvider_WebDavPassword" xml:space="preserve">
-    <value>Contraseña</value>
+    <value>密码</value>
   </data>
   <data name="CloudProvider_Browse" xml:space="preserve">
-    <value>Examinar</value>
+    <value>浏览</value>
   </data>
   <data name="CloudProvider_Authentication" xml:space="preserve">
-    <value>Autenticación</value>
+    <value>认证</value>
   </data>
   <data name="CloudProvider_AuthenticationStatus" xml:space="preserve">
-    <value>Estado de autenticación</value>
+    <value>认证状态</value>
   </data>
   <data name="CloudProvider_NoTokensLoaded" xml:space="preserve">
-    <value>No se cargaron tokens</value>
+    <value>未加载令牌</value>
   </data>
   <data name="CloudProvider_SignIn" xml:space="preserve">
-    <value>Iniciar sesión</value>
+    <value>登录</value>
   </data>
   <data name="CloudProvider_Cancel" xml:space="preserve">
-    <value>Cancelar</value>
+    <value>取消</value>
   </data>
   <data name="CloudProvider_SaveConfiguration" xml:space="preserve">
-    <value>Guardar configuración</value>
+    <value>保存配置</value>
   </data>
-
   <data name="CloudProvider_NoConfigFound" xml:space="preserve">
-    <value>No se encontró config.json -- usando valores predeterminados</value>
+    <value>未找到 config.json -- 使用默认值</value>
   </data>
   <data name="CloudProvider_ErrorReadingConfig" xml:space="preserve">
-    <value>Error al leer la configuración: {0}</value>
+    <value>读取配置时出错：{0}</value>
   </data>
   <data name="CloudProvider_SyncFolderPath" xml:space="preserve">
-    <value>Ruta de la carpeta de sincronización</value>
+    <value>同步文件夹路径</value>
   </data>
   <data name="CloudProvider_SyncFolderPlaceholder" xml:space="preserve">
-    <value>Ruta a la carpeta de sincronización (ej. Z:\CloudRedirect)</value>
+    <value>同步文件夹路径（例如 Z:\CloudRedirect）</value>
   </data>
   <data name="CloudProvider_SyncFolderHint" xml:space="preserve">
-    <value>Elige cualquier carpeta -- incluyendo una unidad de red asignada, USB o recurso NAS.</value>
+    <value>选择任意文件夹 -- 包括映射网络驱动器、U 盘或 NAS 共享。</value>
   </data>
   <data name="CloudProvider_LocalStoragePath" xml:space="preserve">
-    <value>Ruta de almacenamiento local</value>
+    <value>本地存储路径</value>
   </data>
   <data name="CloudProvider_LocalStorageHint" xml:space="preserve">
-    <value>Las partidas se almacenan localmente en tu carpeta de Steam. Sin sincronización en la nube.</value>
+    <value>存档将本地保存在你的 Steam 文件夹中。不会同步到云端。</value>
   </data>
   <data name="CloudProvider_SelectSyncFolder" xml:space="preserve">
-    <value>Seleccionar carpeta de sincronización</value>
+    <value>选择同步文件夹</value>
   </data>
   <data name="CloudProvider_SelectTokenFile" xml:space="preserve">
-    <value>Seleccionar archivo de token OAuth</value>
+    <value>选择 OAuth 令牌文件</value>
   </data>
   <data name="CloudProvider_MissingPath" xml:space="preserve">
-    <value>Ruta faltante</value>
+    <value>缺少路径</value>
   </data>
   <data name="CloudProvider_MissingPathMessage" xml:space="preserve">
-    <value>Establece primero una ruta para el archivo de token.</value>
+    <value>请先设置令牌文件路径。</value>
   </data>
   <data name="CloudProvider_Saved" xml:space="preserve">
-    <value>Guardado</value>
+    <value>已保存</value>
   </data>
   <data name="CloudProvider_SavedMessage" xml:space="preserve">
-    <value>Configuración guardada correctamente.</value>
+    <value>配置已成功保存。</value>
   </data>
   <data name="CloudProvider_FailedSaveConfig" xml:space="preserve">
-    <value>Error al guardar la configuración: {0}</value>
+    <value>保存配置失败：{0}</value>
   </data>
   <data name="CloudProvider_LocalModeStored" xml:space="preserve">
-    <value>Modo local -- partidas almacenadas en: {0}</value>
+    <value>本地模式 -- 存档位置：{0}</value>
   </data>
   <data name="CloudProvider_LocalModeNoSync" xml:space="preserve">
-    <value>Modo local -- sin sincronización en la nube</value>
+    <value>本地模式 -- 不同步到云端</value>
   </data>
   <data name="CloudProvider_NoSyncFolder" xml:space="preserve">
-    <value>No se especificó carpeta de sincronización</value>
+    <value>未指定同步文件夹</value>
   </data>
   <data name="CloudProvider_FolderAccessible" xml:space="preserve">
-    <value>Carpeta accesible: {0}</value>
+    <value>文件夹可访问：{0}</value>
   </data>
   <data name="CloudProvider_FolderNotFound" xml:space="preserve">
-    <value>Carpeta no encontrada: {0}</value>
+    <value>未找到文件夹：{0}</value>
   </data>
   <data name="CloudProvider_NoTokenFilePath" xml:space="preserve">
-    <value>No se especificó ruta de archivo de token</value>
+    <value>未指定令牌文件路径</value>
   </data>
   <data name="CloudProvider_WebDavNoUrl" xml:space="preserve">
-    <value>No se especificó URL de WebDAV</value>
+    <value>未填写 WebDAV 地址</value>
   </data>
   <data name="CloudProvider_WebDavMissingCredentials" xml:space="preserve">
-    <value>Introduce la URL de WebDAV, el usuario y la contraseña.</value>
+    <value>请填写 WebDAV 地址、用户名和密码。</value>
   </data>
   <data name="CloudProvider_WebDavRequiresHttps" xml:space="preserve">
-    <value>La URL de WebDAV debe comenzar con https://</value>
+    <value>WebDAV 地址必须以 https:// 开头</value>
   </data>
   <data name="CloudProvider_WebDavConfigured" xml:space="preserve">
-    <value>WebDAV configurado: {0}</value>
+    <value>WebDAV 已配置：{0}</value>
   </data>
-
   <data name="Apps_Title" xml:space="preserve">
-    <value>Apps</value>
+    <value>应用</value>
   </data>
   <data name="Apps_Description" xml:space="preserve">
-    <value>Datos de partidas guardadas en la nube para tus apps inyectadas.</value>
+    <value>你注入的应用的云存档数据。</value>
   </data>
   <data name="Apps_RestoreSaves" xml:space="preserve">
-    <value>Restaurar partidas</value>
+    <value>恢复存档</value>
   </data>
   <data name="Apps_Files" xml:space="preserve">
-    <value>archivos</value>
+    <value>个文件</value>
   </data>
   <data name="Apps_ChangeNumber" xml:space="preserve">
-    <value>CN:</value>
+    <value>变更号：</value>
   </data>
   <data name="Apps_DeleteTooltip" xml:space="preserve">
-    <value>Eliminar todas las partidas de esta app</value>
+    <value>删除此应用的全部存档</value>
   </data>
   <data name="Apps_Back" xml:space="preserve">
-    <value>Volver</value>
+    <value>返回</value>
   </data>
   <data name="Apps_Refresh" xml:space="preserve">
-    <value>Actualizar</value>
+    <value>刷新</value>
   </data>
   <data name="Apps_RestoreDescription" xml:space="preserve">
-    <value>Restaura archivos de una copia de seguridad anterior. Cada eliminación crea una copia de seguridad inmutable con marca de tiempo. La restauración copia los archivos sin modificar la copia de seguridad.</value>
+    <value>从之前的删除备份中恢复文件。每次删除都会创建不可变的带时间戳备份。恢复会将文件复制回去，不会修改备份。</value>
   </data>
   <data name="Apps_LoadingBackups" xml:space="preserve">
-    <value>Cargando copias de seguridad...</value>
+    <value>正在加载备份...</value>
   </data>
-
   <data name="Apps_DeleteAllSavesTitle" xml:space="preserve">
-    <value>Eliminar todas las partidas</value>
+    <value>删除全部存档</value>
   </data>
   <data name="Apps_DeletePromptHeader" xml:space="preserve">
-    <value>¿Eliminar todos los datos guardados de {0} ({1})?
+    <value>删除 {0}（{1}）的全部存档数据？
 
 </value>
   </data>
   <data name="Apps_DeletePromptWillDelete" xml:space="preserve">
-    <value>Esto </value>
+    <value>这将</value>
   </data>
   <data name="Apps_DeletePromptDelete" xml:space="preserve">
-    <value>eliminará</value>
+    <value>删除</value>
   </data>
   <data name="Apps_DeletePromptLocalStorage" xml:space="preserve">
-    <value>  - Almacenamiento local de CloudRedirect: {0} archivo(s) ({1})
+    <value>  - CloudRedirect 本地存储：{0} 个文件（{1}）
 </value>
   </data>
   <data name="Apps_DeletePromptCloudCopies" xml:space="preserve">
-    <value>Copias en la nube en {0}</value>
+    <value>{0} 上的云端副本</value>
   </data>
   <data name="Apps_DeletePromptUserdata" xml:space="preserve">
-    <value>  - Datos de usuario de Steam: {0}
+    <value>  - Steam userdata：{0}
 </value>
   </data>
   <data name="Apps_DeletePromptGameSaves" xml:space="preserve">
-    <value>  - Partidas guardadas del juego: {0}
+    <value>  - 游戏存档：{0}
 </value>
   </data>
   <data name="Apps_DeletePromptSkipped" xml:space="preserve">
     <value>
-  (Se omitieron {0} ruta(s) que no se pudieron resolver: {1})
+  （已跳过 {0} 个无法解析的路径：{1}）
 </value>
   </data>
   <data name="Apps_DeletePromptWarning" xml:space="preserve">
-    <value>Esto eliminará tus partidas guardadas.</value>
+    <value>这将删除你的存档。</value>
   </data>
   <data name="Apps_DeletePromptExplanation" xml:space="preserve">
-    <value>Las partidas locales se respaldarán, pero restaurarlas es complejo. Tendrías que desactivar el almacenamiento en la nube del juego en Steam, restaurar la copia de seguridad y luego iniciar el juego. Si continúas, tus partidas en la nube se perderán. Esas no se respaldan.</value>
+    <value>本地存档会被备份，但恢复过程比较复杂。你需要在 Steam 中禁用该游戏的云存储，恢复备份，然后再启动游戏。如果继续，你的云存档将会丢失。这些云存档不会被备份。</value>
   </data>
   <data name="Apps_DeletePromptConsequence" xml:space="preserve">
-    <value>Si continúas, el juego se comportará como si nunca lo hubieras jugado. Empezarás el juego desde el principio en el próximo inicio.</value>
+    <value>如果继续，游戏会表现得像你从未玩过一样。下次启动时将从头开始。</value>
   </data>
   <data name="Apps_DeletePromptBeSure" xml:space="preserve">
-    <value>Asegúrate.</value>
+    <value>请确认无误。</value>
   </data>
   <data name="Apps_FinalConfirmTitle" xml:space="preserve">
-    <value>Confirmación final</value>
+    <value>最终确认</value>
   </data>
   <data name="Apps_FinalConfirmMessage" xml:space="preserve">
-    <value>Esto eliminará todos los datos guardados de {0} ({1}).
+    <value>这将删除 {0}（{1}）的全部存档数据。
 
-Las partidas locales se respaldarán, pero las copias en la nube se perderán permanentemente. Restaurar partidas es complicado.
+本地存档会被备份，但云端副本将永久丢失。恢复存档比较麻烦。
 
-¿Estás seguro?</value>
+确定吗？</value>
   </data>
   <data name="Apps_PartialDeleteTitle" xml:space="preserve">
-    <value>Eliminación parcial</value>
+    <value>部分删除完成</value>
   </data>
   <data name="Apps_PartialDeleteMessage" xml:space="preserve">
-    <value>Algunos datos no se pudieron eliminar:
+    <value>部分数据无法删除：
 
 {0}
 
-Copia de seguridad local guardada en:
+本地备份已保存到：
 {1}
 
-Puedes restaurar desde el panel de Restaurar partidas.</value>
+你可以从“恢复存档”面板恢复。</value>
   </data>
   <data name="Apps_DeletedTitle" xml:space="preserve">
-    <value>Eliminado</value>
+    <value>已删除</value>
   </data>
   <data name="Apps_DeletedMessage" xml:space="preserve">
-    <value>Todos los datos guardados de {0} ({1}) han sido eliminados.
+    <value>{0}（{1}）的全部存档数据已删除。
 
-Copia de seguridad guardada en:
+备份已保存到：
 {2}
 
-Puedes restaurar desde el panel de Restaurar partidas.</value>
+你可以从“恢复存档”面板恢复。</value>
   </data>
   <data name="Apps_DeleteFailedTitle" xml:space="preserve">
-    <value>La eliminación falló</value>
-  </data>
-
-  <!-- AppsPage orphan-blob prune -->
-  <data name="Apps_ScanForOrphans" xml:space="preserve">
-    <value>Buscar huérfanos en la nube</value>
-  </data>
-  <data name="Apps_ScanOrphansExplainTitle" xml:space="preserve">
-    <value>Buscar huérfanos en la nube</value>
-  </data>
-  <data name="Apps_ScanOrphansExplainMessage" xml:space="preserve">
-    <value>Un "huérfano" es un archivo de partida guardada en tu almacenamiento en la nube al que ninguna aplicación de este PC sigue haciendo referencia: queda rezagado cuando se renombra una partida, se desinstala una aplicación o se interrumpe una sincronización. Ocupan espacio y pueden eclipsar partidas más nuevas al resolver conflictos.
-
-Esta exploración solo lee los listados de tu nube; no se elimina nada. Tras la exploración, cada aplicación afectada mostrará un botón "Revisar huérfanos" para que puedas inspeccionar los archivos y decidir si los eliminas.
-
-Steam debe estar cerrado durante la exploración para que una subida en curso no se confunda con un huérfano. ¿Continuar?</value>
-  </data>
-  <data name="Apps_ScanningOrphansFormat" xml:space="preserve">
-    <value>Escaneando... ({0}/{1})</value>
-  </data>
-  <data name="Apps_ScanLocalOnlyTitle" xml:space="preserve">
-    <value>Sin proveedor en la nube</value>
-  </data>
-  <data name="Apps_ScanLocalOnlyMessage" xml:space="preserve">
-    <value>CloudRedirect está configurado solo para almacenamiento local. No hay nube para buscar blobs huérfanos.</value>
-  </data>
-  <data name="Apps_ScanFailedTitle" xml:space="preserve">
-    <value>Escaneo fallido</value>
-  </data>
-  <data name="Apps_ScanCompleteCleanFormat" xml:space="preserve">
-    <value>Se escanearon {0} aplicación(es) -- no se encontraron blobs huérfanos.</value>
-  </data>
-  <data name="Apps_ScanCompleteFoundFormat" xml:space="preserve">
-    <value>Se encontraron {0} blob(s) huérfano(s) en {1} aplicación(es).</value>
-  </data>
-  <data name="Apps_ScanCompletePartialFormat" xml:space="preserve">
-    <value>{0} aplicación(es) no pudieron verificarse (listado incompleto).</value>
-  </data>
-  <data name="Apps_OrphanSummaryFormat" xml:space="preserve">
-    <value>{0} blob(s) sin referenciar en la nube</value>
-  </data>
-  <data name="Apps_PruneAll" xml:space="preserve">
-    <value>Eliminar todo</value>
-  </data>
-  <data name="Apps_ReviewOrphans" xml:space="preserve">
-    <value>Revisar huérfanos</value>
-  </data>
-  <data name="Apps_CollapseOrphans" xml:space="preserve">
-    <value>Contraer</value>
+    <value>删除失败</value>
   </data>
   <data name="Apps_PruneTooltip" xml:space="preserve">
-    <value>Eliminar blobs huérfanos en la nube que ya no estén referenciados por esta aplicación</value>
+    <value>删除此应用不再引用的孤立云端 blob</value>
+  </data>
+  <data name="Apps_ScanForOrphans" xml:space="preserve">
+    <value>扫描云端孤立项</value>
+  </data>
+  <data name="Apps_ScanOrphansExplainTitle" xml:space="preserve">
+    <value>扫描云端孤立项</value>
+  </data>
+  <data name="Apps_ScanOrphansExplainMessage" xml:space="preserve">
+    <value>“孤立项”是指云存储中存在、但此电脑上没有任何应用仍引用的存档文件 -- 通常由存档改名、应用卸载或同步中断遗留。它们会占用空间，并可能在冲突时遮蔽较新的存档。
+
+此次扫描只读取云端列表；不会删除任何内容。扫描结束后，每个受影响的应用都会显示“查看孤立项”按钮，你可以检查文件并决定是否清理。
+
+扫描期间必须关闭 Steam，以免正在上传的文件被误判为孤立项。继续？</value>
+  </data>
+  <data name="Apps_ScanningOrphansFormat" xml:space="preserve">
+    <value>正在扫描...（{0}/{1}）</value>
+  </data>
+  <data name="Apps_ScanLocalOnlyTitle" xml:space="preserve">
+    <value>没有云服务提供商</value>
+  </data>
+  <data name="Apps_ScanLocalOnlyMessage" xml:space="preserve">
+    <value>CloudRedirect 已配置为仅本地存储。没有可扫描孤立 blob 的云端。</value>
+  </data>
+  <data name="Apps_ScanFailedTitle" xml:space="preserve">
+    <value>扫描失败</value>
+  </data>
+  <data name="Apps_ScanCompleteCleanFormat" xml:space="preserve">
+    <value>已扫描 {0} 个应用 -- 未发现孤立云端 blob。</value>
+  </data>
+  <data name="Apps_ScanCompleteFoundFormat" xml:space="preserve">
+    <value>在 {1} 个应用中发现 {0} 个孤立云端 blob。</value>
+  </data>
+  <data name="Apps_ScanCompletePartialFormat" xml:space="preserve">
+    <value>{0} 个应用无法验证（列表不完整）。</value>
+  </data>
+  <data name="Apps_OrphanSummaryFormat" xml:space="preserve">
+    <value>{0} 个未引用的云端 blob</value>
+  </data>
+  <data name="Apps_PruneAll" xml:space="preserve">
+    <value>全部清理</value>
+  </data>
+  <data name="Apps_ReviewOrphans" xml:space="preserve">
+    <value>查看孤立项</value>
+  </data>
+  <data name="Apps_CollapseOrphans" xml:space="preserve">
+    <value>折叠</value>
   </data>
   <data name="Apps_PruneScanningTitle" xml:space="preserve">
-    <value>Analizando blobs en la nube...</value>
+    <value>正在扫描云端 blob...</value>
   </data>
   <data name="Apps_PruneButton" xml:space="preserve">
-    <value>Limpiar</value>
+    <value>清理</value>
   </data>
   <data name="Apps_PruneButtonScanning" xml:space="preserve">
-    <value>Analizando...</value>
+    <value>正在扫描...</value>
   </data>
   <data name="Apps_PruneButtonPruning" xml:space="preserve">
-    <value>Limpiando...</value>
+    <value>正在清理...</value>
   </data>
   <data name="Apps_PruneLocalOnlyTitle" xml:space="preserve">
-    <value>Sin proveedor en la nube</value>
+    <value>没有云服务提供商</value>
   </data>
   <data name="Apps_PruneLocalOnlyMessage" xml:space="preserve">
-    <value>CloudRedirect está configurado para almacenamiento local únicamente. No hay ningún proveedor en la nube del que eliminar blobs huérfanos.</value>
+    <value>CloudRedirect 已配置为仅本地存储。没有可清理孤立 blob 的云服务提供商。</value>
   </data>
   <data name="Apps_PruneNoOrphansTitle" xml:space="preserve">
-    <value>Sin blobs huérfanos</value>
+    <value>没有孤立 blob</value>
   </data>
   <data name="Apps_PruneNoOrphansMessageFormat" xml:space="preserve">
-    <value>Los {0} blob(s) en la nube de {1} están referenciados por el índice local de partidas. No hay nada que limpiar.</value>
+    <value>{1} 的全部 {0} 个云端 blob 都被本地存档索引引用。无需清理。</value>
   </data>
   <data name="Apps_PruneListingIncompleteTitle" xml:space="preserve">
-    <value>Listado de la nube incompleto</value>
+    <value>云端列表不完整</value>
   </data>
   <data name="Apps_PruneListingIncompleteMessage" xml:space="preserve">
-    <value>No se pudo obtener la lista completa de blobs en la nube. Limpiar con datos parciales podría eliminar partidas legítimas, así que la operación se ha cancelado. Inténtalo de nuevo cuando la conexión con el proveedor en la nube sea estable.
+    <value>无法获取完整的云端 blob 列表。基于不完整数据清理可能误删合法存档，因此操作已中止。请在云服务连接稳定后重试。
 
-Detalles: {0}</value>
+详细信息：{0}</value>
   </data>
   <data name="Apps_PruneConfirmTitle" xml:space="preserve">
-    <value>Limpiar blobs huérfanos de la nube</value>
+    <value>清理孤立云端 blob</value>
   </data>
   <data name="Apps_PruneConfirmHeaderFormat" xml:space="preserve">
-    <value>¿Eliminar {0} blob(s) huérfano(s) de la nube para {1} ({2})?
+    <value>删除 {1}（{2}）的 {0} 个孤立云端 blob？
 
 </value>
   </data>
   <data name="Apps_PruneConfirmExplanation" xml:space="preserve">
-    <value>Estos blobs existen en tu proveedor en la nube ({0}) pero NO están referenciados por el índice local de partidas (file_tokens.dat). Quedaron de una sesión anterior, un borrado fallido o una intervención manual, y nunca se descargarán ni se limpiarán por la vía de sincronización normal.
+    <value>这些 blob 存在于你的云服务提供商（{0}）中，但未被本地存档索引（file_tokens.dat）引用。它们可能由之前的会话、删除失败或手动覆盖遗留，正常同步流程不会再下载或清理它们。
 
 </value>
   </data>
   <data name="Apps_PruneConfirmPreviewHeader" xml:space="preserve">
-    <value>Archivos a eliminar:
+    <value>将删除的文件：
 </value>
   </data>
   <data name="Apps_PruneConfirmMoreFormat" xml:space="preserve">
-    <value>  ...y {0} más
+    <value>   ...以及另外 {0} 个
 </value>
   </data>
   <data name="Apps_PruneConfirmWarning" xml:space="preserve">
-    <value>Esta operación no se puede deshacer. Las partidas locales NO se verán afectadas.</value>
+    <value>此操作无法撤销。本地存档不会受到影响。</value>
   </data>
   <data name="Apps_PruneFinalConfirmTitle" xml:space="preserve">
-    <value>Confirmar limpieza</value>
+    <value>确认清理</value>
   </data>
   <data name="Apps_PruneFinalConfirmMessageFormat" xml:space="preserve">
-    <value>¿Eliminar permanentemente {0} blob(s) huérfano(s) de la nube para {1}? Esto no se puede deshacer.</value>
+    <value>永久删除 {1} 的 {0} 个孤立云端 blob？此操作无法撤销。</value>
   </data>
   <data name="Apps_PruneCompleteTitle" xml:space="preserve">
-    <value>Limpieza completada</value>
+    <value>清理完成</value>
   </data>
   <data name="Apps_PruneCompleteMessageFormat" xml:space="preserve">
-    <value>Se eliminaron {0} blob(s) huérfano(s) de la nube para {1}.</value>
+    <value>已删除 {1} 的 {0} 个孤立云端 blob。</value>
   </data>
   <data name="Apps_PrunePartialTitle" xml:space="preserve">
-    <value>Limpieza parcialmente completada</value>
+    <value>清理部分完成</value>
   </data>
   <data name="Apps_PrunePartialMessageFormat" xml:space="preserve">
-    <value>Se eliminaron {0} de {1} blob(s) huérfano(s) de la nube para {2}. No se pudieron eliminar {3} archivo(s):
+    <value>已删除 {2} 的 {0}/{1} 个孤立云端 blob。{3} 个文件无法删除：
 
 {4}
 
-Detalles: {5}</value>
+详细信息：{5}</value>
   </data>
   <data name="Apps_PruneFailedTitle" xml:space="preserve">
-    <value>La limpieza falló</value>
+    <value>清理失败</value>
   </data>
   <data name="Apps_PruneFailedMessageFormat" xml:space="preserve">
-    <value>No se pudo eliminar ninguno de los {0} blob(s) huérfano(s) para {1}.
+    <value>无法删除 {1} 的任何孤立 blob（共 {0} 个）。
 
-Detalles: {2}</value>
+详细信息：{2}</value>
   </data>
-
   <data name="Apps_SteamNotFound" xml:space="preserve">
-    <value>Steam no encontrado</value>
+    <value>未找到 Steam</value>
   </data>
   <data name="Apps_NoDeleteBackups" xml:space="preserve">
-    <value>No se encontraron copias de seguridad de eliminación.</value>
+    <value>未找到删除备份。</value>
   </data>
   <data name="Apps_BackupCountFormat" xml:space="preserve">
-    <value>{0} copia(s) de seguridad encontrada(s)</value>
+    <value>找到 {0} 个备份</value>
   </data>
   <data name="Apps_FailedLoadBackups" xml:space="preserve">
-    <value>Error al cargar copias de seguridad: {0}</value>
+    <value>加载备份失败：{0}</value>
   </data>
   <data name="Apps_RestoreSavesExperimentalTitle" xml:space="preserve">
-    <value>Restaurar partidas (Experimental)</value>
+    <value>恢复存档（实验性）</value>
   </data>
   <data name="Apps_RestoreConfirmMessage" xml:space="preserve">
-    <value>¿Restaurar datos guardados de la copia de seguridad en {0}?
+    <value>从 {0} 的备份恢复存档数据？
 
-La copia contiene: {1} archivo(s) ({2})
-Apps: {3}
+备份包含：{1} 个文件（{2}）
+应用：{3}
 
-IMPORTANTE: Antes de restaurar, debes desactivar Steam Cloud para este juego:
-  Steam &gt; clic derecho en el juego &gt; Propiedades &gt; General &gt;
-  desmarca "Mantener partidas guardadas en Steam Cloud"
+重要：恢复前必须为此游戏禁用 Steam Cloud：
+  Steam &gt; 右键点击游戏 &gt; 属性 &gt; 通用 &gt;
+  取消勾选“在 Steam 云中保存游戏存档”
 
-Si Steam Cloud está activado, Steam puede sobrescribir los archivos restaurados.
+如果启用了 Steam Cloud，Steam 可能会覆盖恢复的文件。
 
-Esta función es experimental. Los archivos existentes en las ubicaciones originales se omitirán.
-La copia de seguridad nunca se modifica ni se elimina.</value>
+此功能为实验性。原位置已有的文件将被跳过。
+备份本身永远不会被修改或删除。</value>
   </data>
   <data name="Apps_Restoring" xml:space="preserve">
-    <value>Restaurando...</value>
+    <value>正在恢复...</value>
   </data>
   <data name="Apps_Restore" xml:space="preserve">
-    <value>Restaurar</value>
+    <value>恢复</value>
   </data>
   <data name="Apps_RestoreCompleteTitle" xml:space="preserve">
-    <value>Restauración completa</value>
+    <value>恢复完成</value>
   </data>
   <data name="Apps_RestoredFormat" xml:space="preserve">
-    <value>{0} archivo(s) restaurado(s).</value>
+    <value>已恢复 {0} 个文件。</value>
   </data>
   <data name="Apps_RestoredRemotecacheFormat" xml:space="preserve">
-    <value> {0} remotecache(s).</value>
+    <value> {0} 个 remotecache。</value>
   </data>
   <data name="Apps_SkippedFormat" xml:space="preserve">
     <value>
-Se omitieron {0} archivo(s) (ya existen en la ubicación original).</value>
+已跳过 {0} 个文件（原位置已存在）。</value>
   </data>
   <data name="Apps_ErrorsFormat" xml:space="preserve">
     <value>
 
-{0} error(es):
+{0} 个错误：
 {1}</value>
   </data>
   <data name="Apps_RestoreFailedTitle" xml:space="preserve">
-    <value>La restauración falló</value>
+    <value>恢复失败</value>
   </data>
   <data name="Apps_AppFallbackName" xml:space="preserve">
-    <value>App {0}</value>
+    <value>应用 {0}</value>
   </data>
-
   <data name="Cleanup_Title" xml:space="preserve">
-    <value>Limpieza</value>
+    <value>清理</value>
   </data>
   <data name="Cleanup_Description" xml:space="preserve">
-    <value>SteamTools redirigía todas las partidas guardadas en la nube de lua apps a través de la app 760, contaminando la carpeta remote/ de cada juego con archivos de otros juegos. Escanea para ver qué apps están afectadas y selecciona archivos para eliminar.</value>
+    <value>SteamTools 曾将所有 lua 应用的云存档都通过应用 760 重定向，导致每个游戏的 remote/ 文件夹被其他游戏的文件污染。扫描以查看受影响的应用，然后选择要移除的文件。</value>
   </data>
   <data name="Cleanup_ScanForContamination" xml:space="preserve">
-    <value>Escanear contaminación</value>
+    <value>扫描污染</value>
   </data>
   <data name="Cleanup_RestoreFromBackup" xml:space="preserve">
-    <value>Restaurar desde copia de seguridad</value>
+    <value>从备份恢复</value>
   </data>
   <data name="Cleanup_UndoBannerDescription" xml:space="preserve">
-    <value>La copia de seguridad está a salvo -- haz clic en Deshacer para restaurar todos los archivos a sus ubicaciones originales.</value>
+    <value>备份是安全的 -- 点击撤销即可将所有文件恢复到原始位置。</value>
   </data>
   <data name="Cleanup_Undo" xml:space="preserve">
-    <value>Deshacer</value>
+    <value>撤销</value>
   </data>
   <data name="Cleanup_Dismiss" xml:space="preserve">
-    <value>Cerrar</value>
+    <value>关闭</value>
   </data>
   <data name="Cleanup_ScanningApps" xml:space="preserve">
-    <value>Escaneando apps...</value>
+    <value>正在扫描应用...</value>
   </data>
   <data name="Cleanup_DangerZone" xml:space="preserve">
-    <value>Zona de peligro</value>
+    <value>危险区域</value>
   </data>
   <data name="Cleanup_CleanAllSuspectFiles" xml:space="preserve">
-    <value>Limpiar todos los archivos sospechosos</value>
+    <value>清理全部可疑文件</value>
   </data>
   <data name="Cleanup_Back" xml:space="preserve">
-    <value>Volver</value>
+    <value>返回</value>
   </data>
   <data name="Cleanup_RefreshBackups" xml:space="preserve">
-    <value>Actualizar copias de seguridad</value>
+    <value>刷新备份</value>
   </data>
   <data name="Cleanup_RestoreDescription" xml:space="preserve">
-    <value>Restaura archivos de una copia de seguridad de limpieza anterior. Cada limpieza crea una copia de seguridad inmutable con marca de tiempo. La restauración copia los archivos sin modificar la copia de seguridad.</value>
+    <value>从之前的清理备份中恢复文件。每次清理都会创建不可变的带时间戳备份。恢复会将文件复制回去，不会修改备份。</value>
   </data>
   <data name="Cleanup_LoadingBackups" xml:space="preserve">
-    <value>Cargando copias de seguridad...</value>
+    <value>正在加载备份...</value>
   </data>
-
   <data name="Cleanup_SteamNotFound" xml:space="preserve">
-    <value>Steam no encontrado</value>
+    <value>未找到 Steam</value>
   </data>
   <data name="Cleanup_NoNamespaceApps" xml:space="preserve">
-    <value>No se encontraron namespace apps con archivos.</value>
+    <value>未找到包含文件的命名空间应用。</value>
   </data>
   <data name="Cleanup_ScanStatusFormat" xml:space="preserve">
-    <value>{0} apps escaneadas, {1} archivos sospechosos en {2} apps</value>
+    <value>已扫描 {0} 个应用，{2} 个应用中有 {1} 个可疑文件</value>
   </data>
   <data name="Cleanup_NukeDescriptionFormat" xml:space="preserve">
-    <value>Eliminar los {0} archivos sospechosos ({1}) en {2} app(s) de una sola vez. Todo se respalda y se puede restaurar desde la pestaña Restaurar.</value>
+    <value>一次移除 {2} 个应用中的全部 {0} 个可疑文件（{1}）。所有内容都会备份，并可从“恢复”标签页还原。</value>
   </data>
   <data name="Cleanup_ScanFailed" xml:space="preserve">
-    <value>El escaneo falló: {0}</value>
+    <value>扫描失败：{0}</value>
   </data>
   <data name="Cleanup_Cleaning" xml:space="preserve">
-    <value>Limpiando...</value>
+    <value>正在清理...</value>
   </data>
   <data name="Cleanup_ConfirmCleanAllTitle" xml:space="preserve">
-    <value>Limpiar todos los archivos sospechosos</value>
+    <value>清理全部可疑文件</value>
   </data>
   <data name="Cleanup_ConfirmCleanAllMessage" xml:space="preserve">
-    <value>Esto moverá {0} archivo(s) sospechoso(s) ({1}) en {2} app(s) a la carpeta de copia de seguridad.
+    <value>这会将 {2} 个应用中的 {0} 个可疑文件（{1}）移动到备份文件夹。
 
-Ubicación de la copia: cloud_redirect/cleanup_tab_backup/
+备份位置：cloud_redirect/cleanup_tab_backup/
 
-Todo se puede restaurar desde la pestaña Restaurar.
+所有内容都可以从“恢复”标签页还原。
 
-¿Estás seguro?</value>
+确定吗？</value>
   </data>
   <data name="Cleanup_CleanupCompleteTitle" xml:space="preserve">
-    <value>Limpieza completa</value>
+    <value>清理完成</value>
   </data>
   <data name="Cleanup_CleanupCompleteMessage" xml:space="preserve">
-    <value>Se movieron {0} archivo(s) a la copia de seguridad.
-Puedes restaurarlos desde la pestaña Restaurar si es necesario.</value>
+    <value>已将 {0} 个文件移动到备份。
+如有需要，可从“恢复”标签页还原。</value>
   </data>
   <data name="Cleanup_CleanupFailedTitle" xml:space="preserve">
-    <value>La limpieza falló</value>
+    <value>清理失败</value>
   </data>
   <data name="Cleanup_CleanedBannerFormat" xml:space="preserve">
-    <value>Se limpiaron {0} archivo(s) a la copia de seguridad.</value>
+    <value>已将 {0} 个文件清理到备份。</value>
   </data>
   <data name="Cleanup_BackToScan" xml:space="preserve">
-    <value>Volver al escaneo</value>
+    <value>返回扫描</value>
   </data>
   <data name="Cleanup_NoBackupsFound" xml:space="preserve">
-    <value>No se encontraron copias de seguridad.</value>
+    <value>未找到备份。</value>
   </data>
   <data name="Cleanup_BackupCountFormat" xml:space="preserve">
-    <value>{0} copia(s) de seguridad encontrada(s)</value>
+    <value>找到 {0} 个备份</value>
   </data>
   <data name="Cleanup_FailedLoadBackups" xml:space="preserve">
-    <value>Error al cargar copias de seguridad: {0}</value>
+    <value>加载备份失败：{0}</value>
   </data>
   <data name="Cleanup_RestoreFromBackupTitle" xml:space="preserve">
-    <value>Restaurar desde copia de seguridad</value>
+    <value>从备份恢复</value>
   </data>
   <data name="Cleanup_RestoreConfirmMessage" xml:space="preserve">
-    <value>Esto copiará los archivos de la copia de seguridad en {0} a sus ubicaciones originales.
+    <value>这会将 {0} 处备份中的文件复制回原始位置。
 
-Cuenta: {1}
-Archivos: {2}
-Apps: {3}
+账号：{1}
+文件：{2}
+应用：{3}
 
-Los archivos existentes en las ubicaciones originales se OMITIRÁN.
-La copia de seguridad nunca se modifica ni se elimina.
+原始位置已有的文件将被跳过。
+备份本身永远不会被修改或删除。
 
-¿Continuar?</value>
+继续？</value>
   </data>
   <data name="Cleanup_RestoreCompleteTitle" xml:space="preserve">
-    <value>Restauración completa</value>
+    <value>恢复完成</value>
   </data>
   <data name="Cleanup_RestoredFormat" xml:space="preserve">
-    <value>{0} archivo(s) restaurado(s), {1} remotecache(s).</value>
+    <value>已恢复 {0} 个文件，{1} 个 remotecache。</value>
   </data>
   <data name="Cleanup_SkippedFormat" xml:space="preserve">
     <value>
-Se omitieron {0} archivo(s) (ya existen en la ubicación original).</value>
+已跳过 {0} 个文件（原位置已存在）。</value>
   </data>
   <data name="Cleanup_ErrorsFormat" xml:space="preserve">
     <value>
 
-{0} error(es) ocurridos:
+发生 {0} 个错误：
 {1}</value>
   </data>
   <data name="Cleanup_RestoreFailedTitle" xml:space="preserve">
-    <value>La restauración falló</value>
+    <value>恢复失败</value>
   </data>
   <data name="Cleanup_UndoFailedTitle" xml:space="preserve">
-    <value>Deshacer falló</value>
+    <value>撤销失败</value>
   </data>
   <data name="Cleanup_UndoSteamNotFound" xml:space="preserve">
-    <value>Steam no encontrado.</value>
+    <value>未找到 Steam。</value>
   </data>
   <data name="Cleanup_UndoNoBackupFound" xml:space="preserve">
-    <value>No se pudo encontrar la copia de seguridad de la última limpieza. Usa Restaurar desde copia de seguridad para buscarla manualmente.</value>
+    <value>找不到上次清理的备份。请使用“从备份恢复”手动查找。</value>
   </data>
   <data name="Cleanup_UndoCompleteTitle" xml:space="preserve">
-    <value>Deshacer completo</value>
+    <value>撤销完成</value>
   </data>
-
   <data name="Cleanup_Badge_CrossApp" xml:space="preserve">
-    <value>cross-app</value>
+    <value>跨应用</value>
   </data>
   <data name="Cleanup_Badge_WrongAppId" xml:space="preserve">
-    <value>wrong appid</value>
+    <value>错误 appid</value>
   </data>
   <data name="Cleanup_Badge_Mangled" xml:space="preserve">
-    <value>mangled</value>
+    <value>已损坏命名</value>
   </data>
   <data name="Cleanup_Badge_Orphan" xml:space="preserve">
-    <value>orphan</value>
+    <value>孤立项</value>
   </data>
   <data name="Cleanup_Badge_Legit" xml:space="preserve">
-    <value>legit</value>
+    <value>合法</value>
   </data>
   <data name="Cleanup_Badge_Unknown" xml:space="preserve">
-    <value>unknown</value>
+    <value>未知</value>
   </data>
-
   <data name="Cleanup_SuspectFiles" xml:space="preserve">
-    <value>Archivos sospechosos</value>
+    <value>可疑文件</value>
   </data>
   <data name="Cleanup_Unknown" xml:space="preserve">
-    <value>Desconocido</value>
+    <value>未知</value>
   </data>
   <data name="Cleanup_Legitimate" xml:space="preserve">
-    <value>Legítimo</value>
+    <value>合法</value>
   </data>
   <data name="Cleanup_GroupHeaderFormat" xml:space="preserve">
-    <value>{0} ({1})</value>
+    <value>{0}（{1}）</value>
   </data>
   <data name="Cleanup_Clean" xml:space="preserve">
-    <value>limpio</value>
+    <value>干净</value>
   </data>
   <data name="Cleanup_Suspect" xml:space="preserve">
-    <value>{0} sospechoso(s)</value>
+    <value>{0} 个可疑</value>
   </data>
   <data name="Cleanup_FilesCount" xml:space="preserve">
-    <value>{0} archivos</value>
+    <value>{0} 个文件</value>
   </data>
   <data name="Cleanup_ReviewFiles" xml:space="preserve">
-    <value>Revisar archivos</value>
+    <value>查看文件</value>
   </data>
   <data name="Cleanup_ViewFiles" xml:space="preserve">
-    <value>Ver archivos</value>
+    <value>查看文件</value>
   </data>
   <data name="Cleanup_Collapse" xml:space="preserve">
-    <value>Contraer</value>
+    <value>折叠</value>
   </data>
   <data name="Cleanup_SelectAllSuspect" xml:space="preserve">
-    <value>Seleccionar todos los sospechosos</value>
+    <value>选择全部可疑项</value>
   </data>
   <data name="Cleanup_DeselectAll" xml:space="preserve">
-    <value>Deseleccionar todo</value>
+    <value>取消全选</value>
   </data>
   <data name="Cleanup_CleanSelected" xml:space="preserve">
-    <value>Limpiar seleccionados</value>
+    <value>清理所选项</value>
   </data>
   <data name="Cleanup_NothingSelectedTitle" xml:space="preserve">
-    <value>Nada seleccionado</value>
+    <value>未选择任何内容</value>
   </data>
   <data name="Cleanup_NothingSelectedMessage" xml:space="preserve">
-    <value>Selecciona archivos a eliminar marcando las casillas.</value>
+    <value>请勾选复选框选择要移除的文件。</value>
   </data>
   <data name="Cleanup_ConfirmCleanupTitle" xml:space="preserve">
-    <value>Confirmar limpieza</value>
+    <value>确认清理</value>
   </data>
   <data name="Cleanup_ConfirmCleanupMessage" xml:space="preserve">
-    <value>Esto moverá {0} archivo(s) ({1}) a la carpeta de copia de seguridad.
+    <value>这会将 {0} 个文件（{1}）移动到备份文件夹。
 
-Ubicación de la copia: cloud_redirect/cleanup_tab_backup/{2}/
+备份位置：cloud_redirect/cleanup_tab_backup/{2}/
 
-Los archivos se pueden restaurar desde la pestaña Restaurar. ¿Continuar?</value>
+文件可以从“恢复”标签页还原。继续？</value>
   </data>
-
   <data name="Settings_Title" xml:space="preserve">
-    <value>Ajustes</value>
+    <value>设置</value>
   </data>
   <data name="Settings_Updates" xml:space="preserve">
-    <value>Actualizaciones</value>
+    <value>更新</value>
   </data>
   <data name="Settings_CheckForUpdates" xml:space="preserve">
-    <value>Buscar actualizaciones</value>
+    <value>检查更新</value>
   </data>
   <data name="Settings_CheckForUpdatesHint" xml:space="preserve">
-    <value>Haz clic para buscar una versión más reciente.</value>
+    <value>点击检查是否有新版本。</value>
   </data>
   <data name="Settings_Check" xml:space="preserve">
-    <value>Verificar</value>
+    <value>检查</value>
   </data>
   <data name="Settings_Download" xml:space="preserve">
-    <value>Descargar</value>
+    <value>下载</value>
   </data>
   <data name="Settings_DangerZone" xml:space="preserve">
-    <value>Zona de peligro</value>
+    <value>危险区域</value>
   </data>
   <data name="Settings_ResetCacheTitle" xml:space="preserve">
-    <value>Restablecer caché local de CloudRedirect</value>
+    <value>重置本地 CloudRedirect 缓存</value>
   </data>
   <data name="Settings_ResetCacheDescription" xml:space="preserve">
-    <value>Elimina la caché local de CloudRedirect. Solo elimina la caché y obliga al proveedor de nube a resincronizar. ¡Esto puede causar pérdida de datos en algunos casos!</value>
+    <value>删除 CloudRedirect 本地缓存。此操作只会移除缓存，并强制云服务提供商重新同步。</value>
   </data>
   <data name="Settings_Reset" xml:space="preserve">
-    <value>Restablecer</value>
+    <value>重置</value>
   </data>
   <data name="Settings_About" xml:space="preserve">
-    <value>Acerca de</value>
+    <value>关于</value>
   </data>
   <data name="Settings_CloudRedirect" xml:space="preserve">
     <value>CloudRedirect</value>
   </data>
   <data name="Settings_AboutDescription" xml:space="preserve">
-    <value>Partidas guardadas en la nube para juegos de Steam no comprados</value>
+    <value>为未拥有的 Steam 游戏提供云存档</value>
   </data>
   <data name="Settings_GitHub" xml:space="preserve">
     <value>GitHub</value>
   </data>
-
   <data name="Settings_VersionFormat" xml:space="preserve">
     <value>{0}.{1}.{2}</value>
   </data>
   <data name="Settings_Checking" xml:space="preserve">
-    <value>Verificando...</value>
+    <value>正在检查...</value>
   </data>
   <data name="Settings_ContactingGitHub" xml:space="preserve">
-    <value>Contactando GitHub...</value>
+    <value>正在联系 GitHub...</value>
   </data>
   <data name="Settings_UpdateAvailableFormat" xml:space="preserve">
-    <value>Actualización disponible: {0}</value>
+    <value>有更新可用：{0}</value>
   </data>
   <data name="Settings_NewerVersionAvailable" xml:space="preserve">
-    <value>Hay una versión más reciente disponible. Estás ejecutando la v{0}.</value>
+    <value>有较新版本可用。你当前运行的是 v{0}。</value>
   </data>
   <data name="Settings_UpToDate" xml:space="preserve">
-    <value>Actualizado</value>
+    <value>已是最新</value>
   </data>
   <data name="Settings_LatestVersionFormat" xml:space="preserve">
-    <value>Estás ejecutando la última versión (v{0}).</value>
+    <value>你正在运行最新版本（v{0}）。</value>
   </data>
   <data name="Settings_LatestReleaseFormat" xml:space="preserve">
-    <value>Última versión: {0}</value>
+    <value>最新版本：{0}</value>
   </data>
   <data name="Settings_CouldNotCompare" xml:space="preserve">
-    <value>No se pudieron comparar las versiones automáticamente.</value>
+    <value>无法自动比较版本。</value>
   </data>
   <data name="Settings_FailedToCheck" xml:space="preserve">
-    <value>Error al verificar: {0}</value>
+    <value>检查失败：{0}</value>
   </data>
   <data name="Settings_ConfirmResetTitle" xml:space="preserve">
-    <value>Confirmar restablecimiento</value>
+    <value>确认重置</value>
   </data>
   <data name="Settings_ConfirmResetMessage" xml:space="preserve">
-    <value>Esto eliminará la caché local de CloudRedirect y obligará al proveedor de nube a resincronizar.
+    <value>这将删除 CloudRedirect 本地缓存，并强制云服务提供商重新同步。
 
-Esto puede causar pérdida de datos en algunos casos.
-
-¿Estás seguro?</value>
+确定吗？</value>
   </data>
   <data name="Settings_Done" xml:space="preserve">
-    <value>Listo</value>
+    <value>完成</value>
   </data>
   <data name="Settings_ResetDoneMessage" xml:space="preserve">
-    <value>La caché local ha sido restablecida. El proveedor de nube resincronizará en el próximo inicio.</value>
+    <value>本地缓存已重置。云服务提供商将在下次启动时重新同步。</value>
   </data>
   <data name="Settings_FailedReset" xml:space="preserve">
-    <value>Error al restablecer: {0}</value>
+    <value>重置失败：{0}</value>
   </data>
-
   <data name="Disclaimer_WindowTitle" xml:space="preserve">
-    <value>ADVERTENCIA</value>
+    <value>警告</value>
   </data>
   <data name="Disclaimer_BuildBanner" xml:space="preserve">
     <value>CloudRedirect v2.0.3</value>
   </data>
   <data name="Disclaimer_ExperimentalBanner" xml:space="preserve">
-    <value>!  EXPERIMENTAL  -  RIESGO  DE  PÉRDIDA  DE  DATOS  !</value>
+    <value>!  实验性功能  -  存在数据丢失风险  !</value>
   </data>
   <data name="Disclaimer_WarningBold" xml:space="preserve">
-    <value>La redirección de partidas guardadas en la nube es EXPERIMENTAL y está en desarrollo activo.</value>
+    <value>云存档重定向是实验性功能，并且仍在积极开发中。</value>
   </data>
   <data name="Disclaimer_ItMay" xml:space="preserve">
-    <value>Puede:</value>
+    <value>它可能会：</value>
   </data>
   <data name="Disclaimer_Corrupt" xml:space="preserve">
-    <value>CORROMPER</value>
+    <value>损坏</value>
   </data>
   <data name="Disclaimer_CorruptSuffix" xml:space="preserve">
-    <value> tus archivos de partidas guardadas</value>
+    <value>你的存档文件</value>
   </data>
   <data name="Disclaimer_Lose" xml:space="preserve">
-    <value>PERDER</value>
+    <value>丢失</value>
   </data>
   <data name="Disclaimer_LoseSuffix" xml:space="preserve">
-    <value> tus datos de partidas guardadas</value>
+    <value>你的存档数据</value>
   </data>
   <data name="Disclaimer_Overwrite" xml:space="preserve">
-    <value>SOBRESCRIBIR</value>
+    <value>覆盖</value>
   </data>
   <data name="Disclaimer_OverwriteSuffix" xml:space="preserve">
-    <value> partidas buenas con malas</value>
+    <value>用坏存档覆盖好存档</value>
   </data>
   <data name="Disclaimer_BackUpBold" xml:space="preserve">
-    <value>HAZ UNA COPIA DE SEGURIDAD DE TUS PARTIDAS antes de usar esto.</value>
+    <value>使用前请备份你的存档。</value>
   </data>
   <data name="Disclaimer_ExplanationText" xml:space="preserve">
-    <value>Si algo sale mal, tus PARTIDAS LOCALES podrían corromperse o perderse. Asegúrate de tener copias de seguridad de cualquier partida que te importe antes de continuar.</value>
+    <value>如果出现问题，你的本地存档可能会损坏或丢失。继续前，请确保已备份任何重要存档。</value>
   </data>
   <data name="Disclaimer_PleaseReadCarefully" xml:space="preserve">
-    <value>Por favor lee con cuidado...</value>
+    <value>请仔细阅读...</value>
   </data>
   <data name="Disclaimer_Cancel" xml:space="preserve">
-    <value>Cancelar</value>
+    <value>取消</value>
   </data>
   <data name="Disclaimer_AcceptButton" xml:space="preserve">
-    <value>Entiendo los riesgos</value>
+    <value>我理解这些风险</value>
   </data>
-
   <data name="Disclaimer_CountdownFormat" xml:space="preserve">
-    <value>Por favor lee con cuidado... ({0}s)</value>
+    <value>请仔细阅读...（{0} 秒）</value>
   </data>
   <data name="Disclaimer_Warned" xml:space="preserve">
-    <value>Has sido advertido.</value>
+    <value>你已收到警告。</value>
   </data>
-
   <data name="Dialog_OK" xml:space="preserve">
-    <value>OK</value>
+    <value>确定</value>
   </data>
   <data name="Dialog_Yes" xml:space="preserve">
-    <value>Sí</value>
+    <value>是</value>
   </data>
   <data name="Dialog_No" xml:space="preserve">
-    <value>No</value>
+    <value>否</value>
   </data>
   <data name="Dialog_YesCountdownFormat" xml:space="preserve">
-    <value>Sí ({0})</value>
+    <value>是（{0}）</value>
   </data>
   <data name="Dialog_YesDeleteEverything" xml:space="preserve">
-    <value>Sí -- ELIMINAR TODO</value>
+    <value>是 -- 删除所有内容</value>
   </data>
-
   <data name="Steam_IsRunningTitle" xml:space="preserve">
-    <value>Steam está en ejecución</value>
+    <value>Steam 正在运行</value>
   </data>
   <data name="Steam_IsRunningMessage" xml:space="preserve">
-    <value>Steam debe estar cerrado antes de continuar. Cierra Steam e intenta de nuevo.</value>
+    <value>继续前必须关闭 Steam。请关闭 Steam 后重试。</value>
   </data>
-
   <data name="Provider_GoogleDrive" xml:space="preserve">
     <value>Google Drive</value>
   </data>
@@ -1460,116 +1429,110 @@ Esto puede causar pérdida de datos en algunos casos.
     <value>WebDAV</value>
   </data>
   <data name="Provider_FolderNetworkDrive" xml:space="preserve">
-    <value>Carpeta / Unidad de red</value>
+    <value>文件夹 / 网络驱动器</value>
   </data>
   <data name="Provider_LocalOnly" xml:space="preserve">
-    <value>Solo local</value>
+    <value>仅本地</value>
   </data>
-
   <data name="Backup_UnknownApp" xml:space="preserve">
-    <value>App desconocida</value>
+    <value>未知应用</value>
   </data>
   <data name="Backup_AppIdFormat" xml:space="preserve">
     <value>AppID {0}</value>
   </data>
   <data name="Backup_Legacy" xml:space="preserve">
-    <value>legacy</value>
+    <value>旧版</value>
   </data>
   <data name="Backup_Recent" xml:space="preserve">
-    <value>reciente</value>
+    <value>最近</value>
   </data>
   <data name="Backup_FileCountFormat" xml:space="preserve">
-    <value>{0} archivo(s)</value>
+    <value>{0} 个文件</value>
   </data>
   <data name="Backup_OperationsFormat" xml:space="preserve">
-    <value>{0} op(s)</value>
+    <value>{0} 个操作</value>
   </data>
   <data name="Backup_OtherAppsFormat" xml:space="preserve">
-    <value>(+ {0} otra(s) app{1})</value>
+    <value>（+ {0} 个其他应用{1}）</value>
   </data>
   <data name="Backup_Preview" xml:space="preserve">
-    <value>Vista previa</value>
+    <value>预览</value>
   </data>
   <data name="Backup_HidePreview" xml:space="preserve">
-    <value>Ocultar vista previa</value>
+    <value>隐藏预览</value>
   </data>
   <data name="Backup_Loading" xml:space="preserve">
-    <value>Cargando...</value>
+    <value>正在加载...</value>
   </data>
   <data name="Backup_NoFilesOnDisk" xml:space="preserve">
-    <value>No se encontraron archivos de copia de seguridad en disco</value>
+    <value>磁盘上未找到备份文件</value>
   </data>
-
   <data name="Preview_SummaryFormat" xml:space="preserve">
-    <value>Vista previa: {0} archivo(s) se restaurarían, {1} omitido(s) (ya existen), {2} remotecache(s)</value>
+    <value>预览：将恢复 {0} 个文件，跳过 {1} 个（已存在），{2} 个 remotecache</value>
   </data>
   <data name="Preview_Failed" xml:space="preserve">
-    <value>La vista previa falló</value>
+    <value>预览失败</value>
   </data>
   <data name="Preview_ErrorsHeader" xml:space="preserve">
-    <value>Errores:
+    <value>错误：
 {0}</value>
   </data>
   <data name="Preview_FailedTitle" xml:space="preserve">
-    <value>Vista previa falló</value>
+    <value>预览失败</value>
   </data>
-
   <data name="EmbeddedDll_NotEmbedded" xml:space="preserve">
-    <value>cloud_redirect.dll no está incluida en esta compilación</value>
+    <value>此构建未嵌入 cloud_redirect.dll</value>
   </data>
   <data name="EmbeddedDll_InUse" xml:space="preserve">
-    <value>cloud_redirect.dll está en uso (cierra Steam primero)</value>
+    <value>cloud_redirect.dll 正在使用中（请先关闭 Steam）</value>
   </data>
-
   <data name="Common_Info" xml:space="preserve">
-    <value>Información</value>
+    <value>信息</value>
   </data>
   <data name="Common_Error" xml:space="preserve">
-    <value>Error</value>
+    <value>错误</value>
   </data>
   <data name="Common_UpdateFailed" xml:space="preserve">
-    <value>La actualización falló</value>
+    <value>更新失败</value>
   </data>
   <data name="Common_ErrorDetailsFormat" xml:space="preserve">
-    <value>Error: {0}</value>
+    <value>错误：{0}</value>
   </data>
   <data name="Common_UnknownError" xml:space="preserve">
-    <value>Error desconocido</value>
+    <value>未知错误</value>
   </data>
-
   <data name="OAuth_AuthSuccessTitle" xml:space="preserve">
-    <value>Autorización exitosa</value>
+    <value>授权成功</value>
   </data>
   <data name="OAuth_AuthSuccessBody" xml:space="preserve">
-    <value>Puedes cerrar esta pestaña y volver a CloudRedirect.</value>
+    <value>你可以关闭此标签页并返回 CloudRedirect。</value>
   </data>
   <data name="OAuth_AuthFailedTitle" xml:space="preserve">
-    <value>Autorización fallida</value>
+    <value>授权失败</value>
   </data>
   <data name="OAuth_AuthFailedBody" xml:space="preserve">
-    <value>Cierra esta pestaña e intenta de nuevo.</value>
+    <value>请关闭此标签页后重试。</value>
   </data>
-
   <data name="Settings_Language" xml:space="preserve">
-    <value>Idioma</value>
+    <value>语言</value>
   </data>
   <data name="Settings_LanguageHint" xml:space="preserve">
-    <value>Seleccione su idioma preferido. Los cambios se aplican al reiniciar.</value>
+    <value>选择你的首选语言。更改将在重启后生效。</value>
   </data>
   <data name="Settings_RestartRequired" xml:space="preserve">
-    <value>Reinicio necesario para cambiar el idioma.</value>
+    <value>需要重启才能更改语言。</value>
   </data>
   <data name="Settings_RestartNow" xml:space="preserve">
-    <value>Reiniciar ahora</value>
+    <value>立即重启</value>
   </data>
   <data name="Settings_FailedSaveLanguage" xml:space="preserve">
-    <value>No se pudo guardar la preferencia de idioma: {0}</value>
+    <value>无法保存语言偏好：{0}</value>
   </data>
   <data name="Settings_FailedSaveSync" xml:space="preserve">
-    <value>No se pudo guardar la configuración de sincronización: {0}</value>
+    <value>无法保存同步设置：{0}</value>
   </data>
   <data name="Settings_SystemDefault" xml:space="preserve">
-    <value>Predeterminado del sistema</value>
+    <value>系统默认</value>
   </data>
   <data name="Settings_LanguageEnglish" xml:space="preserve">
     <value>English</value>
@@ -1584,86 +1547,64 @@ Esto puede causar pérdida de datos en algunos casos.
     <value>简体中文</value>
   </data>
   <data name="Settings_Sync" xml:space="preserve">
-    <value>Sincronización</value>
+    <value>同步</value>
   </data>
   <data name="Settings_SyncHint" xml:space="preserve">
-    <value>Estos ajustes controlan qué datos se sincronizan entre tus PCs a través del proveedor de nube. Los cambios se aplican después de reiniciar Steam.</value>
+    <value>这些设置控制哪些数据会通过云服务提供商在你的电脑之间同步。更改将在重启 Steam 后生效。</value>
   </data>
   <data name="Settings_SyncAchievements" xml:space="preserve">
-    <value>Sincronizar logros</value>
+    <value>同步成就</value>
   </data>
   <data name="Settings_SyncAchievementsHint" xml:space="preserve">
-    <value>Subir y fusionar el progreso de logros de las apps lua entre PCs.</value>
+    <value>上传并合并 lua 应用在不同电脑上的成就进度。</value>
   </data>
   <data name="Settings_SyncPlaytime" xml:space="preserve">
-    <value>Sincronizar tiempo de juego</value>
+    <value>同步游戏时间</value>
   </data>
   <data name="Settings_SyncPlaytimeHint" xml:space="preserve">
-    <value>Subir y fusionar los datos de tiempo de juego de las apps lua entre PCs.</value>
+    <value>上传并合并 lua 应用在不同电脑上的游戏时间数据。</value>
   </data>
   <data name="Settings_SyncLuas" xml:space="preserve">
-    <value>Sincronizar archivos lua</value>
+    <value>同步 Lua 文件</value>
   </data>
   <data name="Settings_SyncLuasHint" xml:space="preserve">
-    <value>Sincronizar los archivos lua entre PCs para no tener que instalarlos de nuevo.</value>
+    <value>在电脑之间同步 lua 文件本身，这样就不必再次安装它们。</value>
   </data>
   <data name="Settings_AutoUpdateDll" xml:space="preserve">
-    <value>Actualizar DLL automáticamente</value>
+    <value>自动更新 DLL</value>
   </data>
   <data name="Settings_AutoUpdateDllHint" xml:space="preserve">
-    <value>Buscar e instalar automáticamente versiones más nuevas del DLL de CloudRedirect cuando Steam se inicie. La actualización se aplica en el siguiente reinicio de Steam.</value>
+    <value>Steam 启动时自动检查并安装较新版本的 CloudRedirect DLL。更新将在下次重启 Steam 时生效。</value>
   </data>
-
   <data name="Settings_CloudRedirectEnabled" xml:space="preserve">
-    <value>Activar redirección de guardados en la nube</value>
+    <value>启用云存档重定向</value>
   </data>
   <data name="Settings_CloudRedirectEnabledHint" xml:space="preserve">
-    <value>Cuando está activado, los guardados en la nube de las apps lua son interceptados y almacenados localmente (y opcionalmente sincronizados con tu proveedor de nube). Cuando está desactivado, solo la fijación de manifiestos y los parches están activos. Los cambios se aplican al reiniciar Steam.</value>
+    <value>启用后，lua 应用的云存档会被拦截并存储到本地（也可选择同步到云服务提供商）。禁用后，仅清单固定和补丁保持活动。更改将在重启 Steam 后生效。</value>
   </data>
-
   <data name="Settings_ManifestPinning" xml:space="preserve">
-    <value>Fijación de manifiestos</value>
+    <value>清单固定</value>
   </data>
   <data name="Settings_ManifestPinningHint" xml:space="preserve">
-    <value>Controla si las apps lua pueden fijarse a versiones específicas. Los pines por app se configuran en el archivo de configuración en la carpeta de Steam. Los cambios se aplican al reiniciar Steam.</value>
+    <value>控制 lua 应用是否可以固定到指定版本。每个应用的固定项可在 Steam 文件夹中的配置文件里设置。更改将在重启 Steam 后生效。</value>
   </data>
   <data name="Settings_ManifestPinningEnabled" xml:space="preserve">
-    <value>Activar fijación de manifiestos</value>
+    <value>启用清单固定</value>
   </data>
   <data name="Settings_ManifestPinningEnabledHint" xml:space="preserve">
-    <value>Cuando está activado, las apps lua pueden bloquearse a versiones específicas.</value>
+    <value>启用后，lua 应用可以锁定到指定版本。</value>
   </data>
   <data name="Settings_AutoComment" xml:space="preserve">
-    <value>Auto comment setManifestid</value>
+    <value>自动注释 SetManifestID</value>
   </data>
   <data name="Settings_AutoCommentHint" xml:space="preserve">
-    <value>Cuando está activado, el SetManifestID especificado en el lua se tratará como si estuviera comentado. Si está desactivado, se respetará el SetManifestID, lo que significa que tu juego quedará bloqueado en la versión especificada en el lua. Esta opción nunca modifica los archivos lua en disco.</value>
+    <value>启用后，lua 中指定的 SetManifestID 将被视为已注释。如果禁用，则会遵循 SetManifestID，这意味着你的游戏会锁定到 lua 中指定的版本。此设置绝不会修改磁盘上的 lua 文件。</value>
   </data>
-
-  <data name="Settings_Parental" xml:space="preserve">
-    <value>Controles parentales</value>
-  </data>
-  <data name="Settings_ParentalHint" xml:space="preserve">
-    <value>Ajustes relacionados con el tiempo de juego y las restricciones familiares.</value>
-  </data>
-  <data name="Settings_ParentalIgnorePlaytime" xml:space="preserve">
-    <value>Ignorar restricciones de tiempo de juego</value>
-  </data>
-  <data name="Settings_ParentalIgnorePlaytimeHint" xml:space="preserve">
-    <value>Desactiva las restricciones de tiempo de juego. Informa el tiempo hasta el límite configurado, pero no más allá.</value>
-  </data>
-  <data name="Settings_ParentalBypassPlaytime" xml:space="preserve">
-    <value>Desactivar restricciones familiares</value>
-  </data>
-  <data name="Settings_ParentalBypassPlaytimeHint" xml:space="preserve">
-    <value>No se aplican restricciones familiares del lado del cliente.</value>
-  </data>
-
   <data name="Pin_PerAppTitle" xml:space="preserve">
-    <value>Apps lua</value>
+    <value>Lua 应用</value>
   </data>
   <data name="Pin_PerAppHint" xml:space="preserve">
-    <value>Estos son tus juegos/apps lua. Activa la app abajo para fijarla a la versión especificada en el lua. Cuando auto comment está activado, solo las apps habilitadas aquí serán fijadas. Los cambios se aplican al reiniciar Steam.</value>
+    <value>这些是你的 lua 游戏/应用。启用下面的应用即可将其固定到 lua 中指定的版本。开启自动注释时，只有这里启用的应用会被固定。更改将在重启 Steam 后生效。</value>
   </data>
   <data name="Pin_AppId" xml:space="preserve">
     <value>App ID</value>
@@ -1675,107 +1616,122 @@ Esto puede causar pérdida de datos en algunos casos.
     <value>Manifest ID</value>
   </data>
   <data name="Pin_Add" xml:space="preserve">
-    <value>Agregar</value>
+    <value>添加</value>
   </data>
   <data name="Pin_Remove" xml:space="preserve">
-    <value>Eliminar</value>
+    <value>移除</value>
   </data>
   <data name="Pin_NoEntries" xml:space="preserve">
-    <value>No se encontraron archivos lua con setManifestid.</value>
+    <value>未找到带 setManifestid 的 lua 文件。</value>
   </data>
   <data name="Pin_AppFallbackName" xml:space="preserve">
-    <value>App {0}</value>
+    <value>应用 {0}</value>
   </data>
   <data name="Pin_FailedSavePinConfig" xml:space="preserve">
-    <value>No se pudo guardar la configuración de fijado: {0}</value>
+    <value>无法保存固定配置：{0}</value>
   </data>
   <data name="Pin_DepotLabel" xml:space="preserve">
     <value>Depot</value>
   </data>
   <data name="Pin_DepotCountFormat" xml:space="preserve">
-    <value>{0} depot(s)</value>
+    <value>{0} 个 depot</value>
   </data>
-
   <data name="Search_Placeholder" xml:space="preserve">
-    <value>Buscar por nombre o ID de app...</value>
+    <value>按名称或 App ID 搜索...</value>
   </data>
-
+  <data name="Settings_Parental" xml:space="preserve">
+    <value>家长控制</value>
+  </data>
+  <data name="Settings_ParentalHint" xml:space="preserve">
+    <value>与游戏时间和家庭限制相关的设置。</value>
+  </data>
+  <data name="Settings_ParentalIgnorePlaytime" xml:space="preserve">
+    <value>忽略游戏时间限制</value>
+  </data>
+  <data name="Settings_ParentalIgnorePlaytimeHint" xml:space="preserve">
+    <value>禁用游戏时间限制。仍会报告到设定上限为止的时间，但不会报告超过上限的部分。</value>
+  </data>
+  <data name="Settings_ParentalBypassPlaytime" xml:space="preserve">
+    <value>禁用家庭限制</value>
+  </data>
+  <data name="Settings_ParentalBypassPlaytimeHint" xml:space="preserve">
+    <value>不执行客户端侧家庭限制。</value>
+  </data>
   <data name="AppUpdate_Skip" xml:space="preserve">
-    <value>Omitir</value>
+    <value>跳过</value>
   </data>
   <data name="AppUpdate_UpdateNow" xml:space="preserve">
-    <value>Actualizar ahora</value>
+    <value>立即更新</value>
   </data>
   <data name="AppUpdate_ReleaseNotes" xml:space="preserve">
-    <value>Notas de la versión</value>
+    <value>发行说明</value>
   </data>
   <data name="AppUpdate_AvailableTitleFormat" xml:space="preserve">
-    <value>Actualización disponible -- v{0}</value>
+    <value>有更新可用 -- v{0}</value>
   </data>
   <data name="AppUpdate_AvailableDescription" xml:space="preserve">
-    <value>Una nueva versión de CloudRedirect está lista para instalar.</value>
+    <value>CloudRedirect 新版本已准备好安装。</value>
   </data>
   <data name="AppUpdate_DownloadingVersionFormat" xml:space="preserve">
-    <value>Descargando v{0}...</value>
+    <value>正在下载 v{0}...</value>
   </data>
   <data name="AppUpdate_FailedTitle" xml:space="preserve">
-    <value>La actualización falló</value>
+    <value>更新失败</value>
   </data>
   <data name="AppUpdate_DownloadingUpdate" xml:space="preserve">
-    <value>Descargando actualización...</value>
+    <value>正在下载更新...</value>
   </data>
   <data name="AppUpdate_SuspiciousSizeFormat" xml:space="preserve">
-    <value>El archivo descargado tiene un tamaño sospechoso ({0} bytes)</value>
+    <value>下载的文件大小异常（{0} 字节）</value>
   </data>
   <data name="AppUpdate_SuspiciousSizeOverFormat" xml:space="preserve">
-    <value>El archivo descargado tiene un tamaño sospechoso (&gt;{0} bytes)</value>
+    <value>下载的文件大小异常（&gt;{0} 字节）</value>
   </data>
   <data name="AppUpdate_DownloadingProgressFormat" xml:space="preserve">
-    <value>Descargando... {0}%</value>
+    <value>正在下载... {0}%</value>
   </data>
   <data name="AppUpdate_InvalidExecutable" xml:space="preserve">
-    <value>El archivo descargado no es un ejecutable válido</value>
+    <value>下载的文件不是有效的可执行文件</value>
   </data>
   <data name="AppUpdate_Installing" xml:space="preserve">
-    <value>Instalando actualización...</value>
+    <value>正在安装更新...</value>
   </data>
   <data name="AppUpdate_CurrentExeUnknown" xml:space="preserve">
-    <value>No se pudo determinar la ruta del ejecutable actual</value>
+    <value>无法确定当前可执行文件路径</value>
   </data>
   <data name="AppUpdate_ReplaceExeFailedFormat" xml:space="preserve">
-    <value>No se pudo reemplazar el exe: {0}</value>
+    <value>无法替换 exe：{0}</value>
   </data>
   <data name="AppUpdate_Relaunching" xml:space="preserve">
-    <value>Reiniciando...</value>
+    <value>正在重新启动...</value>
   </data>
   <data name="AppUpdate_UpdateFailedFormat" xml:space="preserve">
-    <value>La actualización falló: {0}</value>
+    <value>更新失败：{0}</value>
   </data>
 
-
-  <data name="CloudProvider_WebDavTestUnauthorized" xml:space="preserve"><value>La autenticación falló. Comprueba el usuario y la contraseña, o usa una contraseña de aplicación.</value></data>
-  <data name="CloudProvider_WebDavTestForbidden" xml:space="preserve"><value>El servidor rechazó el acceso a esta carpeta WebDAV.</value></data>
-  <data name="Settings_DllSourceReadFailed" xml:space="preserve"><value>No se pudo leer el DLL desplegado.</value></data>
-  <data name="CloudProvider_WebDavTestMethodNotAllowed" xml:space="preserve"><value>El servidor no permite PROPFIND en esta URL. Comprueba que sea una URL de carpeta WebDAV.</value></data>
-  <data name="CloudProvider_WebDavTestNotFound" xml:space="preserve"><value>No se encontró la carpeta WebDAV. Comprueba la ruta de la URL.</value></data>
-  <data name="Settings_DllSourceNotInstalledHint" xml:space="preserve"><value>Despliega el DLL antes de iniciar Steam.</value></data>
-  <data name="Settings_DllSourceNotInstalled" xml:space="preserve"><value>DLL no instalado</value></data>
-  <data name="CloudProvider_WebDavTestTimeout" xml:space="preserve"><value>La prueba de WebDAV agotó el tiempo de espera.</value></data>
-  <data name="Settings_DllSourceCustomDifferentEmbedded" xml:space="preserve"><value>Hay un DLL WebDAV personalizado desplegado, pero difiere del DLL incluido en esta aplicación.</value></data>
-  <data name="Settings_DllSourceSteamMissing" xml:space="preserve"><value>No se encontró Steam, por lo que no se pudo inspeccionar el DLL desplegado.</value></data>
-  <data name="CloudProvider_WebDavTestHttpError" xml:space="preserve"><value>La prueba de WebDAV falló: HTTP {0} {1}</value></data>
-  <data name="CloudProvider_TestConnection" xml:space="preserve"><value>Probar conexión</value></data>
-  <data name="Settings_DllSourceUnknown" xml:space="preserve"><value>Origen del DLL desconocido</value></data>
-  <data name="Settings_DllSourceHashMismatch" xml:space="preserve"><value>El hash del DLL no coincide</value></data>
-  <data name="CloudProvider_WebDavTestSuccess" xml:space="preserve"><value>Conexión WebDAV correcta (HTTP {0}).</value></data>
-  <data name="Settings_DllSourceOfficial" xml:space="preserve"><value>DLL oficial</value></data>
-  <data name="Settings_DllSourceMatchesEmbedded" xml:space="preserve"><value>El DLL desplegado en Steam coincide con el DLL incluido en esta aplicación.</value></data>
-  <data name="CloudProvider_TestingConnection" xml:space="preserve"><value>Probando conexión...</value></data>
-  <data name="Settings_DllSourceCustomWebDav" xml:space="preserve"><value>DLL WebDAV personalizado</value></data>
-  <data name="Settings_DllSourceHashMismatchHint" xml:space="preserve"><value>El DLL desplegado no coincide con el DLL incluido.</value></data>
-  <data name="CloudProvider_WebDavNoQueryFragment" xml:space="preserve"><value>La URL de WebDAV no debe incluir una consulta ni un fragmento.</value></data>
-  <data name="Settings_DllSource" xml:space="preserve"><value>Origen del DLL</value></data>
-  <data name="Settings_DllSourceDeployCustomHint" xml:space="preserve"><value>La aplicación contiene un DLL WebDAV personalizado, pero Steam aún no lo está usando. Despliega/actualiza el DLL desde el panel.</value></data>
-  <data name="Settings_DllSourceHashFormat" xml:space="preserve"><value>Desplegado: {0}  Incluido: {1}</value></data>
-  <data name="CloudProvider_WebDavTestNetworkError" xml:space="preserve"><value>Error de red al probar WebDAV: {0}</value></data>
+  <data name="CloudProvider_WebDavTestUnauthorized" xml:space="preserve"><value>认证失败。请检查用户名和密码，或使用应用密码。</value></data>
+  <data name="CloudProvider_WebDavTestForbidden" xml:space="preserve"><value>服务器拒绝访问此 WebDAV 文件夹。</value></data>
+  <data name="Settings_DllSourceReadFailed" xml:space="preserve"><value>无法读取已部署的 DLL。</value></data>
+  <data name="CloudProvider_WebDavTestMethodNotAllowed" xml:space="preserve"><value>服务器不允许对此 URL 执行 PROPFIND。请确认它是 WebDAV 文件夹 URL。</value></data>
+  <data name="CloudProvider_WebDavTestNotFound" xml:space="preserve"><value>未找到 WebDAV 文件夹。请检查 URL 路径。</value></data>
+  <data name="Settings_DllSourceNotInstalledHint" xml:space="preserve"><value>启动 Steam 前请先部署 DLL。</value></data>
+  <data name="Settings_DllSourceNotInstalled" xml:space="preserve"><value>DLL 未安装</value></data>
+  <data name="CloudProvider_WebDavTestTimeout" xml:space="preserve"><value>WebDAV 测试超时。</value></data>
+  <data name="Settings_DllSourceCustomDifferentEmbedded" xml:space="preserve"><value>已部署自定义 WebDAV DLL，但它与此应用内嵌的 DLL 不同。</value></data>
+  <data name="Settings_DllSourceSteamMissing" xml:space="preserve"><value>未找到 Steam，因此无法检查已部署的 DLL。</value></data>
+  <data name="CloudProvider_WebDavTestHttpError" xml:space="preserve"><value>WebDAV 测试失败：HTTP {0} {1}</value></data>
+  <data name="CloudProvider_TestConnection" xml:space="preserve"><value>测试连接</value></data>
+  <data name="Settings_DllSourceUnknown" xml:space="preserve"><value>DLL 来源未知</value></data>
+  <data name="Settings_DllSourceHashMismatch" xml:space="preserve"><value>DLL 哈希不匹配</value></data>
+  <data name="CloudProvider_WebDavTestSuccess" xml:space="preserve"><value>WebDAV 连接正常（HTTP {0}）。</value></data>
+  <data name="Settings_DllSourceOfficial" xml:space="preserve"><value>官方 DLL</value></data>
+  <data name="Settings_DllSourceMatchesEmbedded" xml:space="preserve"><value>部署到 Steam 的 DLL 与此应用内嵌的 DLL 一致。</value></data>
+  <data name="CloudProvider_TestingConnection" xml:space="preserve"><value>正在测试连接...</value></data>
+  <data name="Settings_DllSourceCustomWebDav" xml:space="preserve"><value>自定义 WebDAV DLL</value></data>
+  <data name="Settings_DllSourceHashMismatchHint" xml:space="preserve"><value>已部署的 DLL 与内嵌 DLL 不一致。</value></data>
+  <data name="CloudProvider_WebDavNoQueryFragment" xml:space="preserve"><value>WebDAV URL 不能包含查询字符串或片段。</value></data>
+  <data name="Settings_DllSource" xml:space="preserve"><value>DLL 来源</value></data>
+  <data name="Settings_DllSourceDeployCustomHint" xml:space="preserve"><value>此应用包含自定义 WebDAV DLL，但 Steam 尚未使用它。请在仪表盘部署/更新 DLL。</value></data>
+  <data name="Settings_DllSourceHashFormat" xml:space="preserve"><value>已部署：{0}  内嵌：{1}</value></data>
+  <data name="CloudProvider_WebDavTestNetworkError" xml:space="preserve"><value>测试 WebDAV 时发生网络错误：{0}</value></data>
 </root>

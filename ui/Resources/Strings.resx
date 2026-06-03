@@ -553,6 +553,9 @@ If you skip this, saves will be stored locally in your Steam folder.</value>
   <data name="Dashboard_NoTokenPath" xml:space="preserve">
     <value>{0} -- No token path configured</value>
   </data>
+  <data name="Dashboard_Configured" xml:space="preserve">
+    <value>{0} -- Configured</value>
+  </data>
   <data name="Dashboard_LogNotFound" xml:space="preserve">
     <value>Log file not found. Start Steam with CloudRedirect installed first.</value>
   </data>
@@ -618,6 +621,9 @@ Force-kill it?</value>
   <data name="CloudProvider_Description" xml:space="preserve">
     <value>Configure your Steam Cloud provider. Google Drive/OneDrive/Local Folder only for now.</value>
   </data>
+  <data name="CloudProvider_DescriptionWebDav" xml:space="preserve">
+    <value>Configure your Steam Cloud provider. Supports Google Drive, OneDrive, WebDAV, or a local/network folder.</value>
+  </data>
   <data name="CloudProvider_Provider" xml:space="preserve">
     <value>Provider</value>
   </data>
@@ -626,6 +632,9 @@ Force-kill it?</value>
   </data>
   <data name="CloudProvider_OneDrive" xml:space="preserve">
     <value>OneDrive</value>
+  </data>
+  <data name="CloudProvider_WebDav" xml:space="preserve">
+    <value>WebDAV</value>
   </data>
   <data name="CloudProvider_FolderMappedDrive" xml:space="preserve">
     <value>Folder / Mapped Drive</value>
@@ -638,6 +647,24 @@ Force-kill it?</value>
   </data>
   <data name="CloudProvider_TokenPlaceholder" xml:space="preserve">
     <value>Path to OAuth tokens file</value>
+  </data>
+  <data name="CloudProvider_WebDavUrlPath" xml:space="preserve">
+    <value>WebDAV URL</value>
+  </data>
+  <data name="CloudProvider_WebDavUrlPlaceholder" xml:space="preserve">
+    <value>https://example.com/remote.php/dav/files/user/CloudRedirect</value>
+  </data>
+  <data name="CloudProvider_WebDavUrlHint" xml:space="preserve">
+    <value>Use an HTTPS WebDAV folder URL dedicated to CloudRedirect.</value>
+  </data>
+  <data name="CloudProvider_WebDavUsername" xml:space="preserve">
+    <value>Username</value>
+  </data>
+  <data name="CloudProvider_WebDavUsernamePlaceholder" xml:space="preserve">
+    <value>WebDAV username</value>
+  </data>
+  <data name="CloudProvider_WebDavPassword" xml:space="preserve">
+    <value>Password</value>
   </data>
   <data name="CloudProvider_Browse" xml:space="preserve">
     <value>Browse</value>
@@ -721,6 +748,51 @@ Force-kill it?</value>
   </data>
   <data name="CloudProvider_NoTokenFilePath" xml:space="preserve">
     <value>No token file path specified</value>
+  </data>
+  <data name="CloudProvider_WebDavNoUrl" xml:space="preserve">
+    <value>No WebDAV URL specified</value>
+  </data>
+  <data name="CloudProvider_WebDavMissingCredentials" xml:space="preserve">
+    <value>Please enter the WebDAV URL, username, and password.</value>
+  </data>
+  <data name="CloudProvider_WebDavRequiresHttps" xml:space="preserve">
+    <value>WebDAV URL must start with https://</value>
+  </data>
+  <data name="CloudProvider_WebDavConfigured" xml:space="preserve">
+    <value>WebDAV configured: {0}</value>
+  </data>
+  <data name="CloudProvider_WebDavNoQueryFragment" xml:space="preserve">
+    <value>WebDAV URL must not include a query string or fragment.</value>
+  </data>
+  <data name="CloudProvider_TestConnection" xml:space="preserve">
+    <value>Test Connection</value>
+  </data>
+  <data name="CloudProvider_TestingConnection" xml:space="preserve">
+    <value>Testing connection...</value>
+  </data>
+  <data name="CloudProvider_WebDavTestSuccess" xml:space="preserve">
+    <value>WebDAV connection OK (HTTP {0}).</value>
+  </data>
+  <data name="CloudProvider_WebDavTestUnauthorized" xml:space="preserve">
+    <value>Authentication failed. Check the username and password or use an app password.</value>
+  </data>
+  <data name="CloudProvider_WebDavTestForbidden" xml:space="preserve">
+    <value>The server rejected access to this WebDAV folder.</value>
+  </data>
+  <data name="CloudProvider_WebDavTestNotFound" xml:space="preserve">
+    <value>The WebDAV folder was not found. Check the URL path.</value>
+  </data>
+  <data name="CloudProvider_WebDavTestMethodNotAllowed" xml:space="preserve">
+    <value>The server does not allow PROPFIND on this URL. Check that it is a WebDAV folder URL.</value>
+  </data>
+  <data name="CloudProvider_WebDavTestHttpError" xml:space="preserve">
+    <value>WebDAV test failed: HTTP {0} {1}</value>
+  </data>
+  <data name="CloudProvider_WebDavTestTimeout" xml:space="preserve">
+    <value>WebDAV test timed out.</value>
+  </data>
+  <data name="CloudProvider_WebDavTestNetworkError" xml:space="preserve">
+    <value>Network error while testing WebDAV: {0}</value>
   </data>
 
   <!-- ═══════════════════════════════════════════════════════════════════ -->
@@ -1458,6 +1530,9 @@ Are you sure?</value>
   <data name="Provider_OneDrive" xml:space="preserve">
     <value>OneDrive</value>
   </data>
+  <data name="Provider_WebDav" xml:space="preserve">
+    <value>WebDAV</value>
+  </data>
   <data name="Provider_FolderNetworkDrive" xml:space="preserve">
     <value>Folder / Network Drive</value>
   </data>
@@ -1539,6 +1614,12 @@ Are you sure?</value>
   <data name="Common_UpdateFailed" xml:space="preserve">
     <value>Update Failed</value>
   </data>
+  <data name="Common_ErrorDetailsFormat" xml:space="preserve">
+    <value>Error: {0}</value>
+  </data>
+  <data name="Common_UnknownError" xml:space="preserve">
+    <value>Unknown error</value>
+  </data>
 
   <!-- OAuthService browser pages (user-facing HTML) -->
   <data name="OAuth_AuthSuccessTitle" xml:space="preserve">
@@ -1587,6 +1668,9 @@ Are you sure?</value>
   <data name="Settings_LanguagePortuguese" xml:space="preserve">
     <value>Português (Brasil)</value>
   </data>
+  <data name="Settings_LanguageChineseSimplified" xml:space="preserve">
+    <value>简体中文</value>
+  </data>
   <data name="Settings_Sync" xml:space="preserve">
     <value>Sync</value>
   </data>
@@ -1616,6 +1700,48 @@ Are you sure?</value>
   </data>
   <data name="Settings_AutoUpdateDllHint" xml:space="preserve">
     <value>Automatically check for and install newer versions of the CloudRedirect DLL when Steam launches. The update takes effect on the next Steam restart.</value>
+  </data>
+  <data name="Settings_DllSource" xml:space="preserve">
+    <value>DLL Source</value>
+  </data>
+  <data name="Settings_DllSourceOfficial" xml:space="preserve">
+    <value>Official DLL</value>
+  </data>
+  <data name="Settings_DllSourceCustomWebDav" xml:space="preserve">
+    <value>Custom WebDAV DLL</value>
+  </data>
+  <data name="Settings_DllSourceHashMismatch" xml:space="preserve">
+    <value>DLL hash mismatch</value>
+  </data>
+  <data name="Settings_DllSourceNotInstalled" xml:space="preserve">
+    <value>DLL not installed</value>
+  </data>
+  <data name="Settings_DllSourceUnknown" xml:space="preserve">
+    <value>DLL source unknown</value>
+  </data>
+  <data name="Settings_DllSourceMatchesEmbedded" xml:space="preserve">
+    <value>The DLL deployed to Steam matches the DLL embedded in this app.</value>
+  </data>
+  <data name="Settings_DllSourceCustomDifferentEmbedded" xml:space="preserve">
+    <value>A custom WebDAV DLL is deployed, but it differs from the DLL embedded in this app.</value>
+  </data>
+  <data name="Settings_DllSourceDeployCustomHint" xml:space="preserve">
+    <value>The app contains a custom WebDAV DLL, but Steam is not using it yet. Deploy/update the DLL from the dashboard.</value>
+  </data>
+  <data name="Settings_DllSourceHashMismatchHint" xml:space="preserve">
+    <value>The deployed DLL does not match the embedded DLL.</value>
+  </data>
+  <data name="Settings_DllSourceNotInstalledHint" xml:space="preserve">
+    <value>Deploy the DLL before starting Steam.</value>
+  </data>
+  <data name="Settings_DllSourceSteamMissing" xml:space="preserve">
+    <value>Steam was not found, so the deployed DLL could not be inspected.</value>
+  </data>
+  <data name="Settings_DllSourceReadFailed" xml:space="preserve">
+    <value>The deployed DLL could not be read.</value>
+  </data>
+  <data name="Settings_DllSourceHashFormat" xml:space="preserve">
+    <value>Deployed: {0}  Embedded: {1}</value>
   </data>
 
   <!-- ═══════════════════════════════════════════════════════════════════ -->
@@ -1683,6 +1809,12 @@ Are you sure?</value>
   <data name="Pin_FailedSavePinConfig" xml:space="preserve">
     <value>Couldn't save pin configuration: {0}</value>
   </data>
+  <data name="Pin_DepotLabel" xml:space="preserve">
+    <value>Depot</value>
+  </data>
+  <data name="Pin_DepotCountFormat" xml:space="preserve">
+    <value>{0} depot(s)</value>
+  </data>
 
   <!-- ═══════════════════════════════════════════════════════════════════ -->
   <!-- Search                                                              -->
@@ -1716,6 +1848,51 @@ Are you sure?</value>
   </data>
   <data name="AppUpdate_UpdateNow" xml:space="preserve">
     <value>Update Now</value>
+  </data>
+  <data name="AppUpdate_ReleaseNotes" xml:space="preserve">
+    <value>Release Notes</value>
+  </data>
+  <data name="AppUpdate_AvailableTitleFormat" xml:space="preserve">
+    <value>Update available -- v{0}</value>
+  </data>
+  <data name="AppUpdate_AvailableDescription" xml:space="preserve">
+    <value>A new version of CloudRedirect is ready to install.</value>
+  </data>
+  <data name="AppUpdate_DownloadingVersionFormat" xml:space="preserve">
+    <value>Downloading v{0}...</value>
+  </data>
+  <data name="AppUpdate_FailedTitle" xml:space="preserve">
+    <value>Update failed</value>
+  </data>
+  <data name="AppUpdate_DownloadingUpdate" xml:space="preserve">
+    <value>Downloading update...</value>
+  </data>
+  <data name="AppUpdate_SuspiciousSizeFormat" xml:space="preserve">
+    <value>Downloaded file has suspicious size ({0} bytes)</value>
+  </data>
+  <data name="AppUpdate_SuspiciousSizeOverFormat" xml:space="preserve">
+    <value>Downloaded file has suspicious size (&gt;{0} bytes)</value>
+  </data>
+  <data name="AppUpdate_DownloadingProgressFormat" xml:space="preserve">
+    <value>Downloading... {0}%</value>
+  </data>
+  <data name="AppUpdate_InvalidExecutable" xml:space="preserve">
+    <value>Downloaded file is not a valid executable</value>
+  </data>
+  <data name="AppUpdate_Installing" xml:space="preserve">
+    <value>Installing update...</value>
+  </data>
+  <data name="AppUpdate_CurrentExeUnknown" xml:space="preserve">
+    <value>Could not determine current executable path</value>
+  </data>
+  <data name="AppUpdate_ReplaceExeFailedFormat" xml:space="preserve">
+    <value>Could not replace exe: {0}</value>
+  </data>
+  <data name="AppUpdate_Relaunching" xml:space="preserve">
+    <value>Relaunching...</value>
+  </data>
+  <data name="AppUpdate_UpdateFailedFormat" xml:space="preserve">
+    <value>Update failed: {0}</value>
   </data>
 
 </root>

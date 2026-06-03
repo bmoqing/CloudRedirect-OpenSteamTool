@@ -2,6 +2,9 @@ build/
 build-*/
 ui/bin/
 ui/obj/
+ui/NuGet/
+ui/Resources/cloud_redirect.dll
+ui/Resources/cloud_redirect_cli.exe
 ui-linux/build/
 flatpak/.flatpak-builder/
 flatpak/build-dir/ui/Resources/payloads/

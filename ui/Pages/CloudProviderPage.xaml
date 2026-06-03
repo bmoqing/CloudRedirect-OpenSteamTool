@@ -12,7 +12,7 @@
                        Foreground="{DynamicResource TextFillColorPrimaryBrush}"
                        Margin="0,0,0,8" />
 
-            <TextBlock Text="{res:Loc CloudProvider_Description}"
+            <TextBlock Text="{res:Loc CloudProvider_DescriptionWebDav}"
                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                        TextWrapping="Wrap"
                        Margin="0,0,0,24" />
@@ -29,6 +29,7 @@
                       SelectionChanged="ProviderCombo_SelectionChanged">
                 <ComboBoxItem Content="{res:Loc CloudProvider_GoogleDrive}" Tag="gdrive" />
                 <ComboBoxItem Content="{res:Loc CloudProvider_OneDrive}" Tag="onedrive" />
+                <ComboBoxItem Content="{res:Loc CloudProvider_WebDav}" Tag="webdav" />
                 <ComboBoxItem Content="{res:Loc CloudProvider_FolderMappedDrive}" Tag="folder" />
                 <ComboBoxItem Content="{res:Loc CloudProvider_LocalOnly}" Tag="local" />
             </ComboBox>
@@ -60,6 +61,31 @@
                        Foreground="{DynamicResource TextFillColorTertiaryBrush}"
                        TextWrapping="Wrap"
                        Margin="0,0,0,24" />
+
+            <StackPanel x:Name="WebDavFields"
+                        Visibility="Collapsed"
+                        Margin="0,0,0,24">
+                <TextBlock Text="{res:Loc CloudProvider_WebDavUsername}"
+                           FontWeight="SemiBold"
+                           Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                           Margin="0,0,0,8" />
+                <ui:TextBox x:Name="WebDavUsernameBox"
+                            PlaceholderText="{res:Loc CloudProvider_WebDavUsernamePlaceholder}"
+                            Margin="0,0,0,12" />
+
+                <TextBlock Text="{res:Loc CloudProvider_WebDavPassword}"
+                           FontWeight="SemiBold"
+                           Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                           Margin="0,0,0,8" />
+                <PasswordBox x:Name="WebDavPasswordBox"
+                             Margin="0,0,0,12" />
+
+                <ui:Button x:Name="TestWebDavButton"
+                           Content="{res:Loc CloudProvider_TestConnection}"
+                           Icon="{ui:SymbolIcon PlugConnected24}"
+                           HorizontalAlignment="Left"
+                           Click="TestWebDav_Click" />
+            </StackPanel>
 
             <TextBlock Text="{res:Loc CloudProvider_Authentication}"
                        FontWeight="SemiBold"
