@@ -171,8 +171,10 @@ public partial class SettingsPage : Page
                 playtime = true;
             if (root.TryGetProperty("sync_luas", out var l) && l.ValueKind == JsonValueKind.True)
                 luas = true;
-            if (root.TryGetProperty("auto_update_dll", out var u) && u.ValueKind == JsonValueKind.True)
-                autoUpdateDll = true;
+            if (root.TryGetProperty("auto_update_dll", out var u))
+                autoUpdateDll = u.ValueKind == JsonValueKind.True;
+            else
+                autoUpdateDll = true; // default on when key absent
             if (root.TryGetProperty("parental_ignore_playtime", out var pip) && pip.ValueKind == JsonValueKind.True)
                 parentalIgnorePlaytime = true;
             if (root.TryGetProperty("parental_bypass_playtime", out var pbp) && pbp.ValueKind == JsonValueKind.True)

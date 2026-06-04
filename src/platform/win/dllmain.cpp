@@ -1,6 +1,7 @@
 #include "common.h"
 #include "log.h"
 #include "cloud_intercept.h"
+#include "metadata_sync.h"
 #include "file_util.h"
 #include "cli.h"
 #include "steam_kv_injector.h"
@@ -40,6 +41,7 @@ int CloudOnSendPkt(void* thisptr, const uint8_t* data, uint32_t size, void* recv
             std::string logPath = steamPath + "cloud_redirect.log";
 
             Log::Init(logPath.c_str());
+            MetadataSync::steamToolsPresent.store(true, std::memory_order_relaxed);
             LOG("CloudRedirect loaded via code cave, PID=%u", GetCurrentProcessId());
             LOG("Steam path: %s", steamPath.c_str());
 
@@ -47,7 +49,7 @@ int CloudOnSendPkt(void* thisptr, const uint8_t* data, uint32_t size, void* recv
             HMODULE hSteamClient = GetModuleHandleA("steamclient64.dll");
             LOG("steamclient64.dll base: %p", hSteamClient);
 
-            CloudIntercept::Init(steamPath);
+            CloudIntercept::Init(steamPath, /*cloudSaveOnly=*/false);
 
             if (recvPktFn) {
                 CloudIntercept::SetSendPktAddr(recvPktFn);
@@ -62,11 +64,6 @@ int CloudOnSendPkt(void* thisptr, const uint8_t* data, uint32_t size, void* recv
             CloudIntercept::InstallManifestPinHook();
 
             CloudIntercept::InstallReleaseStateNop();
-
-            // Resolve Steam internal pointers for the app-config KV injector.
-            // Used to inject quota/maxnumfiles for namespace apps where PICS
-            // data is incomplete (would otherwise cause AutoCloud eviction).
-            SteamKvInjector::Init();
 
             LOG("CloudRedirect fully initialized with hooks");
         } catch (const std::exception& ex) {

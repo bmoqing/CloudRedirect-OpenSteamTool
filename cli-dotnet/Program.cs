@@ -69,20 +69,20 @@ class Program
         }
         Console.WriteLine($"Steam: {steamPath}");
 
-        // Check version
+        // Check version (warn but continue)
         var version = SteamDetector.GetSteamVersion(steamPath);
         if (version == null)
         {
-            Console.Error.WriteLine("ERROR: Could not read Steam version.");
-            return 1;
+            Console.WriteLine("WARNING: Could not read Steam version -- continuing anyway.");
         }
-        if (!SteamDetector.IsSupportedSteamVersion(version.Value))
+        else if (!SteamDetector.IsSupportedSteamVersion(version.Value))
         {
-            Console.Error.WriteLine($"ERROR: Steam version {version.Value} is not supported.");
-            Console.Error.WriteLine($"Supported: {string.Join(", ", SteamDetector.SupportedSteamVersions)}");
-            return 1;
+            Console.WriteLine($"WARNING: Steam version {version.Value} not in whitelist -- continuing anyway.");
         }
-        Console.WriteLine($"Steam version: {version.Value} (OK)");
+        else
+        {
+            Console.WriteLine($"Steam version: {version.Value} (OK)");
+        }
 
         // Close Steam if running
         if (SteamDetector.IsSteamRunning())

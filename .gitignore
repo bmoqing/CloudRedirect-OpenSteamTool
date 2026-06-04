@@ -4,4 +4,8 @@ ui/bin/
 ui/obj/
 ui-linux/build/
 flatpak/.flatpak-builder/
-flatpak/build-dir/ui/Resources/payloads/
+flatpak/build-dir/
+flatpak/cloud_redirect.so
+build.ps1
+ui/Resources/cloud_redirect_cli.exe
+ui/Resources/payloads/

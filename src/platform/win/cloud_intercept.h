@@ -1,5 +1,6 @@
 #pragma once
 #include "cloud_metadata_paths.h"
+#include "cr_api.h"
 #include "common.h"
 
 namespace CloudIntercept {
@@ -22,8 +23,8 @@ struct CNetPacket {
 // RecvPkt takes only 2 params: (thisptr, CNetPacket*)
 using RecvPktFn = int64_t(__fastcall*)(void* thisptr, CNetPacket* pkt);
 
-// initialize the cloud intercept layer (reads config, sets up state)
-void Init(const std::string& steamPath);
+void Init(const std::string& steamPath, bool cloudSaveOnly = false,
+          CR_NotifyFn notifyCallback = nullptr);
 
 // hook the saved-original RecvPkt pointer to monitor incoming packets
 void InstallRecvPktMonitor(void* savedOrigPtrAddr);
@@ -43,11 +44,17 @@ bool OnSendPkt(void* thisptr, const uint8_t* data, uint32_t size);
 // get the 32-bit account ID from the captured SteamID
 uint32_t GetAccountId();
 
+void SetAccountId(uint32_t accountId);
+
 // get the Steam installation path (with trailing backslash)
 const std::string& GetSteamPath();
 
 // record the launch timestamp for internal playtime tracking
 void RecordLaunchTime(uint32_t appId);
+
+void AddNamespaceApp(uint32_t appId);
+void RemoveNamespaceApp(uint32_t appId);
+bool IsNamespaceApp(uint32_t appId);
 
 // signal shutdown
 void Shutdown();

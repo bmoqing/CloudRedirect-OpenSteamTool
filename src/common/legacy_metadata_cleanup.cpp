@@ -74,13 +74,13 @@ bool RemoveFileIfPresent(const fs::path& p, SweepStats& stats) {
     if (!fs::exists(p, ec)) return false;
     if (fs::remove(p, ec)) {
         stats.filesRemoved++;
-        LOG("[LegacyCleanup] removed %s", p.string().c_str());
+        LOG("[LegacyCleanup] removed %s", FileUtil::PathToUtf8(p).c_str());
         return true;
     }
     if (ec) {
         stats.errors++;
         LOG("[LegacyCleanup] failed to remove %s: %s",
-            p.string().c_str(), ec.message().c_str());
+            FileUtil::PathToUtf8(p).c_str(), ec.message().c_str());
     }
     return false;
 }
@@ -95,13 +95,13 @@ bool RemoveDirIfPresent(const fs::path& dir, SweepStats& stats) {
         if (fs::remove(dir, ec)) {
             stats.dirsRemoved++;
             LOG("[LegacyCleanup] unlinked reparse point %s (did not follow)",
-                dir.string().c_str());
+                FileUtil::PathToUtf8(dir).c_str());
             return true;
         }
         if (ec) {
             stats.errors++;
             LOG("[LegacyCleanup] failed to unlink reparse point %s: %s",
-                dir.string().c_str(), ec.message().c_str());
+                FileUtil::PathToUtf8(dir).c_str(), ec.message().c_str());
         }
         return false;
     }
@@ -114,7 +114,7 @@ bool RemoveDirIfPresent(const fs::path& dir, SweepStats& stats) {
     if (ec) {
         stats.errors++;
         LOG("[LegacyCleanup] failed to remove dir %s: %s",
-            dir.string().c_str(), ec.message().c_str());
+            FileUtil::PathToUtf8(dir).c_str(), ec.message().c_str());
         return false;
     }
     if (removed > 0) {
@@ -122,7 +122,7 @@ bool RemoveDirIfPresent(const fs::path& dir, SweepStats& stats) {
         stats.filesRemoved += static_cast<int>(removed - 1);
         stats.dirsRemoved++;
         LOG("[LegacyCleanup] removed dir %s (%llu file(s)/subdir(s) inside)",
-            dir.string().c_str(),
+            FileUtil::PathToUtf8(dir).c_str(),
             static_cast<unsigned long long>(removed - 1));
         return true;
     }
@@ -142,7 +142,7 @@ std::vector<fs::path> ListNumericSubdirs(const fs::path& parent) {
         // symlink_status: skip symlinks at account/app level.
         auto st = it->symlink_status(entryEc);
         if (!entryEc && !fs::is_symlink(st) && fs::is_directory(st)) {
-            const std::string name = it->path().filename().string();
+            const std::string name = FileUtil::PathToUtf8(it->path().filename());
             bool allDigits = !name.empty();
             for (char c : name) {
                 if (c < '0' || c > '9') { allDigits = false; break; }
@@ -160,7 +160,7 @@ std::vector<fs::path> ListNumericSubdirs(const fs::path& parent) {
 
 // Scrub *.cloudredirect and legacy *.dat metadata from userdata/remote/ (contamination from older builds or SteamTools sync)
 static bool IsScrubbableMetadataInRemoteDir(const fs::path& filePath) {
-    const std::string filename = filePath.filename().string();
+    const std::string filename = FileUtil::PathToUtf8(filePath.filename());
 
     constexpr std::string_view kExt = ".cloudredirect";
     if (filename.size() > kExt.size() &&
@@ -361,11 +361,11 @@ SweepStats PruneAutoCloudPollutionRoots(const std::vector<std::string>& roots) {
                 if (fs::remove(canonDir, rmEc)) {
                     stats.dirsRemoved++;
                     LOG("[LegacyCleanup] unlinked reparse point %s (did not follow)",
-                        canonDir.string().c_str());
+                        FileUtil::PathToUtf8(canonDir).c_str());
                 } else if (rmEc) {
                     stats.errors++;
                     LOG("[LegacyCleanup] failed to unlink reparse point %s: %s",
-                        canonDir.string().c_str(), rmEc.message().c_str());
+                        FileUtil::PathToUtf8(canonDir).c_str(), rmEc.message().c_str());
                 }
                 continue;
             }
@@ -393,11 +393,11 @@ SweepStats PruneAutoCloudPollutionRoots(const std::vector<std::string>& roots) {
                 std::error_code rmEc;
                 if (fs::remove(canonDir, rmEc)) {
                     stats.dirsRemoved++;
-                    LOG("[LegacyCleanup] removed empty dir %s", canonDir.string().c_str());
+                    LOG("[LegacyCleanup] removed empty dir %s", FileUtil::PathToUtf8(canonDir).c_str());
                 } else if (rmEc) {
                     stats.errors++;
                     LOG("[LegacyCleanup] failed to remove empty dir %s: %s",
-                        canonDir.string().c_str(), rmEc.message().c_str());
+                        FileUtil::PathToUtf8(canonDir).c_str(), rmEc.message().c_str());
                 }
             }
         }

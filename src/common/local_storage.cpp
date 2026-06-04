@@ -586,7 +586,7 @@ static std::string FindGameInstallPath(const std::string& steamPath, uint32_t ap
             auto q2 = q1 == std::string::npos ? std::string::npos : line.rfind('"', q1 - 1);
             if (q1 != std::string::npos && q2 != std::string::npos && q1 > q2) {
                 auto installDir = line.substr(q2 + 1, q1 - q2 - 1);
-                return FileUtil::PathToUtf8(libPath / "steamapps" / "common" / installDir);
+                return FileUtil::PathToUtf8(libPath / "steamapps" / "common" / FileUtil::Utf8ToPath(installDir));
             }
         }
     }
@@ -974,6 +974,7 @@ std::vector<FileEntry> GetFileList(uint32_t accountId, uint32_t appId) {
     {
         std::shared_lock<std::shared_mutex> lock(g_mutex);
         std::string appRoot = GetAppPathInternal(accountId, appId);
+        std::string appRootNorm = FileUtil::MakePathPrefix(appRoot);
         auto appRootFs = FileUtil::Utf8ToPath(appRoot);
         std::error_code ec;
         if (!std::filesystem::exists(appRootFs, ec) || ec) return result;
@@ -998,13 +999,12 @@ std::vector<FileEntry> GetFileList(uint32_t accountId, uint32_t appId) {
                 continue;
             }
 
-            std::string relPath = FileUtil::PathToUtf8(std::filesystem::relative(entry.path(), appRootFs, fileEc));
-            if (fileEc) {
-                it.increment(ec);
-                if (ec) break;
-                continue;
+            std::string entryUtf8 = FileUtil::PathToUtf8(entry.path());
+            FileUtil::NormalizeSlashesInPlace(entryUtf8);
+            std::string relPath;
+            if (!FileUtil::RelativeUtf8Path(entryUtf8, appRootNorm, &relPath)) {
+                relPath = FileUtil::PathToUtf8(entry.path().filename());
             }
-            for (auto& c : relPath) { if (c == '\\') c = '/'; }
 
             // Keep file inventory aligned with the shared internal-metadata list.
             if (CloudIntercept::IsReservedBlobFilename(relPath)) {

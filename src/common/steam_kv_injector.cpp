@@ -359,14 +359,14 @@ bool InjectSaveFiles(uint32_t appId, const std::vector<SaveFileRule>& rules) {
 
 // Linux steamclient.so -- runtime signature scanning; falls back to hardcoded RVAs (May 2026 build)
 
-// Fallback RVAs (May 27 2026 steamclient.so, IDA image base 0x0).
+// Fallback RVAs (June 2026 steamclient.so, IDA image base 0x0).
 static constexpr uintptr_t FALLBACK_RVA_GLOBAL_ENGINE   = 0x2ECD9C0;
 static constexpr uintptr_t FALLBACK_RVA_READ_CONFIG_U64 = 0xF76960;
 static constexpr uintptr_t FALLBACK_RVA_GET_SECTION     = 0xF75BD0;
-static constexpr uintptr_t FALLBACK_RVA_KV_FIND_KEY     = 0x24FD960;
-static constexpr uintptr_t FALLBACK_RVA_KV_SET_UINT64   = 0x24F89E0;
-static constexpr uintptr_t FALLBACK_RVA_KV_SET_INT32    = 0x24F89E0;
-static constexpr uintptr_t FALLBACK_RVA_KV_SET_STRING   = 0x24F8670;
+static constexpr uintptr_t FALLBACK_RVA_KV_FIND_KEY     = 0x2513320;
+static constexpr uintptr_t FALLBACK_RVA_KV_SET_UINT64   = 0x250E070;
+static constexpr uintptr_t FALLBACK_RVA_KV_SET_INT32    = 0x250E040;
+static constexpr uintptr_t FALLBACK_RVA_KV_SET_STRING   = 0x250DEE0;
 
 // Offset from CSteamEngine* to CAppInfoCache instance.
 static constexpr uintptr_t APPINFOCACHE_OFFSET = 2952; // 0xB88

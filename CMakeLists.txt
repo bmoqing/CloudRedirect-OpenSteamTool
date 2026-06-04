@@ -67,6 +67,7 @@ set(COMMON_SOURCES
     src/common/autocloud_bootstrap.cpp
     src/common/steam_kv_injector.cpp
     src/common/parental_bypass.cpp
+    src/common/metadata_sync.cpp
     src/common/miniz.c
     src/common/miniz_tdef.c
     src/common/miniz_tinfl.c
@@ -84,6 +85,7 @@ set(PROVIDER_SOURCES
 if(WIN32)
     set(PLATFORM_SOURCES
         src/platform/win/dllmain.cpp
+        src/platform/win/cr_api.cpp
         src/platform/win/cloud_intercept.cpp
         src/platform/win/log.cpp
         src/platform/win/http_server.cpp

@@ -1,4 +1,5 @@
 #include "rpc_handlers.h"
+#include "metadata_sync.h"
 #include "autocloud_bootstrap.h"
 #include "autocloud_scan.h"
 #include "autocloud_util.h"
@@ -667,12 +668,8 @@ static void InvalidateTokenCaches(uint32_t accountId, uint32_t appId) {
         std::lock_guard<std::mutex> lock(g_remotecacheRepairMutex);
         g_remotecachePlantedRows.erase(key);
     }
-    {
-        std::lock_guard<std::mutex> lock(g_fullManifestSentMutex);
-        g_fullManifestSentApps.erase(key);
-        g_cachedCloudCN.erase(key);
-        g_cachedAppBuildIdHwm.erase(key);
-    }
+    // Keep manifest/CN cache -- metadata restore doesn't change save CN, and clearing
+    // mid-session would break exit-sync's is_only_delta=1 path.
     
     // Invalidate bootstrap module's cache (also resets attempted flag)
     AutoCloudBootstrap::InvalidateCache(accountId, appId);
@@ -1087,22 +1084,17 @@ void RestoreAppMetadata(uint32_t accountId, uint32_t appId) {
     InvalidateTokenCaches(accountId, appId);
 
 #ifdef _WIN32
-    // Playtime/Stats sync is Windows-only for now.
-
-    // Account-scope only; per-app fallback would re-cache cleaned pollution.
-    auto statsData = CloudStorage::RetrieveBlob(
-        accountId, kAccountScopeAppId, AccountStatsFilename(appId));
-    if (!statsData.empty()) {
-        MergeStatsFile(appId, accountId, statsData);
+    if (MetadataSync::syncAchievements.load(std::memory_order_relaxed)) {
+        auto statsData = CloudStorage::RetrieveBlob(
+            accountId, kAccountScopeAppId, AccountStatsFilename(appId));
+        if (!statsData.empty())
+            MergeStatsFile(appId, accountId, statsData);
     }
-
-    auto ptData = CloudStorage::RetrieveBlob(
-        accountId, kAccountScopeAppId, AccountPlaytimeFilename(appId));
-    RestorePlaytimeMetadata(accountId, appId, ptData);
-#else
-    (void)accountId;
-    (void)appId;
-    LOG("[Playtime] Skipping playtime/stats sync on Linux (not implemented)");
+    if (MetadataSync::syncPlaytime.load(std::memory_order_relaxed)) {
+        auto ptData = CloudStorage::RetrieveBlob(
+            accountId, kAccountScopeAppId, AccountPlaytimeFilename(appId));
+        RestorePlaytimeMetadata(accountId, appId, ptData);
+    }
 #endif
 }
 
@@ -1639,8 +1631,6 @@ RpcResult HandleGetChangelist(uint32_t appId, const std::vector<PB::Field>& reqB
     LOG("[NS-CL] Response: %zu files, %zu prefixes, CN=%llu",
         prepared.size(), prefixList.size(), serverChangeNumber);
 
-    if (!prepared.empty())
-        SetCloudSyncState(appId, "synchronized");
 
 #ifdef DEBUG_HEX_DUMP
     {
@@ -2012,24 +2002,7 @@ RpcResult HandleLaunchIntent(uint32_t appId, const std::vector<PB::Field>& reqBo
         stateResult = CloudStorage::FetchCloudState(accountId, appId);
     }
 
-    // Pre-restore files before sync direction selection (AC_Launch never set for CR apps).
-    if (ConsumeConflictLocalChoice(appId)) {
-        LOG("[NS] LaunchIntent app=%u: skipping pre-restore (user chose keep-local)", appId);
-    } else {
-        std::string steamPath = CloudIntercept::GetSteamPath();
-        if (!steamPath.empty()) {
-            const auto* cloudFiles = (stateResult.status == CloudStorage::StateFetchStatus::Ok)
-                ? &stateResult.state.files : nullptr;
-            int restored = AutoCloudBootstrap::RestoreBlobsToGameFolder(
-                accountId, appId, steamPath, cloudFiles);
-            if (restored > 0) {
-                LOG("[NS] LaunchIntent app=%u: pre-restored %d file(s) to game folder",
-                    appId, restored);
-            }
-        }
-    }
-
-    SetCloudSyncState(appId, "synchronized");
+    ConsumeConflictLocalChoice(appId);
 
     if (CloudStorage::IsCloudActive()) {
         uint32_t asyncAcct = accountId;
@@ -2648,7 +2621,6 @@ RpcResult HandleCompleteBatch(uint32_t appId, const std::vector<PB::Field>& reqB
 
     BatchTracker_Clear(accountId, appId, batch.batchId);
     PendingOpsJournal::RecordUploadBatchEnd(accountId, appId);
-    SetCloudSyncState(appId, "synchronized");
     LOG("[NS] CompleteBatch app=%u CN=%llu (state published atomically)", appId, newCN);
 
     ClearBatchCanonicalTokens(accountId, appId);

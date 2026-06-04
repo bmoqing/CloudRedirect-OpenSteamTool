@@ -207,6 +207,7 @@ static void RemoveLocalBlobsNotInCloud(uint32_t accountId, uint32_t appId,
     if (!std::filesystem::exists(localBlobDirPath, ec) || !std::filesystem::is_directory(localBlobDirPath, ec)) return;
 
     int removed = 0;
+    std::string blobDirPrefix = FileUtil::MakePathPrefix(FileUtil::PathToUtf8(localBlobDirPath));
     // Defer empty-dir cleanup: MSVC's recursive_directory_iterator caches
     // dir handles and removing dirs mid-walk leaves the iterator undefined.
     std::unordered_set<std::string> removedParents;
@@ -218,12 +219,13 @@ static void RemoveLocalBlobsNotInCloud(uint32_t accountId, uint32_t appId,
         const auto& entry = *it;
         std::error_code regEc;
         if (entry.is_regular_file(regEc)) {
-            // UTF-8 throughout; rel is compared against the cloud listing.
-            std::error_code relEc;
-            std::string rel = FileUtil::PathToUtf8(
-                std::filesystem::relative(entry.path(), localBlobDirPath, relEc));
-            if (!relEc) {
-                for (auto& c : rel) { if (c == '\\') c = '/'; }
+            std::string entryUtf8 = FileUtil::PathToUtf8(entry.path());
+            FileUtil::NormalizeSlashesInPlace(entryUtf8);
+            std::string rel;
+            if (!FileUtil::RelativeUtf8Path(entryUtf8, blobDirPrefix, &rel)) {
+                rel = FileUtil::PathToUtf8(entry.path().filename());
+            }
+            {
                 bool skipReserved = (rel == kCNFilename || rel == kLegacyCNFilename ||
                                      rel == kRootTokenFilename || rel == kLegacyRootTokenFilename ||
                                      rel == kFileTokensFilename || rel == kLegacyFileTokensFilename ||
@@ -356,7 +358,7 @@ static void EnumerateLocalAccountMetadataAppIds(const std::filesystem::path& acc
             const auto& entry = *it;
             std::error_code fileEc;
             if (entry.is_regular_file(fileEc)) {
-                std::string leaf = entry.path().filename().string();
+                std::string leaf = FileUtil::PathToUtf8(entry.path().filename());
                 const std::string ext = ".bin";
                 uint32_t parsed = 0;
                 if (leaf.size() > ext.size() && leaf.substr(leaf.size() - ext.size()) == ext &&
@@ -670,7 +672,7 @@ static std::unordered_set<uint32_t> EnumerateLocalAppIds(uint32_t accountId) {
         const auto& entry = *it;
         std::error_code dirEc;
         if (entry.is_directory(dirEc)) {
-            const std::string name = entry.path().filename().string();
+            const std::string name = FileUtil::PathToUtf8(entry.path().filename());
             uint32_t parsed = 0;
             if (ParseU32(name, parsed) && parsed != CloudIntercept::kAccountScopeAppId) {
                 appIds.insert(parsed);
@@ -2579,6 +2581,7 @@ static bool SyncFromCloudInner(uint32_t accountId, uint32_t appId, bool isSweep)
                 appId, localBlobDir.c_str(), gapEc.message().c_str());
             dirExists = false;
         }
+        std::string gapBlobPrefix = FileUtil::MakePathPrefix(FileUtil::PathToUtf8(localBlobDirPath));
         if (dirExists) {
             std::error_code iterEc;
             std::filesystem::recursive_directory_iterator it(localBlobDirPath, iterEc);
@@ -2593,11 +2596,12 @@ static bool SyncFromCloudInner(uint32_t accountId, uint32_t appId, bool isSweep)
                     bool isFile = entry.is_regular_file(entryEc);
                     if (entryEc || !isFile) continue;
 
-                    // UTF-8 throughout so non-ASCII blob names round-trip.
-                std::string rel = FileUtil::PathToUtf8(
-                        std::filesystem::relative(entry.path(), localBlobDirPath, entryEc));
-                    if (entryEc) continue;
-                    for (auto& c : rel) { if (c == '\\') c = '/'; }
+                    std::string entryUtf8 = FileUtil::PathToUtf8(entry.path());
+                    FileUtil::NormalizeSlashesInPlace(entryUtf8);
+                    std::string rel;
+                    if (!FileUtil::RelativeUtf8Path(entryUtf8, gapBlobPrefix, &rel)) {
+                        continue;
+                    }
                     if (rel == kCNFilename || rel == kLegacyCNFilename ||
                         rel == kRootTokenFilename || rel == kLegacyRootTokenFilename ||
                         rel == kFileTokensFilename || rel == kLegacyFileTokensFilename ||

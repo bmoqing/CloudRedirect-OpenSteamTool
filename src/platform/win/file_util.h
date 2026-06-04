@@ -1,6 +1,7 @@
 #pragma once
 // Shared file utilities: atomic writes, path traversal validation.
 
+#include "path_util.h"
 #include <string>
 #include <fstream>
 #include <filesystem>

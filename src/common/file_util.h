@@ -2,6 +2,7 @@
 // File utilities.
 
 #include "platform.h"
+#include "path_util.h"
 #include <string>
 #include <filesystem>
 

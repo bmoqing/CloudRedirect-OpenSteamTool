@@ -114,7 +114,7 @@ static std::string FindGameInstallPath(const std::string& steamPath, uint32_t ap
             auto q2 = q1 == std::string::npos ? std::string::npos : line.rfind('"', q1 - 1);
             if (q1 != std::string::npos && q2 != std::string::npos && q1 > q2) {
                 auto installDir = line.substr(q2 + 1, q1 - q2 - 1);
-                return FileUtil::PathToUtf8(libPath / "steamapps" / "common" / installDir);
+                return FileUtil::PathToUtf8(libPath / "steamapps" / "common" / FileUtil::Utf8ToPath(installDir));
             }
         }
     }
@@ -281,7 +281,7 @@ static AutoCloudEffectivePlatform DetectEffectivePlatform(const std::string& ste
     } else {
         for (const auto& entry : std::filesystem::directory_iterator(userdataPath, ec)) {
             if (entry.is_directory(ec) && !ec) {
-                std::string name = entry.path().filename().string();
+                std::string name = FileUtil::PathToUtf8(entry.path().filename());
                 if (!name.empty() && name != "0" && std::all_of(name.begin(), name.end(), ::isdigit)) {
                     userId = name;
                     break;
@@ -962,6 +962,8 @@ ScanResult GetFileList(const std::string& steamPath,
             appId, rule.root.c_str(), rule.path.c_str(), rule.resolvedPath.c_str(),
             rule.pattern.c_str(), rule.recursive ? 1 : 0, scanRootUtf8.c_str());
 
+        std::string scanRootPrefix = FileUtil::MakePathPrefix(scanRootUtf8);
+
         auto considerFile = [&](const std::filesystem::directory_entry& entry) {
             std::error_code fileEc;
             // Junction/symlink gate before is_regular_file.
@@ -973,9 +975,12 @@ ScanResult GetFileList(const std::string& steamPath,
             }
             if (!entry.is_regular_file(fileEc)) return;
             ++visitedFiles;
-            std::string relFromRoot = NormalizeSlashes(
-                FileUtil::PathToUtf8(std::filesystem::relative(entry.path(), scanRoot, fileEc)));
-            if (fileEc) return;
+            std::string entryNorm = NormalizeSlashes(entryUtf8);
+            std::string relFromRoot;
+            if (!FileUtil::RelativeUtf8Path(entryNorm, scanRootPrefix, &relFromRoot)) {
+
+                relFromRoot = NormalizeSlashes(FileUtil::PathToUtf8(entry.path().filename()));
+            }
             std::string leaf = FileUtil::PathToUtf8(entry.path().filename());
             if (leaf == "steam_autocloud.vdf") return;
             std::string pattern = NormalizeSlashes(rule.pattern.empty() ? "*" : rule.pattern);
@@ -1017,9 +1022,12 @@ ScanResult GetFileList(const std::string& steamPath,
                     continue;
                 }
                 if (!std::filesystem::is_regular_file(siblingPath, sibEc) || sibEc) continue;
-                std::string siblingRel = NormalizeSlashes(
-                    FileUtil::PathToUtf8(std::filesystem::relative(siblingPath, scanRoot, sibEc)));
-                if (sibEc || !IsSafeRelativePath(siblingRel)) continue;
+                std::string siblingNorm = NormalizeSlashes(siblingPathUtf8);
+                std::string siblingRel;
+                if (!FileUtil::RelativeUtf8Path(siblingNorm, scanRootPrefix, &siblingRel)) {
+                    siblingRel = NormalizeSlashes(FileUtil::PathToUtf8(siblingPath.filename()));
+                }
+                if (!IsSafeRelativePath(siblingRel)) continue;
                 std::string siblingCloudPath = normalizedCloudPath.empty()
                     ? siblingRel
                     : normalizedCloudPath + "/" + siblingRel;

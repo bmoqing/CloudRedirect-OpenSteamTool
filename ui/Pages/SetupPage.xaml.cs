@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -764,40 +765,86 @@ public partial class SetupPage : Page
             Log("All patches applied successfully.");
         }
 
-        // Only prompt for cloud provider config in cloud_redirect mode
         var mode = SteamDetector.ReadModeSetting();
+        bool needsAutoUpdatePrompt = !HasBeenPromptedForAutoUpdate();
+
         if (mode == "cloud_redirect")
         {
+            bool providerReady = false;
             var existingConfig = Services.SteamDetector.ReadConfig();
-            var statusText = allSucceeded ? S.Get("Setup_AllPatchesApplied") : S.Get("Setup_PatchingFinishedWithErrors");
-            string message;
-            if (existingConfig != null)
+            if (existingConfig != null &&
+                existingConfig.Provider is "gdrive" or "onedrive" &&
+                !string.IsNullOrEmpty(existingConfig.TokenPath))
             {
-                message = S.Format("Setup_ConfigureProviderExisting", statusText, existingConfig.DisplayName);
-            }
-            else
-            {
-                message = S.Format("Setup_ConfigureProviderNew", statusText);
+                var tokenStatus = Services.OAuthService.CheckTokenStatus(existingConfig.TokenPath);
+                providerReady = tokenStatus.IsAuthenticated;
             }
 
-            var wantsConfigure = await Services.Dialog.ChoiceAsync(
-                S.Get("Setup_ConfigureProviderTitle"),
-                message,
-                S.Get("Setup_ConfigureProvider"),
-                S.Get("Setup_UseLocalStorage"));
+            if (!providerReady)
+            {
+                var statusText = allSucceeded ? S.Get("Setup_AllPatchesApplied") : S.Get("Setup_PatchingFinishedWithErrors");
+                string message = existingConfig != null
+                    ? S.Format("Setup_ConfigureProviderExisting", statusText, existingConfig.DisplayName)
+                    : S.Format("Setup_ConfigureProviderNew", statusText);
 
-            if (wantsConfigure)
-            {
-                var nav = FindNavigationView();
-                nav?.Navigate(typeof(CloudProviderPage));
-            }
-            else if (existingConfig == null)
-            {
-                await WriteDefaultLocalConfig();
+                var wantsConfigure = await Services.Dialog.ChoiceAsync(
+                    S.Get("Setup_ConfigureProviderTitle"),
+                    message,
+                    S.Get("Setup_ConfigureProvider"),
+                    S.Get("Setup_UseLocalStorage"));
+
+                if (wantsConfigure)
+                {
+                    var nav = FindNavigationView();
+                    nav?.Navigate(typeof(CloudProviderPage));
+                }
+                else if (existingConfig == null)
+                {
+                    await WriteDefaultLocalConfig();
+                }
             }
         }
 
+        if (needsAutoUpdatePrompt)
+            await PromptAutoUpdateAsync();
+
         SetBusy(false);
+    }
+
+    private static bool HasBeenPromptedForAutoUpdate()
+    {
+        try
+        {
+            var configPath = Services.SteamDetector.GetConfigFilePath();
+            if (!File.Exists(configPath)) return false;
+            var json = File.ReadAllText(configPath);
+            using var doc = JsonDocument.Parse(json);
+            return doc.RootElement.TryGetProperty("auto_update_prompted", out _);
+        }
+        catch { return false; }
+    }
+
+    private async Task PromptAutoUpdateAsync()
+    {
+        try
+        {
+            var enable = await Services.Dialog.ChoiceAsync(
+                "Automatic Updates",
+                "Would you like CloudRedirect to check for and install updates during Steam startup?\n\n" +
+                "You can change this behavior in the Settings tab in this app.",
+                "Enable",
+                "No thanks");
+
+            var configPath = Services.SteamDetector.GetConfigFilePath();
+            await Task.Run(() => Services.ConfigHelper.SaveConfig(configPath,
+                new[] { "auto_update_dll", "auto_update_prompted" },
+                writer =>
+                {
+                    writer.WriteBoolean("auto_update_dll", enable);
+                    writer.WriteBoolean("auto_update_prompted", true);
+                }));
+        }
+        catch { }
     }
 
     private async void OfflineSetup_Click(object sender, RoutedEventArgs e)

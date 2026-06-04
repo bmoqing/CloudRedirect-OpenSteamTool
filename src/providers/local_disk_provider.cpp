@@ -69,11 +69,11 @@ bool LocalDiskProvider::Upload(const std::string& path,
                 if (!probe && canon == root) break;
                 if (std::filesystem::is_regular_file(cur, probe)) {
                     LOG("[LocalDiskProvider] Removing legacy flat blob blocking CAS dir: %s",
-                        cur.string().c_str());
+                        FileUtil::PathToUtf8(cur).c_str());
                     std::filesystem::remove(cur, probe);
                     if (probe) {
                         LOG("[LocalDiskProvider] Failed to remove blocking file: %s (%s)",
-                            cur.string().c_str(), probe.message().c_str());
+                            FileUtil::PathToUtf8(cur).c_str(), probe.message().c_str());
                     }
                     break;
                 }
@@ -91,7 +91,7 @@ bool LocalDiskProvider::Upload(const std::string& path,
             std::error_code probe;
             if (std::filesystem::is_regular_file(cur, probe) && !probe) {
                 LOG("[LocalDiskProvider] Removing file blocking dir (retry): %s",
-                    cur.string().c_str());
+                    FileUtil::PathToUtf8(cur).c_str());
                 std::filesystem::remove(cur, probe);
                 break;
             }
@@ -169,6 +169,14 @@ bool LocalDiskProvider::ListChecked(const std::string& prefix, std::vector<FileI
     auto fileClockNow = std::filesystem::file_time_type::clock::now();
     auto sysClockNow = std::chrono::system_clock::now();
 
+    // Canonicalize m_root the same way ToFullPath does so prefix strip matches entry paths.
+    std::error_code rootEc;
+    auto rootCanonical = std::filesystem::weakly_canonical(
+        FileUtil::Utf8ToPath(m_root), rootEc);
+    std::string rootPrefix = FileUtil::MakePathPrefix(rootEc
+        ? FileUtil::PathToUtf8(FileUtil::LongPath(FileUtil::Utf8ToPath(m_root)))
+        : FileUtil::PathToUtf8(FileUtil::LongPath(rootCanonical)));
+
     // No skip_permission_denied: an unreadable subtree must mark the listing
     // unverified, not silently disappear from it.
     std::filesystem::recursive_directory_iterator it(dirPath, ec);
@@ -183,12 +191,11 @@ bool LocalDiskProvider::ListChecked(const std::string& prefix, std::vector<FileI
         if (ec2) { sawSkippedEntries = true; continue; }
         if (!isFile) continue;
 
-        std::string rel = FileUtil::PathToUtf8(
-            std::filesystem::relative(entry.path(), FileUtil::LongPath(FileUtil::Utf8ToPath(m_root)), ec2));
-        if (ec2) { sawSkippedEntries = true; continue; }
-        // Forward slashes per ICloudProvider convention.
-        for (auto& c : rel) {
-            if (c == '\\') c = '/';
+        std::string entryUtf8 = FileUtil::PathToUtf8(entry.path());
+        FileUtil::NormalizeSlashesInPlace(entryUtf8);
+        std::string rel;
+        if (!FileUtil::RelativeUtf8Path(entryUtf8, rootPrefix, &rel)) {
+            sawSkippedEntries = true; continue;
         }
 
         FileInfo fi;

@@ -1,8 +1,10 @@
 #include "cloud_intercept.h"
+#include "metadata_sync.h"
 #include "rpc_handlers.h"
 #include "app_state.h"
 #include "protobuf.h"
 #include "parental_bypass.h"
+#include "steam_kv_injector.h"
 #include "log.h"
 #include "http_server.h"
 #include "vdf.h"
@@ -261,9 +263,21 @@ static std::thread g_luaSyncThread;                  // deferred lua sync (waits
 static std::thread g_startupMetadataThread;          // deferred startup playtime/stats restore
 static std::atomic<bool> g_startupMetadataScheduled{false};
 
-// Background threads spawned by notification hooks (exit-sync uploads, MessageBox, etc.)
 static std::mutex g_bgThreadsMutex;
 static std::vector<std::thread> g_bgThreads;
+static CR_NotifyFn g_notifyCallback = nullptr;
+
+static void NotifyUser(int level, const char* title, const char* message) {
+    if (g_notifyCallback) {
+        g_notifyCallback(level, title, message);
+    } else {
+        UINT flags = MB_OK | MB_SETFOREGROUND;
+        if (level == CR_NOTIFY_ERROR) flags |= MB_ICONERROR;
+        else if (level == CR_NOTIFY_WARN) flags |= MB_ICONWARNING;
+        else flags |= MB_ICONINFORMATION;
+        MessageBoxA(nullptr, message, title, flags);
+    }
+}
 
 static void ScheduleStartupMetadataSync() {
     // Manifest system fetches CN/manifest on-demand per app; no bulk startup sync.
@@ -271,10 +285,9 @@ static void ScheduleStartupMetadataSync() {
     LOG("[StartupSync] Cloud active; metadata will be fetched on-demand per app");
 }
 
-// Sync toggles (all default OFF, read from config.json at init)
-static std::atomic<bool> g_syncAchievements{false};
-static std::atomic<bool> g_syncPlaytime{false};
-static std::atomic<bool> g_syncLuas{false};
+#define g_syncAchievements MetadataSync::syncAchievements
+#define g_syncPlaytime MetadataSync::syncPlaytime
+#define g_syncLuas MetadataSync::syncLuas
 
 static std::atomic<bool> g_parentalBypassPlaytime{false};
 static std::atomic<bool> g_parentalIgnorePlaytime{false};
@@ -337,7 +350,7 @@ struct HookGuard {
 static std::unordered_set<uint32_t> g_namespaceApps;
 static std::mutex g_namespaceAppsMutex;
 
-static bool IsNamespaceApp(uint32_t appId) {
+bool IsNamespaceApp(uint32_t appId) {
     std::lock_guard<std::mutex> lock(g_namespaceAppsMutex);
     return g_namespaceApps.count(appId) > 0;
 }
@@ -347,9 +360,14 @@ static bool HasNamespaceApps() {
     return !g_namespaceApps.empty();
 }
 
-static void AddNamespaceApp(uint32_t appId) {
+void AddNamespaceApp(uint32_t appId) {
     std::lock_guard<std::mutex> lock(g_namespaceAppsMutex);
     g_namespaceApps.insert(appId);
+}
+
+void RemoveNamespaceApp(uint32_t appId) {
+    std::lock_guard<std::mutex> lock(g_namespaceAppsMutex);
+    g_namespaceApps.erase(appId);
 }
 
 // per-app launch timestamp for internal playtime tracking
@@ -573,6 +591,12 @@ bool RestoreLastPlayedState(uint32_t appId, uint64_t lastPlayed) {
 // SteamID extracted from first packet header
 static std::atomic<uint64_t> g_steamId{0};
 static std::atomic<int32_t> g_sessionId{0};
+
+void SetAccountId(uint32_t accountId) {
+    // SteamID: universe=1, type=1, instance=1
+    uint64_t steamId = (uint64_t)accountId | (1ULL << 32) | (1ULL << 52) | (1ULL << 56);
+    g_steamId.store(steamId, std::memory_order_relaxed);
+}
 
 // recursion guard
 thread_local bool g_proxySending = false;
@@ -1859,7 +1883,7 @@ static bool __fastcall NotificationWrapperHook(void* thisptr, const char* method
             // Release cloud session lock -- server-faithful: sync done, release ownership.
             CloudStorage::ReleaseCloudSession(accountId, realAppId, clientId);
         }
-        if (!g_shuttingDown.load(std::memory_order_acquire)) {
+        if (!g_shuttingDown.load(std::memory_order_acquire) && MetadataSync::IsEnabled()) {
             uint32_t capturedAppId = realAppId;
             std::thread t([capturedAppId] {
                 if (g_syncAchievements) UploadStatsOnExit(capturedAppId);
@@ -3636,12 +3660,11 @@ static void TryAutoUpdateDll() {
 
     std::string msg = "CloudRedirect DLL updated to " + bestTag +
         ".\n\nRestart Steam to use the new version.";
-    MessageBoxA(nullptr, msg.c_str(),
-        "CloudRedirect -- DLL Updated",
-        MB_OK | MB_ICONINFORMATION | MB_SETFOREGROUND);
+    NotifyUser(CR_NOTIFY_INFO, "CloudRedirect -- DLL Updated", msg.c_str());
 }
 
-void Init(const std::string& steamPath) {
+void Init(const std::string& steamPath, bool cloudSaveOnly, CR_NotifyFn notifyCallback) {
+    g_notifyCallback = notifyCallback;
     g_steamPath = steamPath;
     if (!g_steamPath.empty() && g_steamPath.back() != '\\')
         g_steamPath += '\\';
@@ -3655,7 +3678,8 @@ void Init(const std::string& steamPath) {
     else
         LOG("Steam version: UNKNOWN (manifest unreadable)");
 
-    PreStageStatsFromLocalCache(g_steamPath);
+    if (MetadataSync::steamToolsPresent.load(std::memory_order_relaxed))
+        PreStageStatsFromLocalCache(g_steamPath);
 
     // Auto-detect namespace apps from {steamPath}\config\stplug-in\*.lua, restricted to self-unlocking luas (base-game addappid for own id).
     std::string pluginDir = g_steamPath + "config\\stplug-in\\*";
@@ -3714,6 +3738,8 @@ void Init(const std::string& steamPath) {
             // cloud_redirect defaults to true for backward compat with existing users
             if (pinCfg["cloud_redirect"].type == Json::Type::Bool)
                 g_cloudRedirectEnabled = pinCfg["cloud_redirect"].boolean();
+
+            if (!cloudSaveOnly) {
 
             if (pinCfg["manifest_pinning"].type == Json::Type::Bool)
                 g_manifestPinsEnabled = pinCfg["manifest_pinning"].boolean();
@@ -3800,25 +3826,26 @@ void Init(const std::string& steamPath) {
             }
             LOG("[ManifestPin] manifest_pinning=%d, auto_comment=%d",
                 g_manifestPinsEnabled.load(), g_autoComment.load());
+
+            } // !cloudSaveOnly (manifest pinning)
         } else {
-            LOG("[ManifestPin] No pin config at %s", pinConfigPath.c_str());
+            if (!cloudSaveOnly)
+                LOG("[ManifestPin] No pin config at %s", pinConfigPath.c_str());
         }
     }
 
     LOG("cloud_redirect=%d", g_cloudRedirectEnabled.load());
 
     // Steam version gate (after config read so we know the mode).
-    if (!versionOk) {
+    if (!versionOk && !cloudSaveOnly) {
         bool isCloudMode = g_cloudRedirectEnabled.load();
         if (isCloudMode) {
             // CloudRedirect mode: block cloud init, but STFixer still works.
             if (detectedVersion == 0) {
                 LOG("FATAL: Could not read Steam version from manifest");
-                MessageBoxA(nullptr,
+                NotifyUser(CR_NOTIFY_ERROR, "CloudRedirect -- Version Unknown",
                     "CloudRedirect could not determine the installed Steam version.\n\n"
-                    "CloudRedirect cannot activate. STFixer patches will still apply.",
-                    "CloudRedirect -- Version Unknown",
-                    MB_OK | MB_ICONERROR | MB_SETFOREGROUND);
+                    "CloudRedirect cannot activate. STFixer patches will still apply.");
             } else {
                 constexpr uint64_t newestSupported = SUPPORTED_STEAM_VERSIONS[0];
                 bool steamIsNewer = detectedVersion > newestSupported;
@@ -3841,8 +3868,7 @@ void Init(const std::string& steamPath) {
                         "CloudRedirect cannot activate. STFixer patches will still apply.",
                         detectedVersion, newestSupported);
                 }
-                MessageBoxA(nullptr, msg, "CloudRedirect -- Version Mismatch",
-                            MB_OK | MB_ICONERROR | MB_SETFOREGROUND);
+                NotifyUser(CR_NOTIFY_ERROR, "CloudRedirect -- Version Mismatch", msg);
             }
             return;  // block cloud init, STFixer patches already applied by payload
         } else {
@@ -3876,16 +3902,18 @@ void Init(const std::string& steamPath) {
         auto oldRootPath = FileUtil::Utf8ToPath(oldRoot);
         if (std::filesystem::is_directory(oldRootPath, ec)) {
             int migrated = 0, skipped = 0;
+            std::string oldRootPrefix = FileUtil::MakePathPrefix(FileUtil::PathToUtf8(oldRootPath));
             std::filesystem::recursive_directory_iterator it(oldRootPath, ec);
             const std::filesystem::recursive_directory_iterator end;
             while (!ec && it != end) {
                 const auto& entry = *it;
                 std::error_code regEc;
                 if (entry.is_regular_file(regEc)) {
-                    std::error_code relEc;
-                    auto rel = std::filesystem::relative(entry.path(), oldRootPath, relEc);
-                    if (!relEc) {
-                        auto dest = FileUtil::Utf8ToPath(newRoot) / rel;
+                    std::string entryUtf8 = FileUtil::PathToUtf8(entry.path());
+                    FileUtil::NormalizeSlashesInPlace(entryUtf8);
+                    std::string relStr;
+                    if (FileUtil::RelativeUtf8Path(entryUtf8, oldRootPrefix, &relStr)) {
+                        auto dest = FileUtil::Utf8ToPath(newRoot) / FileUtil::Utf8ToPath(relStr);
                         std::error_code existsEc;
                         if (std::filesystem::exists(dest, existsEc)) {
                             skipped++;
@@ -4051,13 +4079,13 @@ void Init(const std::string& steamPath) {
                         LOG("[NS] WARNING: %s is configured but not authenticated -- saves will only be stored locally",
                             provider->Name());
                         std::string name = provider->Name();
-                        std::thread t([name]() {
-                            MessageBoxA(nullptr,
-                                (name + " is configured but you haven't signed in yet.\n\n"
-                                 "Your saves will be stored locally but will NOT sync to the cloud.\n\n"
-                                 "Open the CloudRedirect app and sign in on the Cloud Provider page.").c_str(),
+                        std::string notifMsg = name + " is configured but you haven't signed in yet.\n\n"
+                            "Your saves will be stored locally but will NOT sync to the cloud.\n\n"
+                            "Open the CloudRedirect app and sign in on the Cloud Provider page.";
+                        std::thread t([notifMsg]() {
+                            NotifyUser(CR_NOTIFY_WARN,
                                 "CloudRedirect - Cloud Provider Not Authenticated",
-                                MB_OK | MB_ICONWARNING | MB_SYSTEMMODAL);
+                                notifMsg.c_str());
                         });
                         std::lock_guard<std::mutex> lock(g_bgThreadsMutex);
                         g_bgThreads.push_back(std::move(t));
@@ -4081,29 +4109,37 @@ void Init(const std::string& steamPath) {
             HttpServer::SetMaxUploadMB(mb);
         }
 
-        if (cfg["sync_achievements"].type == Json::Type::Bool)
-            g_syncAchievements = cfg["sync_achievements"].boolean();
-        if (cfg["sync_playtime"].type == Json::Type::Bool)
-            g_syncPlaytime = cfg["sync_playtime"].boolean();
-        if (cfg["sync_luas"].type == Json::Type::Bool)
-            g_syncLuas = cfg["sync_luas"].boolean();
-        if (cfg["parental_bypass_playtime"].type == Json::Type::Bool)
-            g_parentalBypassPlaytime = cfg["parental_bypass_playtime"].boolean();
-        if (cfg["parental_ignore_playtime"].type == Json::Type::Bool)
-            g_parentalIgnorePlaytime = cfg["parental_ignore_playtime"].boolean();
-        LOG("[NS] Parental: bypass=%d, ignore_playtime=%d",
-            g_parentalBypassPlaytime.load(), g_parentalIgnorePlaytime.load());
-
-        if (g_parentalBypassPlaytime.load() || g_parentalIgnorePlaytime.load()) {
-            ParentalBypass::PatchParentalSignatureCheck();
-            ParentalBypass::InstallParentalSettingsHook(g_parentalBypassPlaytime.load());
+        // Stats/playtime/lua sync requires SteamTools.
+        if (MetadataSync::steamToolsPresent.load(std::memory_order_relaxed)) {
+            if (cfg["sync_achievements"].type == Json::Type::Bool)
+                MetadataSync::syncAchievements = cfg["sync_achievements"].boolean();
+            if (cfg["sync_playtime"].type == Json::Type::Bool)
+                MetadataSync::syncPlaytime = cfg["sync_playtime"].boolean();
+            if (cfg["sync_luas"].type == Json::Type::Bool)
+                MetadataSync::syncLuas = cfg["sync_luas"].boolean();
         }
-        if (g_parentalIgnorePlaytime.load()) {
-            ParentalBypass::PatchPlaytimeEnforcement();
-        }
+        if (!cloudSaveOnly) {
+            if (cfg["parental_bypass_playtime"].type == Json::Type::Bool)
+                g_parentalBypassPlaytime = cfg["parental_bypass_playtime"].boolean();
+            if (cfg["parental_ignore_playtime"].type == Json::Type::Bool)
+                g_parentalIgnorePlaytime = cfg["parental_ignore_playtime"].boolean();
+            LOG("[NS] Parental: bypass=%d, ignore_playtime=%d",
+                g_parentalBypassPlaytime.load(), g_parentalIgnorePlaytime.load());
 
-        // DLL auto-update (default OFF)
-        if (cfg["auto_update_dll"].type == Json::Type::Bool && cfg["auto_update_dll"].boolean()) {
+            if (g_parentalBypassPlaytime.load() || g_parentalIgnorePlaytime.load()) {
+                ParentalBypass::PatchParentalSignatureCheck();
+                ParentalBypass::InstallParentalSettingsHook(g_parentalBypassPlaytime.load());
+            }
+            if (g_parentalIgnorePlaytime.load()) {
+                ParentalBypass::PatchPlaytimeEnforcement();
+            }
+
+        } // !cloudSaveOnly (parental)
+
+        bool autoUpdate = cfg["auto_update_dll"].type == Json::Type::Bool
+            ? cfg["auto_update_dll"].boolean()
+            : !MetadataSync::steamToolsPresent.load(std::memory_order_relaxed);
+        if (autoUpdate) {
             std::thread t(TryAutoUpdateDll);
             std::lock_guard<std::mutex> lock(g_bgThreadsMutex);
             g_bgThreads.push_back(std::move(t));
@@ -4116,7 +4152,9 @@ void Init(const std::string& steamPath) {
     CloudStorage::Init(cloudRoot, std::move(provider));
     g_startupMetadataScheduled.store(false);
 
-    // Launch deferred lua sync thread (waits for accountId to be captured).
+    SteamKvInjector::Init();
+
+
     if (g_syncLuas) {
         g_luaSyncThread = std::thread([] {
             for (int i = 0; i < 300 && !g_shuttingDown.load(); i++) {

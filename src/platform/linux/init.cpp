@@ -161,8 +161,8 @@ static void CleanLdPreload()
 
 static void DoInit()
 {
-    DebugLog("[CR] DoInit: version=" CR_VERSION_STRING " 1779918128-t1 finding steamclient.so in /proc/self/maps\n");
-    Log::Info("CloudRedirect build %s 1779918128-t1", CR_VERSION_STRING);
+    DebugLog("[CR] DoInit: version=" CR_VERSION_STRING " finding steamclient.so in /proc/self/maps\n");
+    Log::Info("CloudRedirect build %s", CR_VERSION_STRING);
 
     // Kill-switch: if disable file exists, bail without hooking
     const char* home = getenv("HOME");
@@ -184,6 +184,7 @@ static void DoInit()
         Notify("Failed: steamclient.so not found", true);
         return;
     }
+    Log::Info("steamclient.so base=%p size=0x%zx", (void*)steamBase, steamSize);
 
     DebugLog("[CR] DoInit: finding transport vtable\n");
     void** vtable = VtableHook::FindTransportVtable(steamBase, steamSize);
@@ -194,6 +195,8 @@ static void DoInit()
         Notify("Incompatible Steam client - hooks disabled", true);
         return;
     }
+    Log::Info("Transport vtable at %p, slots: [5]=%p [7]=%p [8]=%p",
+              (void*)vtable, vtable[5], vtable[7], vtable[8]);
 
     DebugLog("[CR] DoInit: saving originals\n");
     CloudHooks::SetOriginals(vtable[5], vtable[7], vtable[8]);
@@ -205,17 +208,27 @@ static void DoInit()
         Log::Error("Init failed: transport hook installation failed");
         return;
     }
+    Log::Info("Transport hooks installed on slots 5/7/8");
 
     DebugLog("[CR] DoInit: looking for RemoteStorage vtable\n");
     void** rsVtable = VtableHook::FindRemoteStorageVtable(steamBase, steamSize);
     if (rsVtable)
     {
         if (VtableHook::InstallCloudEnabledHook(rsVtable, g_cloudEnabledInfo))
+        {
             CloudHooks::SetOriginalIsCloudEnabled(g_cloudEnabledInfo.origSlot);
+            Log::Info("IsCloudEnabledForApp hook installed");
+        }
+        else
+            Log::Warn("IsCloudEnabledForApp hook install failed (cloud toggle may not work)");
     }
+    else
+        Log::Warn("CUserRemoteStorage vtable not found (cloud toggle may not work)");
 
     DebugLog("[CR] DoInit: resolving protobuf helpers\n");
-    CloudHooks::ResolveProtobufHelpers(reinterpret_cast<void*>(steamBase), steamSize);
+    bool pbOk = CloudHooks::ResolveProtobufHelpers(reinterpret_cast<void*>(steamBase), steamSize);
+    if (!pbOk)
+        Log::Error("Protobuf helpers not fully resolved -- cloud RPCs may fail");
 
     // Sweep stray *.cloudredirect metadata from userdata/{app}/remote/.
     {
@@ -224,11 +237,12 @@ static void DoInit()
             LegacyMetadataCleanup::PruneSteamUserdata(steamPath);
     }
 
+    DebugLog("[CR] DoInit: initializing KV injector\n");
     SteamKvInjector::Init();
 
     g_initialized.store(true, std::memory_order_release);
     DebugLog("[CR] DoInit: SUCCESS\n");
-    Log::Info("CloudRedirect initialized successfully");
+    Log::Info("CloudRedirect initialized successfully (all hooks active)");
     Notify("Loaded successfully");
 }
 
