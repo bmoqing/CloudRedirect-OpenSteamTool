@@ -31,6 +31,11 @@ Target repository:
   - Lua directories and namespace lua count
   - current accountId
   - recent `cloud_redirect.log` hook state
+- Data restore page:
+  - restores playtime into `userdata\<accountId>\config\localconfig.vdf`
+  - restores achievement/stat cache into `appcache\stats`
+  - restores OpenSteamTool Lua files into `config\lua`
+  - recognizes both local `cloud_redirect\storage` layout and exported `0\blobs` sync-layout backups
 - Custom DLL source labeling:
   - official DLL
   - custom WebDAV DLL
@@ -136,7 +141,7 @@ Get-FileHash build-nmake\cloud_redirect_cli.exe -Algorithm SHA256
 Current verified output hashes from this workspace:
 
 ```text
-CloudRedirect.exe:      F171C3DCC5574719B86E8D083EDDEDCA237BC135562F282020E4914848D616E0
+CloudRedirect.exe:      347238B684DC3819B3118CBBE46DC6FA18D2C35FF019DFDBBDD3F67FE7A7CFDD
 cloud_redirect.dll:     EDC170BAEA0D549700230F8845D334C949F05B4764828D4C3B10F919D3B5A378
 cloud_redirect_cli.exe: 88BDF46E90B6742FB34C22FFB16A8D9DD4EF697C4897DF515D895FF7590173F1
 ```

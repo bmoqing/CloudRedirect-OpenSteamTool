@@ -1696,7 +1696,7 @@ Are you sure?</value>
     <value>Português (Brasil)</value>
   </data>
   <data name="Settings_LanguageChineseSimplified" xml:space="preserve">
-    <value>简体中文</value>
+    <value>Simplified Chinese</value>
   </data>
   <data name="Settings_Sync" xml:space="preserve">
     <value>Sync</value>
@@ -2051,5 +2051,62 @@ Are you sure?</value>
   <data name="Diagnostics_LogMissing" xml:space="preserve">
     <value>cloud_redirect.log not found or empty.</value>
   </data>
+
+  <data name="Nav_DataRestore" xml:space="preserve"><value>Restore Data</value></data>
+  <data name="DataRestore_Title" xml:space="preserve"><value>Restore Data</value></data>
+  <data name="DataRestore_Subtitle" xml:space="preserve"><value>Restore synced playtime, achievement/stat cache, and OpenSteamTool Lua files back to this PC.</value></data>
+  <data name="DataRestore_Refresh" xml:space="preserve"><value>Refresh</value></data>
+  <data name="DataRestore_CurrentAccount" xml:space="preserve"><value>Current Steam account</value></data>
+  <data name="DataRestore_CurrentAccountFormat" xml:space="preserve"><value>{0} / accountId {1} / SteamID64 {2}</value></data>
+  <data name="DataRestore_CurrentAccountMissing" xml:space="preserve"><value>No current account detected. Log into Steam once so loginusers.vdf can identify the target account.</value></data>
+  <data name="DataRestore_Source" xml:space="preserve"><value>Backup source</value></data>
+  <data name="DataRestore_SourceFormat" xml:space="preserve"><value>{0} (accountId {1})</value></data>
+  <data name="DataRestore_SourceCountsFormat" xml:space="preserve"><value>Playtime: {0}; achievement/stat files: {1}; Lua files: {2}</value></data>
+  <data name="DataRestore_NoSource" xml:space="preserve"><value>No usable backup source found for the current account.</value></data>
+  <data name="DataRestore_Detecting" xml:space="preserve"><value>Detecting...</value></data>
+  <data name="DataRestore_SteamNotFound" xml:space="preserve"><value>Steam installation not found.</value></data>
+  <data name="DataRestore_PlaytimeTitle" xml:space="preserve"><value>Restore playtime</value></data>
+  <data name="DataRestore_PlaytimeHint" xml:space="preserve"><value>Writes backed-up playtime fields into Steam userdata localconfig.vdf for this account.</value></data>
+  <data name="DataRestore_StatsTitle" xml:space="preserve"><value>Restore achievement files</value></data>
+  <data name="DataRestore_StatsHint" xml:space="preserve"><value>Copies backed-up UserGameStats files into Steam appcache stats for this account.</value></data>
+  <data name="DataRestore_LuaTitle" xml:space="preserve"><value>Restore Lua files</value></data>
+  <data name="DataRestore_LuaHint" xml:space="preserve"><value>Extracts the Lua archive into OpenSteamTool's config\lua directory.</value></data>
+  <data name="DataRestore_RestorePlaytime" xml:space="preserve"><value>Restore Playtime</value></data>
+  <data name="DataRestore_RestoreStats" xml:space="preserve"><value>Restore Achievements</value></data>
+  <data name="DataRestore_RestoreLua" xml:space="preserve"><value>Restore Lua</value></data>
+  <data name="DataRestore_Result" xml:space="preserve"><value>Result</value></data>
+  <data name="DataRestore_Ready" xml:space="preserve"><value>Ready.</value></data>
+  <data name="DataRestore_Restoring" xml:space="preserve"><value>Restoring...</value></data>
+  <data name="DataRestore_Done" xml:space="preserve"><value>Restore complete</value></data>
+  <data name="DataRestore_DoneMessage" xml:space="preserve"><value>Restored {0} item(s), skipped {1} item(s).</value></data>
+  <data name="DataRestore_FailedFormat" xml:space="preserve"><value>Restore failed: {0}</value></data>
+  <data name="DataRestore_PlaytimeConfirmTitle" xml:space="preserve"><value>Restore playtime?</value></data>
+  <data name="DataRestore_PlaytimeConfirmMessage" xml:space="preserve"><value>This will update Steam userdata localconfig.vdf for the current account. Steam must be closed.</value></data>
+  <data name="DataRestore_StatsConfirmTitle" xml:space="preserve"><value>Restore achievement/stat cache?</value></data>
+  <data name="DataRestore_StatsConfirmMessage" xml:space="preserve"><value>This will copy UserGameStats cache files into Steam appcache stats. Steam must be closed.</value></data>
+  <data name="DataRestore_LuaConfirmTitle" xml:space="preserve"><value>Restore Lua files?</value></data>
+  <data name="DataRestore_LuaConfirmMessage" xml:space="preserve"><value>This will extract backed-up Lua files into the OpenSteamTool Lua directory and back up overwritten files.</value></data>
+  <data name="DataRestore_SteamRunningTitle" xml:space="preserve"><value>Steam is running</value></data>
+  <data name="DataRestore_SteamRunningMessage" xml:space="preserve"><value>Exit Steam completely first. Steam can overwrite localconfig.vdf and stats cache while it is running.</value></data>
+  <data name="DataRestore_ResultSummaryFormat" xml:space="preserve"><value>Restored {0}, skipped {1}, accountId {2}</value></data>
+  <data name="DataRestore_ResultSourceFormat" xml:space="preserve"><value>Source: {0}</value></data>
+  <data name="DataRestore_ResultTargetFormat" xml:space="preserve"><value>Target: {0}</value></data>
+  <data name="DataRestore_ResultBackupFormat" xml:space="preserve"><value>Backup: {0}</value></data>
+  <data name="DataRestore_ResultMoreFormat" xml:space="preserve"><value>...and {0} more item(s).</value></data>
+  <data name="DataRestore_PlaytimeDetailFormat" xml:space="preserve"><value>Playtime {0}: {1} min</value></data>
+  <data name="DataRestore_StatsDetailFormat" xml:space="preserve"><value>UserGameStats {0}</value></data>
+  <data name="DataRestore_LuaDetailFormat" xml:space="preserve"><value>Lua {0}</value></data>
+  <data name="DataRestore_SkippedDetailFormat" xml:space="preserve"><value>Skipped {0}: {1}</value></data>
+  <data name="DataRestore_SourceMissingFormat" xml:space="preserve"><value>Backup source is missing: {0}</value></data>
+  <data name="DataRestore_TargetMissingFormat" xml:space="preserve"><value>Target file is missing: {0}</value></data>
+  <data name="DataRestore_NoPlaytimeBackups" xml:space="preserve"><value>No playtime backup files were found.</value></data>
+  <data name="DataRestore_NoStatsBackups" xml:space="preserve"><value>No achievement/stat backup files were found.</value></data>
+  <data name="DataRestore_NoLuaBackups" xml:space="preserve"><value>No Lua archive backup was found.</value></data>
+  <data name="DataRestore_LocalConfigAppsMissing" xml:space="preserve"><value>Could not find the apps block in localconfig.vdf.</value></data>
+  <data name="DataRestore_VdfBlockBroken" xml:space="preserve"><value>localconfig.vdf contains an unmatched VDF block.</value></data>
+  <data name="DataRestore_InvalidLuaName" xml:space="preserve"><value>Invalid Lua filename.</value></data>
+  <data name="DataRestore_InvalidLuaSize" xml:space="preserve"><value>Invalid Lua file size.</value></data>
+  <data name="DataRestore_InvalidLuaContent" xml:space="preserve"><value>Lua file appears to contain binary data.</value></data>
+  <data name="DataRestore_LuaArchiveTooLarge" xml:space="preserve"><value>Lua archive is too large.</value></data>
 
 </root>
