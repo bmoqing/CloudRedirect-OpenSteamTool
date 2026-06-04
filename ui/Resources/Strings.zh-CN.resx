@@ -72,6 +72,9 @@
   <data name="Nav_ChoiceMode" xml:space="preserve">
     <value>模式</value>
   </data>
+  <data name="Nav_Diagnostics" xml:space="preserve">
+    <value>诊断</value>
+  </data>
   <data name="Choice_Title" xml:space="preserve">
     <value>选择使用模式</value>
   </data>
@@ -115,7 +118,7 @@
     <value>安装设置</value>
   </data>
   <data name="Setup_Description" xml:space="preserve">
-    <value>将补丁应用并部署 CloudRedirect 到你的 Steam 安装目录。</value>
+    <value>为 OpenSteamTool 部署 CloudRedirect，并安装 Lua 加载器。</value>
   </data>
   <data name="Setup_Description_STFixer" xml:space="preserve">
     <value>应用 Capcom 存档修复和清单固定补丁。</value>
@@ -142,16 +145,16 @@
     <value>更改</value>
   </data>
   <data name="Setup_RunAllPatches" xml:space="preserve">
-    <value>运行全部补丁</value>
+    <value>安装 OpenSteamTool 集成</value>
   </data>
   <data name="Setup_OfflineSetupHeader" xml:space="preserve">
-    <value>SteamTools 离线设置</value>
+    <value>OpenSteamTool</value>
   </data>
   <data name="Setup_OfflineSetupDescription" xml:space="preserve">
-    <value>为 SteamTools 打补丁，使其在激活服务器不可用时仍能工作。首次安装时需要此步骤。</value>
+    <value>CloudRedirect 现在通过 OpenSteamTool 加载。重启 Steam 前，请先把 OpenSteamTool 安装到 Steam 根目录。</value>
   </data>
   <data name="Setup_OfflineSetup" xml:space="preserve">
-    <value>离线设置</value>
+    <value>OpenSteamTool 状态</value>
   </data>
   <data name="Setup_NotChecked" xml:space="preserve">
     <value>未检查</value>
@@ -163,40 +166,40 @@
     <value>还原补丁</value>
   </data>
   <data name="Setup_StExeHeader" xml:space="preserve">
-    <value>SteamTools.exe 补丁</value>
+    <value>Lua 加载器</value>
   </data>
   <data name="Setup_StExeDescription" xml:space="preserve">
-    <value>阻止 SteamTools 桌面应用在每次启动时覆盖已打补丁的 DLL。否则 SteamTools 会撤销核心补丁。</value>
+    <value>在 config\lua 下安装一个小 Lua 文件，让 OpenSteamTool 加载 cloud_redirect.dll。</value>
   </data>
   <data name="Setup_DllDeploy" xml:space="preserve">
-    <value>DLL 部署</value>
+    <value>加载器状态</value>
   </data>
   <data name="Setup_PatchSteamToolsExe" xml:space="preserve">
-    <value>修补 SteamTools.exe</value>
+    <value>安装加载器</value>
   </data>
   <data name="Setup_CloudRedirectPatchHeader" xml:space="preserve">
-    <value>Cloud Redirect 补丁</value>
+    <value>CloudRedirect 运行时</value>
   </data>
   <data name="Setup_CloudRedirectPatchHeader_STFixer" xml:space="preserve">
     <value>存档修复和清单固定补丁</value>
   </data>
   <data name="Setup_CloudRedirectPatchDescription" xml:space="preserve">
-    <value>修补 SteamTools 载荷，使 lua 应用的云存档通过 CloudRedirect 系统路由。</value>
+    <value>OpenSteamTool 会通过 Lua 加载 CloudRedirect；不再需要 SteamTools 载荷补丁。</value>
   </data>
   <data name="Setup_CloudRedirectPatchDescription_STFixer" xml:space="preserve">
     <value>修补 SteamTools 载荷，以修复 Capcom 存档路由并为 lua 应用启用清单固定。</value>
   </data>
   <data name="Setup_PatchStatus" xml:space="preserve">
-    <value>补丁状态</value>
+    <value>运行时状态</value>
   </data>
   <data name="Setup_ApplyPatch" xml:space="preserve">
-    <value>应用补丁</value>
+    <value>应用旧版补丁</value>
   </data>
   <data name="Setup_DeployHeader" xml:space="preserve">
     <value>部署 CloudRedirect</value>
   </data>
   <data name="Setup_DeployDescription" xml:space="preserve">
-    <value>将核心 DLL 复制到你的 Steam 文件夹。</value>
+    <value>将 cloud_redirect.dll 复制到 Steam 文件夹，并安装 OpenSteamTool Lua 加载器。</value>
   </data>
   <data name="Setup_DllStatus" xml:space="preserve">
     <value>DLL 状态</value>
@@ -266,6 +269,30 @@
   </data>
   <data name="Setup_StExeNotFound" xml:space="preserve">
     <value>未找到 SteamTools Desktop</value>
+  </data>
+  <data name="Setup_OpenSteamToolInstalled" xml:space="preserve">
+    <value>已找到 OpenSteamTool</value>
+  </data>
+  <data name="Setup_OpenSteamToolNotFound" xml:space="preserve">
+    <value>Steam 根目录中未找到 OpenSteamTool</value>
+  </data>
+  <data name="Setup_LoaderInstalled" xml:space="preserve">
+    <value>Lua 加载器已安装</value>
+  </data>
+  <data name="Setup_LoaderNotInstalled" xml:space="preserve">
+    <value>Lua 加载器未安装</value>
+  </data>
+  <data name="Setup_InstallLoader" xml:space="preserve">
+    <value>安装加载器</value>
+  </data>
+  <data name="Setup_ReinstallLoader" xml:space="preserve">
+    <value>重新安装加载器</value>
+  </data>
+  <data name="Setup_OpenSteamToolReady" xml:space="preserve">
+    <value>已准备好通过 OpenSteamTool Lua 加载</value>
+  </data>
+  <data name="Setup_OpenSteamToolNeedsInstall" xml:space="preserve">
+    <value>请安装 cloud_redirect.dll 和 Lua 加载器</value>
   </data>
   <data name="Setup_CouldNotCheck" xml:space="preserve">
     <value>无法检查：{0}</value>
@@ -1733,5 +1760,48 @@
   <data name="Settings_DllSource" xml:space="preserve"><value>DLL 来源</value></data>
   <data name="Settings_DllSourceDeployCustomHint" xml:space="preserve"><value>此应用包含自定义 WebDAV DLL，但 Steam 尚未使用它。请在仪表盘部署/更新 DLL。</value></data>
   <data name="Settings_DllSourceHashFormat" xml:space="preserve"><value>已部署：{0}  内嵌：{1}</value></data>
+  <data name="Settings_CurrentAccount" xml:space="preserve"><value>当前 Steam 账号</value></data>
+  <data name="Settings_CurrentAccountFormat" xml:space="preserve"><value>{0} / accountId {1} / SteamID64 {2}</value></data>
+  <data name="Settings_CurrentAccountNone" xml:space="preserve"><value>未检测到当前账号</value></data>
+  <data name="Settings_CurrentAccountWarning" xml:space="preserve"><value>云存档会写入这个 accountId 对应的目录。切换 Steam 账号前请先确认这里显示的是目标账号。</value></data>
   <data name="CloudProvider_WebDavTestNetworkError" xml:space="preserve"><value>测试 WebDAV 时发生网络错误：{0}</value></data>
+  <data name="CloudProvider_WebDavTestSuccessFull" xml:space="preserve"><value>WebDAV 兼容性测试通过：列目录、创建目录、上传、下载、覆盖校验和删除均正常。</value></data>
+  <data name="CloudProvider_WebDavTestStepFailed" xml:space="preserve"><value>WebDAV 测试步骤 {0} 失败：HTTP {1} {2}</value></data>
+  <data name="CloudProvider_WebDavTestContentMismatch" xml:space="preserve"><value>WebDAV 下载内容与上传的测试文件不一致。</value></data>
+  <data name="Diagnostics_Title" xml:space="preserve"><value>诊断</value></data>
+  <data name="Diagnostics_Subtitle" xml:space="preserve"><value>检查 DLL 加载、OpenSteamTool 集成、Steam 账号、WebDAV 和最近 hook 活动。</value></data>
+  <data name="Diagnostics_Refresh" xml:space="preserve"><value>刷新</value></data>
+  <data name="Diagnostics_RuntimeStatus" xml:space="preserve"><value>运行状态</value></data>
+  <data name="Diagnostics_OpenSteamToolChecks" xml:space="preserve"><value>OpenSteamTool 检查</value></data>
+  <data name="Diagnostics_RecentLog" xml:space="preserve"><value>最近的 cloud_redirect.log</value></data>
+  <data name="Diagnostics_SteamPath" xml:space="preserve"><value>Steam 路径</value></data>
+  <data name="Diagnostics_SteamPathNotFound" xml:space="preserve"><value>未找到</value></data>
+  <data name="Diagnostics_SteamVersion" xml:space="preserve"><value>Steam 版本</value></data>
+  <data name="Diagnostics_SteamVersionSupported" xml:space="preserve"><value>{0}（受支持）</value></data>
+  <data name="Diagnostics_SteamVersionUnsupported" xml:space="preserve"><value>{0}（不受支持）</value></data>
+  <data name="Diagnostics_SteamVersionUnknown" xml:space="preserve"><value>未知</value></data>
+  <data name="Diagnostics_DllSource" xml:space="preserve"><value>DLL 来源</value></data>
+  <data name="Diagnostics_DllSourceFormat" xml:space="preserve"><value>{0} - {1}</value></data>
+  <data name="Diagnostics_OpenSteamToolIntegration" xml:space="preserve"><value>OpenSteamTool 集成</value></data>
+  <data name="Diagnostics_OpenSteamToolReady" xml:space="preserve"><value>已就绪</value></data>
+  <data name="Diagnostics_OpenSteamToolFailed" xml:space="preserve"><value>一个或多个必要检查未通过</value></data>
+  <data name="Diagnostics_CurrentAccount" xml:space="preserve"><value>当前账号</value></data>
+  <data name="Diagnostics_CurrentAccountFormat" xml:space="preserve"><value>{0} / accountId {1} / SteamID64 {2}</value></data>
+  <data name="Diagnostics_CurrentAccountMissing" xml:space="preserve"><value>未检测到 accountId</value></data>
+  <data name="Diagnostics_DllLoaded" xml:space="preserve"><value>DLL 加载</value></data>
+  <data name="Diagnostics_DllLoadedOk" xml:space="preserve"><value>已通过 OpenSteamTool Lua 加载</value></data>
+  <data name="Diagnostics_DllLoadedMissing" xml:space="preserve"><value>最近日志中没有 OpenSteamTool 加载标记</value></data>
+  <data name="Diagnostics_CloudRpcHook" xml:space="preserve"><value>Cloud RPC hook</value></data>
+  <data name="Diagnostics_CloudRpcHookOk" xml:space="preserve"><value>vtable hook 已激活</value></data>
+  <data name="Diagnostics_CloudRpcHookMissing" xml:space="preserve"><value>最近日志中没有 vtable hook 激活标记</value></data>
+  <data name="Diagnostics_AccountId" xml:space="preserve"><value>Account ID</value></data>
+  <data name="Diagnostics_AccountIdOk" xml:space="preserve"><value>Account ID 可用</value></data>
+  <data name="Diagnostics_AccountIdMissing" xml:space="preserve"><value>最近日志中没有 accountId 标记</value></data>
+  <data name="Diagnostics_AccountIdRecentMissing" xml:space="preserve"><value>最近日志仍显示没有 Steam accountId</value></data>
+  <data name="Diagnostics_WebDavProvider" xml:space="preserve"><value>WebDAV 提供商</value></data>
+  <data name="Diagnostics_WebDavProviderOk" xml:space="preserve"><value>DLL 日志显示 WebDAV 已初始化</value></data>
+  <data name="Diagnostics_WebDavProviderMissing" xml:space="preserve"><value>最近日志中没有 WebDAV 初始化标记</value></data>
+  <data name="Diagnostics_RecentSyncActivity" xml:space="preserve"><value>最近同步活动</value></data>
+  <data name="Diagnostics_RecentSyncActivityMissing" xml:space="preserve"><value>最近日志中没有拦截到 Cloud RPC</value></data>
+  <data name="Diagnostics_LogMissing" xml:space="preserve"><value>未找到 cloud_redirect.log，或日志为空。</value></data>
 </root>

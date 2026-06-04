@@ -1,3 +1,87 @@
+﻿diff --git a/.github/workflows/release.yml b/.github/workflows/release.yml
+new file mode 100644
+index 0000000..1992b0b
+--- /dev/null
++++ b/.github/workflows/release.yml
+@@ -0,0 +1,61 @@
++name: Build Release
++
++on:
++  push:
++    tags:
++      - "v*"
++  workflow_dispatch:
++
++permissions:
++  contents: write
++
++jobs:
++  windows-release:
++    runs-on: windows-latest
++
++    steps:
++      - name: Checkout
++        uses: actions/checkout@v4
++
++      - name: Setup .NET
++        uses: actions/setup-dotnet@v4
++        with:
++          dotnet-version: "8.0.x"
++
++      - name: Configure native build
++        shell: pwsh
++        run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64
++
++      - name: Build native DLL and CLI
++        shell: pwsh
++        run: cmake --build build --config Release --target cloud_redirect cloud_redirect_cli
++
++      - name: Publish single-file app
++        shell: pwsh
++        run: dotnet publish ui/CloudRedirect.csproj -c Release -r win-x64 --self-contained false -o ui/bin/publish
++
++      - name: Write SHA256 files
++        shell: pwsh
++        run: |
++          Get-FileHash ui/bin/publish/CloudRedirect.exe -Algorithm SHA256 |
++            ForEach-Object { $_.Hash } | Set-Content ui/bin/publish/CloudRedirect.exe.sha256
++          Get-FileHash build/Release/cloud_redirect.dll -Algorithm SHA256 |
++            ForEach-Object { $_.Hash } | Set-Content build/Release/cloud_redirect.dll.sha256
++          Get-FileHash build/Release/cloud_redirect_cli.exe -Algorithm SHA256 |
++            ForEach-Object { $_.Hash } | Set-Content build/Release/cloud_redirect_cli.exe.sha256
++
++      - name: Create GitHub release
++        if: startsWith(github.ref, 'refs/tags/')
++        uses: softprops/action-gh-release@v2
++        with:
++          body: |
++            Based on Selectively11/CloudRedirect v2.1.2.
++
++            Custom build: OpenSteamTool integration, Simplified Chinese localization, WebDAV provider, diagnostics page, DLL source labeling, and compatibility tests.
++          files: |
++            ui/bin/publish/CloudRedirect.exe
++            ui/bin/publish/CloudRedirect.exe.sha256
++            build/Release/cloud_redirect.dll
++            build/Release/cloud_redirect.dll.sha256
++            build/Release/cloud_redirect_cli.exe
++            build/Release/cloud_redirect_cli.exe.sha256
+diff --git a/.gitignore b/.gitignore
+index 67c66ee..1947d93 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -1,7 +1,12 @@
+ build/
+ build-*/
++bin/
++.tools/
+ ui/bin/
+ ui/obj/
++ui/NuGet/
++ui/Resources/cloud_redirect.dll
++ui/Resources/cloud_redirect_cli.exe
+ ui-linux/build/
+ flatpak/.flatpak-builder/
+ flatpak/build-dir/ui/Resources/payloads/
 diff --git a/CMakeLists.txt b/CMakeLists.txt
 index 9357c23..4d691e6 100644
 --- a/CMakeLists.txt
@@ -26,6 +110,393 @@ index 9357c23..4d691e6 100644
          src/providers/local_disk_provider.cpp
      )
      target_include_directories(cloud_storage_staging_tests PRIVATE src/common src/providers src/testutil)
+diff --git a/CUSTOM_BUILD_NOTES.md b/CUSTOM_BUILD_NOTES.md
+new file mode 100644
+index 0000000..28925d5
+--- /dev/null
++++ b/CUSTOM_BUILD_NOTES.md
+@@ -0,0 +1,208 @@
++# Custom Build Notes
++
++This repository is a custom build based on
++[Selectively11/CloudRedirect](https://github.com/Selectively11/CloudRedirect) `v2.1.2`.
++
++Target repository:
++
++- `bmoqing/CloudRedirect-OpenSteamTool`
++
++## Custom Scope
++
++- Simplified Chinese localization and a Chinese language option.
++- OpenSteamTool loading path:
++  - exports `CloudRedirectLua` from `cloud_redirect.dll`
++  - installs `Steam\config\lua\cloud_redirect_loader.lua`
++  - reads OpenSteamTool Lua paths from `opensteamtool.toml`
++  - does not depend on `Steam\config\stplug-in`
++- Direct OpenSteamTool hook initialization:
++  - installs manifest pinning hook
++  - installs Cloud RPC vtable hook without relying on SteamTools `CCMInterface`
++  - bootstraps SteamID64/accountId from `config\loginusers.vdf` when packet capture has not happened yet
++- WebDAV provider support:
++  - HTTPS URL validation
++  - Basic Auth and Digest Auth fallback
++  - path-prefix and URL encoding support
++  - UI test connection that exercises PROPFIND, MKCOL, PUT, GET, overwrite, list, and DELETE
++- Runtime diagnostics page:
++  - Steam path/version
++  - DLL source
++  - OpenSteamTool files and loader state
++  - Lua directories and namespace lua count
++  - current accountId
++  - recent `cloud_redirect.log` hook state
++- Custom DLL source labeling:
++  - official DLL
++  - custom WebDAV DLL
++  - hash mismatch
++  - not installed
++- Official DLL auto-update protection:
++  - settings toggle is disabled for the custom DLL
++  - native DLL compiled with `CR_CUSTOM_WEB_DAV_BUILD=1` skips official GitHub DLL updates
++- Local WebDAV compatibility tests:
++  - `tests/webdav_compat_smoke.ps1`
++  - `tests/local_webdav_server.py`
++  - `tests/run_local_webdav_compat.ps1`
++- App update source is switched to `bmoqing/CloudRedirect-OpenSteamTool`.
++- GitHub Actions release workflow builds and uploads:
++  - `CloudRedirect.exe`
++  - `cloud_redirect.dll`
++  - `cloud_redirect_cli.exe`
++  - SHA256 files
++
++## Patch Files
++
++Reusable patch:
++
++- `patches/0001-opensteamtool-zh-cn-webdav-diagnostics.patch`
++
++Check before applying:
++
++```powershell
++git apply --check patches\0001-opensteamtool-zh-cn-webdav-diagnostics.patch
++```
++
++Apply:
++
++```powershell
++git apply patches\0001-opensteamtool-zh-cn-webdav-diagnostics.patch
++```
++
++For a newer upstream release, first check out the upstream tag, then run `git apply --check`.
++Conflicts are most likely in:
++
++- `CMakeLists.txt`
++- `src/platform/win/cloud_intercept.cpp`
++- `src/platform/win/dllmain.cpp`
++- `src/providers/webdav_provider.*`
++- `ui/Pages/SetupPage.xaml.cs`
++- `ui/Pages/CloudProviderPage.xaml*`
++- `ui/Pages/SettingsPage.xaml*`
++- `ui/Resources/Strings*.resx`
++- `ui/Services/AppUpdater.cs`
++
++When upstream changes Steam hook support, keep the upstream RVA/signature/vtable fixes first,
++then reapply the localization, WebDAV, OpenSteamTool loader, diagnostics, and GitHub packaging layer.
++
++## Build
++
++Native DLL and CLI:
++
++```powershell
++cmake -S . -B build -G "Visual Studio 17 2022" -A x64
++cmake --build build --config Release --target cloud_redirect cloud_redirect_cli
++```
++
++Single-file EXE:
++
++```powershell
++dotnet publish ui\CloudRedirect.csproj -c Release -r win-x64 --self-contained false -o ui\bin\publish
++```
++
++If using the bundled local tools in this workspace:
++
++```powershell
++$cmake = Join-Path (Get-Location) '.tools\cmake-3.31.8-windows-x86_64\bin\cmake.exe'
++$dotnetRoot = Join-Path (Get-Location) '.tools\dotnet'
++$vcvars = 'C:\Program Files (x86)\Microsoft Visual Studio\18\BuildTools\VC\Auxiliary\Build\vcvars64.bat'
++cmd /d /s /c "set DOTNET_ROOT=$dotnetRoot&& set PATH=$dotnetRoot;%PATH%&& call `"$vcvars`" >nul && `"$cmake`" --build build-nmake --config Release"
++```
++
++If `ui\bin\publish\CloudRedirect.exe` is locked by a running app instance, publish to a different
++directory for verification:
++
++```powershell
++dotnet publish ui\CloudRedirect.csproj -c Release -r win-x64 --self-contained false -o ui\bin\publish-final
++```
++
++## Hash Maintenance
++
++After rebuilding `cloud_redirect.dll`, update the custom DLL SHA256 in:
++
++```text
++ui/Services/DllIdentity.cs
++```
++
++Then rebuild the UI so the embedded DLL and displayed source identity match.
++
++Verify outputs:
++
++```powershell
++Get-FileHash ui\bin\publish\CloudRedirect.exe -Algorithm SHA256
++Get-FileHash build-nmake\cloud_redirect.dll -Algorithm SHA256
++Get-FileHash build-nmake\cloud_redirect_cli.exe -Algorithm SHA256
++```
++
++Current verified output hashes from this workspace:
++
++```text
++CloudRedirect.exe:      F171C3DCC5574719B86E8D083EDDEDCA237BC135562F282020E4914848D616E0
++cloud_redirect.dll:     EDC170BAEA0D549700230F8845D334C949F05B4764828D4C3B10F919D3B5A378
++cloud_redirect_cli.exe: 88BDF46E90B6742FB34C22FFB16A8D9DD4EF697C4897DF515D895FF7590173F1
++```
++
++Verify exports:
++
++```powershell
++dumpbin /exports ui\Resources\cloud_redirect.dll | findstr /C:CloudRedirectLua /C:CloudOnSendPkt
++```
++
++## Runtime Validation
++
++After deploying the DLL and restarting Steam, inspect `cloud_redirect.log`.
++
++Expected markers:
++
++```text
++CloudRedirect loaded via OpenSteamTool Lua
++[Build] Custom OpenSteamTool/WebDAV build active; official DLL auto-update is disabled
++[Account] Captured SteamID64=... via loginusers.vdf (accountId=...)
++[OpenSteamTool] Installing direct Cloud RPC vtable hook...
++[VtHook] All hooks ACTIVE -- Cloud RPCs...
++[OpenSteamTool] Direct hook install finished: ... vtable=1
++```
++
++Bad markers to investigate:
++
++```text
++Version Mismatch
++Prologue mismatch
++RVA mismatch
++vtable mismatch
++no Steam account ID
++```
++
++## WebDAV Test
++
++External WebDAV endpoint:
++
++```powershell
++powershell -ExecutionPolicy Bypass -File tests\webdav_compat_smoke.ps1 `
++  -BaseUrl "https://example.com/remote.php/dav/files/user/CloudRedirect" `
++  -Username "user" `
++  -Password "app-password"
++```
++
++Local loopback test:
++
++```powershell
++powershell -ExecutionPolicy Bypass -File tests\run_local_webdav_compat.ps1
++```
++
++The local test intentionally leaves its temporary WebDAV root printed in the terminal for manual
++cleanup instead of bulk deleting a directory.
++
++## GitHub Release
++
++The workflow in `.github/workflows/release.yml` creates a release when a tag like `v2.1.2-ost.1`
++is pushed.
++
++Manual release trigger is also available from the GitHub Actions page.
++
++Recommended release note wording:
++
++```text
++Based on Selectively11/CloudRedirect v2.1.2.
++Custom build: OpenSteamTool integration, Simplified Chinese localization, WebDAV provider,
++diagnostics page, DLL source labeling, and compatibility tests.
++```
+diff --git a/README.md b/README.md
+index 7ef2ecf..4e4e835 100644
+--- a/README.md
++++ b/README.md
+@@ -1,70 +1,97 @@
+-# CloudRedirect
++# CloudRedirect OpenSteamTool 自定义版
+ 
+-""Steam Cloud"" for 'lua' games.
++这是基于 [Selectively11/CloudRedirect](https://github.com/Selectively11/CloudRedirect) v2.1.2 制作的自定义版本。上游项目提供核心 Steam Cloud 重定向、DLL hook 和 WPF 管理程序；这个仓库在此基础上加入 OpenSteamTool 加载方式、简体中文界面、WebDAV 云服务和诊断/维护工具。
+ 
+-> ****This software is experimental and under active development.**** The underlying techniques are fairly insane. What this software tries to do is nuts to attempt. This software could damage your save files and probably will! It could overwrite your saves, cause weird conflicts, make your saves disappear, make you cry. Back up any saves you care about before using this software.
++请先阅读风险提示：CloudRedirect 会拦截 Steam Cloud 相关调用并把 lua 游戏的云存档重定向到你配置的云服务或本地目录。使用前请备份重要存档，尤其是已经被 SteamTools 污染过的 userdata 目录。
+ 
+->****DO NOT USE THIS SOFTWARE IF YOU ARE AN IDIOT. Do not use this if you do not actively want cloud saves for "lua" games. If all you care about is the Steam Cloud error, disable Steam Cloud in properties for that game.****
++## 主要改动
+ 
+-> ****Again, this tool is very experimental and could be dangerous. Know what you are using before you use it.****
++- 适配 OpenSteamTool：通过 `Steam\config\lua\cloud_redirect_loader.lua` 加载 `cloud_redirect.dll`，不再依赖 `config\stplug-in`。
++- 增加 WebDAV 云服务提供商，适合 Nextcloud、Alist、坚果云等支持 WebDAV 的服务。
++- 增加 WebDAV 测试连接：会实际执行 PROPFIND、MKCOL、PUT、GET、覆盖、列目录和删除。
++- 增加简体中文界面，并在设置里提供中文选项。
++- 设置页显示当前 DLL 来源：官方版、自定义 WebDAV 版、哈希不匹配或未安装。
++- 自定义 DLL 构建会禁用官方 DLL 自动更新，避免 WebDAV 版被上游官方 DLL 覆盖。
++- 增加诊断页：检查 DLL 加载、OpenSteamTool 安装、Lua 目录、当前 Steam accountId、WebDAV 初始化和最近 hook 日志。
++- 增加本地 WebDAV 兼容性测试脚本，方便开发时验证中文文件名、空目录、多级目录和冲突覆盖。
++- 增加 `patches/` 和 `CUSTOM_BUILD_NOTES.md`，后续上游更新时可以按步骤复用改动。
+ 
+-## What it does
++## 安装方式
+ 
+-Valve patched the (sinful) thing SteamTools did to sync saves. Specifically, SteamTools rewrote requests to AppID 760, which is Steam Screenshots. It sent all Steam Cloud requests for non-owned AppIDs there. It did not create prefixes for each individual game, which means that each lua app shared the saves with all others. This can cause saves to conflict if multiple games use the same save file name. This also means that your saves are replicated in the `Steam/Userdata/<steamid>/<appid for lua game>` folder for each lua app.
++1. 安装 OpenSteamTool，把 `dwmapi.dll`、`xinput1_4.dll`、`OpenSteamTool.dll` 放到 Steam 根目录，例如 `C:\Program Files (x86)\Steam`。
++2. 运行本项目 Release 里的 `CloudRedirect.exe`。
++3. 在“安装设置”里点击“安装 OpenSteamTool 集成”。
++4. 在“云服务提供商”里选择 Google Drive、OneDrive、WebDAV、文件夹/网络驱动器或仅本地。
++5. 如果选择 WebDAV，请填写 HTTPS WebDAV URL、用户名和密码/应用密码，然后点击“测试连接”。
++6. 重启 Steam 后，在“诊断”页查看 DLL 是否已通过 OpenSteamTool Lua 加载、vtable hook 是否激活、accountId 是否正确。
+ 
+-It also did not support Steam AutoCloud games at all. It would simply show a fake success message for those games.
++OpenSteamTool 读取的 Lua 目录默认是：
+ 
+-What _this_ tool does is redirect Steam Cloud requests for games that are injected to Google Drive/OneDrive/a local folder, including AutoCloud games. Everything is native inside the Steam Client, but the actual data is read/written to and from your cloud account. This was much harder to do than just redirecting read/write to an AppID that your account owns, but it was fun to make. It also is less likely to piss off Valve.
++```text
++C:\Program Files (x86)\Steam\config\lua
++```
+ 
+-This isn't uploading your save files manually or something silly like that. It's the real deal. Steam Cloud, but going to a cloud provider and not Valve.
++不要把 lua 放到旧的 SteamTools 目录：
+ 
+-The tool also has a function to reset the progress of games (useful for auto cloud games that you want to start over in) and a tool to scan SteamTools games for the pollution described above. ****DO NOT USE THOSE FUNCTIONS IF YOU DO NOT KNOW WHAT YOU ARE DOING. YOU WILL END UP DELETING YOUR SAVE. WHILE THE TOOL DOES TAKE A BACKUP AND CAN EASILY RESTORE IT, YOU STILL SHOULD NOT USE THAT TOOL UNLESS YOU KNOW WHAT YOU ARE DOING.****
++```text
++C:\Program Files (x86)\Steam\config\stplug-in
++```
+ 
+-Please treat the cloud 'folder' on your cloud provider the same way you would treat Steam Cloud itself. If you delete that folder from Google Drive/OneDrive without disabling the provider in CloudRedirect, expect bad things to happen.
++## 多账号提醒
+ 
+-CloudRedirect is good software. It's clever.
++CloudRedirect 的本地缓存和云端路径会按 Steam `accountId` 分目录。切换 Steam 账号前，请在“设置”或“诊断”页确认当前显示的 accountId 是目标账号，避免把云存档写到另一个账号目录。
+ 
+-## How it works
++## WebDAV 配置说明
+ 
+-CloudRedirect consists of a C++ DLL and a WPF companion app:
++WebDAV URL 必须是 HTTPS，不能包含 query string 或 fragment。常见示例：
+ 
+-1. The companion app patches the SteamTools payload to load the CloudRedirect DLL at startup.
+-2. The DLL hooks Steam's internal cloud save RPC handlers via ~~vtable interception~~ black magic.
+-3. When a lua game attempts to read or write cloud save data, the DLL intercepts the calls and redirects them to a local cache directory. If the game is owned, the game uses normal Steam Cloud as expected. If a lua is present that only unlocks DLC, the game will use normal Steam Cloud.
+-4. More dark magic occurs and the saves are synced to or from your chosen cloud provider. This all is visible in the Steam UI and looks identical to normal Steam Cloud functionality.
+-   
+-## Supported cloud providers
++```text
++https://example.com/remote.php/dav/files/user/CloudRedirect
++```
+ 
+-- **Google Drive**
+-- **OneDrive**
+-- **Local folder / mapped drive** -- by request of literally one user.
++当前实现支持 Basic Auth，并带有 Digest Auth 兼容逻辑。很多服务需要使用“应用密码”，不要直接使用网页登录密码。
+ 
+-## Usage
++## 构建
+ 
+-Make sure you are on Steam version 1777411435 or 1773426488. Those are the only supported versions of Steam.
++需要：
+ 
+-Grab the latest release from the [Releases page](https://github.com/Selectively11/CloudRedirect/releases).
++- Visual Studio 2022 或 Build Tools，包含 C++ 工具链
++- .NET 8 Windows Desktop Runtime/SDK
++- CMake 3.20+
+ 
+-Note that you do not need to run STFixer with this. The 'Capcom save fix' is always present with this tool. 
++构建 native DLL 和 CLI：
+ 
+-Run the EXE. In Setup, hit 'Run All Patches'. Go to the Cloud Provider tab, select your provider. If it is a cloud provider, hit 'Sign In' and sign in. 
++```powershell
++cmake -S . -B build -G "Visual Studio 17 2022" -A x64
++cmake --build build --config Release --target cloud_redirect cloud_redirect_cli
++```
+ 
+-That's it. Go launch Steam. Your games should start syncing now. You may have errors if your userdata folder was filled with garbage by SteamTools and the game is a Steam AutoCloud save. In that case, you need to identify which files belong in that folder and which files belong to another game and clean it up. 
++发布单文件 EXE：
+ 
+-## Building from source
++```powershell
++dotnet publish ui/CloudRedirect.csproj -c Release -r win-x64 --self-contained false -o ui/bin/publish
++```
+ 
+-### Prerequisites
++输出：
+ 
+-- Visual Studio 2022 (or Build Tools) with the C++ and .NET 8 workloads
+-- CMake 3.20+
++```text
++ui/bin/publish/CloudRedirect.exe
++build/Release/cloud_redirect.dll
++build/Release/cloud_redirect_cli.exe
++```
+ 
+-### Build
++## 本地 WebDAV 兼容性测试
+ 
+-```bash
+-cmake -B build -G "Visual Studio 17 2022" -A x64
+-cmake --build build --config Release
++```powershell
++powershell -ExecutionPolicy Bypass -File tests\run_local_webdav_compat.ps1
+ ```
+ 
+-This builds both the C++ DLL (`build/Release/cloud_redirect.dll`) and publishes the WPF app (`ui/bin/publish/CloudRedirect.exe`). The DLL is automatically embedded into the executable.
++这个脚本会启动一个本地 WebDAV 测试服务，验证创建目录、上传、下载、中文文件名、空目录、多级目录、覆盖冲突和删除。测试结束后会打印临时目录路径，按项目规则不会自动批量删除目录。
++
++## 上游来源
++
++本项目是自定义构建，核心实现来自：
++
++[Selectively11/CloudRedirect](https://github.com/Selectively11/CloudRedirect)
+ 
+-Or don't build it? Building Windows apps is pain.
++如果上游发布新版本，请先保留上游 hook/RVA/signature 更新，再按 `CUSTOM_BUILD_NOTES.md` 和 `patches/` 重新套用本项目的汉化、OpenSteamTool 和 WebDAV 改动。
+diff --git a/UPSTREAM.md b/UPSTREAM.md
+new file mode 100644
+index 0000000..25d79be
+--- /dev/null
++++ b/UPSTREAM.md
+@@ -0,0 +1,25 @@
++# Upstream Attribution
++
++This repository is a custom build of
++[Selectively11/CloudRedirect](https://github.com/Selectively11/CloudRedirect).
++
++The upstream project provides the original CloudRedirect implementation, including the
++Steam integration, native DLL hooks, WPF companion app, and core cloud redirection logic.
++
++This custom build adds:
++
++- Simplified Chinese localization and a Chinese language option.
++- WebDAV provider support.
++- WebDAV connection testing.
++- Custom DLL source identification in Settings.
++- Protection against replacing the custom WebDAV DLL with the official upstream DLL updater.
++- Reusable patch files and custom build notes for future upstream updates.
++
++When publishing releases from this repository, include the upstream base version in the
++release notes, for example:
++
++```text
++Based on Selectively11/CloudRedirect v2.1.2.
++Custom changes: Simplified Chinese localization, WebDAV support, custom DLL source labeling.
++```
++
 diff --git a/src/common/cli.cpp b/src/common/cli.cpp
 index a1f0777..5ab660c 100644
 --- a/src/common/cli.cpp
@@ -393,10 +864,389 @@ index 5e22f48..c130a2e 100644
  
  } // namespace HttpUtil
 diff --git a/src/platform/win/cloud_intercept.cpp b/src/platform/win/cloud_intercept.cpp
-index 8d430c7..18de404 100644
+index 8d430c7..bd11ef8 100644
 --- a/src/platform/win/cloud_intercept.cpp
 +++ b/src/platform/win/cloud_intercept.cpp
-@@ -3321,6 +3321,10 @@ static std::string ComputeFileSHA256(const std::string& path) {
+@@ -282,6 +282,7 @@ static std::atomic<uint64_t> g_detectedSteamVersion{0};
+ 
+ // Cloud-redirect master toggle (default ON). When OFF the DLL still applies manifest pinning + patches but skips HTTP/storage/interception.
+ static std::atomic<bool> g_cloudRedirectEnabled{true};
++static std::atomic<bool> g_cloudInitBlocked{false};
+ 
+ // Manifest pinning (depot -> manifest override)
+ // Config lives in Steam folder (per-system), NOT AppData (per-user).
+@@ -333,7 +334,7 @@ struct HookGuard {
+     HookGuard& operator=(const HookGuard&) = delete;
+ };
+ 
+-// namespace state (auto-detected from stplug-in directory)
++// namespace state (auto-detected from OpenSteamTool Lua directories)
+ static std::unordered_set<uint32_t> g_namespaceApps;
+ static std::mutex g_namespaceAppsMutex;
+ 
+@@ -347,11 +348,162 @@ static bool HasNamespaceApps() {
+     return !g_namespaceApps.empty();
+ }
+ 
++static size_t NamespaceAppCount() {
++    std::lock_guard<std::mutex> lock(g_namespaceAppsMutex);
++    return g_namespaceApps.size();
++}
++
+ static void AddNamespaceApp(uint32_t appId) {
+     std::lock_guard<std::mutex> lock(g_namespaceAppsMutex);
+     g_namespaceApps.insert(appId);
+ }
+ 
++static std::string TrimAscii(std::string s) {
++    size_t start = 0;
++    while (start < s.size() && (s[start] == ' ' || s[start] == '\t' || s[start] == '\r' || s[start] == '\n'))
++        ++start;
++    size_t end = s.size();
++    while (end > start && (s[end - 1] == ' ' || s[end - 1] == '\t' || s[end - 1] == '\r' || s[end - 1] == '\n'))
++        --end;
++    return s.substr(start, end - start);
++}
++
++static bool IsAbsoluteWinPath(const std::string& path) {
++    if (path.size() >= 3 && ((path[0] >= 'A' && path[0] <= 'Z') || (path[0] >= 'a' && path[0] <= 'z')) &&
++        path[1] == ':' && (path[2] == '\\' || path[2] == '/'))
++        return true;
++    return path.size() >= 2 &&
++        ((path[0] == '\\' && path[1] == '\\') || (path[0] == '/' && path[1] == '/'));
++}
++
++static std::string NormalizeLuaDir(std::string dir) {
++    dir = TrimAscii(std::move(dir));
++    if (dir.empty()) return {};
++    for (auto& c : dir) {
++        if (c == '/') c = '\\';
++    }
++    if (!IsAbsoluteWinPath(dir))
++        dir = g_steamPath + dir;
++    if (!dir.empty() && dir.back() != '\\')
++        dir += '\\';
++    return dir;
++}
++
++static bool SamePathInsensitive(const std::string& a, const std::string& b) {
++    return _stricmp(a.c_str(), b.c_str()) == 0;
++}
++
++static void AddUniquePath(std::vector<std::string>& paths, std::string path) {
++    path = NormalizeLuaDir(std::move(path));
++    if (path.empty()) return;
++    for (const auto& existing : paths) {
++        if (SamePathInsensitive(existing, path))
++            return;
++    }
++    paths.push_back(std::move(path));
++}
++
++static std::vector<std::string> ParseOpenSteamToolLuaPaths() {
++    std::vector<std::string> paths;
++    AddUniquePath(paths, "config\\lua");
++
++    std::string tomlPath = g_steamPath + "opensteamtool.toml";
++    std::ifstream f(FileUtil::Utf8ToPath(tomlPath));
++    if (!f.is_open())
++        return paths;
++
++    bool inLuaSection = false;
++    std::string line;
++    std::string pendingArray;
++    while (std::getline(f, line)) {
++        std::string trimmed = TrimAscii(line);
++        if (trimmed.empty() || trimmed[0] == '#')
++            continue;
++
++        if (trimmed.front() == '[') {
++            inLuaSection = (_stricmp(trimmed.c_str(), "[lua]") == 0);
++            continue;
++        }
++        if (!inLuaSection)
++            continue;
++
++        if (pendingArray.empty()) {
++            size_t eq = trimmed.find('=');
++            if (eq == std::string::npos)
++                continue;
++            std::string key = TrimAscii(trimmed.substr(0, eq));
++            if (_stricmp(key.c_str(), "paths") != 0)
++                continue;
++            pendingArray = trimmed.substr(eq + 1);
++        } else {
++            pendingArray += "\n";
++            pendingArray += trimmed;
++        }
++
++        if (pendingArray.find(']') == std::string::npos)
++            continue;
++
++        bool inQuote = false;
++        bool escape = false;
++        std::string current;
++        for (char c : pendingArray) {
++            if (!inQuote) {
++                if (c == '"') {
++                    inQuote = true;
++                    current.clear();
++                }
++                continue;
++            }
++
++            if (escape) {
++                if (c == 'n') current.push_back('\n');
++                else if (c == 'r') current.push_back('\r');
++                else if (c == 't') current.push_back('\t');
++                else current.push_back(c);
++                escape = false;
++                continue;
++            }
++
++            if (c == '\\') {
++                escape = true;
++                continue;
++            }
++            if (c == '"') {
++                inQuote = false;
++                AddUniquePath(paths, current);
++                current.clear();
++                continue;
++            }
++            current.push_back(c);
++        }
++        pendingArray.clear();
++    }
++
++    return paths;
++}
++
++static const std::vector<std::string>& GetOpenSteamToolLuaDirs() {
++    static std::string cachedSteamPath;
++    static std::vector<std::string> cached;
++    if (cachedSteamPath != g_steamPath || cached.empty()) {
++        cachedSteamPath = g_steamPath;
++        cached = ParseOpenSteamToolLuaPaths();
++        std::ostringstream oss;
++        for (size_t i = 0; i < cached.size(); ++i) {
++            if (i) oss << "; ";
++            oss << cached[i];
++        }
++        LOG("[LuaDirs] OpenSteamTool Lua directories: %s", oss.str().c_str());
++    }
++    return cached;
++}
++
++static std::string GetPrimaryOpenSteamToolLuaDir() {
++    const auto& dirs = GetOpenSteamToolLuaDirs();
++    if (!dirs.empty()) return dirs.front();
++    return g_steamPath + "config\\lua\\";
++}
++
+ // per-app launch timestamp for internal playtime tracking
+ static std::mutex g_launchTimeMutex;
+ static std::unordered_map<uint32_t, time_t> g_launchTimes;
+@@ -577,6 +729,113 @@ static std::atomic<int32_t> g_sessionId{0};
+ // recursion guard
+ thread_local bool g_proxySending = false;
+ 
++static constexpr uint64_t STEAMID64_BASE = 76561197960265728ULL;
++
++static uint64_t ParseSteamId64Key(const std::string& trimmed) {
++    if (trimmed.size() < 3 || trimmed[0] != '"') return 0;
++    size_t endQuote = trimmed.find('"', 1);
++    if (endQuote == std::string::npos) return 0;
++
++    std::string key = trimmed.substr(1, endQuote - 1);
++    if (key.empty()) return 0;
++    for (char c : key) {
++        if (c < '0' || c > '9') return 0;
++    }
++
++    char* endp = nullptr;
++    uint64_t sid = strtoull(key.c_str(), &endp, 10);
++    if (endp != key.c_str() + key.size()) return 0;
++    return sid > STEAMID64_BASE ? sid : 0;
++}
++
++static uint64_t LoadSteamIdFromLoginUsers() {
++    std::string vdfPath = g_steamPath + "config\\loginusers.vdf";
++    std::ifstream f(FileUtil::Utf8ToPath(vdfPath));
++    if (!f) {
++        LOG("[Account] Cannot open loginusers.vdf at %s", vdfPath.c_str());
++        return 0;
++    }
++
++    std::string line;
++    uint64_t currentSteamId = 0;
++    uint64_t mostRecentSteamId = 0;
++    uint64_t singleSteamId = 0;
++    int steamIdCount = 0;
++    bool inUser = false;
++    int braceDepth = 0;
++
++    while (std::getline(f, line)) {
++        std::string trimmed = TrimAscii(line);
++        if (trimmed.empty()) continue;
++
++        if (trimmed == "{") {
++            ++braceDepth;
++            continue;
++        }
++        if (trimmed == "}") {
++            if (braceDepth == 2) inUser = false;
++            if (braceDepth > 0) --braceDepth;
++            continue;
++        }
++
++        if (braceDepth == 1) {
++            uint64_t sid = ParseSteamId64Key(trimmed);
++            if (sid != 0) {
++                currentSteamId = sid;
++                inUser = true;
++                ++steamIdCount;
++                if (singleSteamId == 0) singleSteamId = sid;
++                continue;
++            }
++        }
++
++        if (inUser && braceDepth == 2 &&
++            trimmed.find("\"MostRecent\"") != std::string::npos &&
++            trimmed.find("\"1\"") != std::string::npos) {
++            mostRecentSteamId = currentSteamId;
++        }
++    }
++
++    if (mostRecentSteamId != 0)
++        return mostRecentSteamId;
++    if (steamIdCount == 1)
++        return singleSteamId;
++
++    LOG("[Account] No unambiguous SteamID64 found in loginusers.vdf (users=%d)", steamIdCount);
++    return 0;
++}
++
++static void SetSteamIdFromSource(uint64_t steamId, const char* source, bool allowReplace) {
++    if (steamId == 0) return;
++
++    uint64_t existing = g_steamId.load(std::memory_order_acquire);
++    if (existing == steamId) return;
++    if (existing != 0 && !allowReplace) return;
++
++    g_steamId.store(steamId, std::memory_order_release);
++    uint32_t accountId = (uint32_t)(steamId & 0xFFFFFFFFu);
++    HttpServer::SetAccountId(accountId);
++
++    if (existing != 0) {
++        LOG("[Account] Replaced SteamID64 from %llu to %llu via %s (accountId=%u)",
++            existing, steamId, source, accountId);
++    } else {
++        LOG("[Account] Captured SteamID64=%llu via %s (accountId=%u)",
++            steamId, source, accountId);
++    }
++
++    ScheduleStartupMetadataSync();
++}
++
++static void BootstrapSteamIdFromLoginUsers() {
++    if (g_steamId.load(std::memory_order_acquire) != 0)
++        return;
++
++    uint64_t steamId = LoadSteamIdFromLoginUsers();
++    if (steamId != 0)
++        SetSteamIdFromSource(steamId, "loginusers.vdf", false);
++}
++
+ 
+ static void SpyLogFields(const char* prefix, const uint8_t* data, uint32_t len, int depth = 0, int* totalFields = nullptr) {
+     if (depth > 3) return;
+@@ -1429,26 +1688,19 @@ static bool __fastcall ServiceMethodHook(void* thisptr, const char* methodName,
+     SpyLogFields("[VtHook-REQ]", reqBytes.data(), (uint32_t)reqBytes.size());
+ #endif
+ 
+-    // Capture SteamID from request header if not yet captured
+-    if (g_steamId.load() == 0) {
+-        void* reqHeader = *(void**)((uintptr_t)request + 40);
+-        if (reqHeader) {
+-            // CMsgProtoBufHeader: serialize-and-parse to extract steamid.
+-            auto hdrBytes = SerializeBodyToBytes(reqHeader);
+-            if (!hdrBytes.empty()) {
+-                auto hdrFields = PB::Parse(hdrBytes.data(), hdrBytes.size());
+-                auto* sidField = PB::FindField(hdrFields, HDR_STEAMID);
+-                if (sidField) {
+-                    g_steamId.store(sidField->varintVal);
+-                    LOG("[VtHook] Captured SteamID: %llu (accountId=%u)", g_steamId.load(), GetAccountId());
+-                    HttpServer::SetAccountId(GetAccountId());
+-                    ScheduleStartupMetadataSync();
+-                }
+-                auto* sessField = PB::FindField(hdrFields, HDR_SESSIONID);
+-                if (sessField) {
+-                    g_sessionId.store((int32_t)sessField->varintVal);
+-                }
+-            }
++    // Capture SteamID/session from the real RPC header. This may replace the
++    // loginusers.vdf bootstrap value in multi-account sessions.
++    void* reqHeader = *(void**)((uintptr_t)request + 40);
++    if (reqHeader) {
++        auto hdrBytes = SerializeBodyToBytes(reqHeader);
++        if (!hdrBytes.empty()) {
++            auto hdrFields = PB::Parse(hdrBytes.data(), hdrBytes.size());
++            auto* sidField = PB::FindField(hdrFields, HDR_STEAMID);
++            if (sidField)
++                SetSteamIdFromSource(sidField->varintVal, "vtable RPC header", true);
++            auto* sessField = PB::FindField(hdrFields, HDR_SESSIONID);
++            if (sessField)
++                g_sessionId.store((int32_t)sessField->varintVal);
+         }
+     }
+ 
+@@ -2567,7 +2819,7 @@ static int64_t __fastcall RecvPktMonitorHook(void* thisptr, CNetPacket* pkt) {
+     return g_originalRecvPkt(thisptr, pkt);
+ }
+ 
+-// Lua file sync: stplug-in/*.lua via account-scope LuaArchive.zip + LuaManifest.json (appId=0).
++// Lua file sync: OpenSteamTool's primary config/lua/*.lua via account-scope LuaArchive.zip + LuaManifest.json (appId=0).
+ // Manifest entry: { "file.lua": { "mod": ts, "del": ts } }; del > mod = deleted (timestamps prevent ping-pong).
+ // .sync_state: line 1 = lastSyncTime, remaining lines = files this machine knows about.
+ 
+@@ -2579,7 +2831,7 @@ struct SyncState {
+ };
+ 
+ static std::string GetLuaSyncStatePath() {
+-    return g_steamPath + "config\\stplug-in\\.sync_state";
++    return GetPrimaryOpenSteamToolLuaDir() + ".sync_state";
+ }
+ 
+ static SyncState ReadSyncState() {
+@@ -2661,7 +2913,7 @@ static bool IsValidLuaContent(const uint8_t* data, size_t len) {
+ 
+ static std::vector<LuaFile> ReadLocalLuaFiles() {
+     std::vector<LuaFile> files;
+-    std::string dir = g_steamPath + "config\\stplug-in\\";
++    std::string dir = GetPrimaryOpenSteamToolLuaDir();
+     // Wide enumeration; ANSI would return 8.3 short names for non-Latin-1
+     // filenames and rotate them into different lua records every launch.
+     auto dirWide = FileUtil::Utf8ToPath(dir).wstring();
+@@ -2799,7 +3051,7 @@ static void SyncLuaFiles() {
+         return;
+     }
+ 
+-    std::string luaDir = g_steamPath + "config\\stplug-in\\";
++    std::string luaDir = GetPrimaryOpenSteamToolLuaDir();
+     uint64_t now = NowUnix();
+ 
+     auto manifestData = CloudStorage::RetrieveBlob(accountId, LUA_SYNC_APPID, "LuaManifest.json");
+@@ -2948,7 +3200,7 @@ static void SyncLuaFiles() {
+                 if (dot != std::string::npos) {
+                     uint32_t appId = (uint32_t)strtoul(lf.filename.substr(0, dot).c_str(), nullptr, 10);
+                     if (appId) {
+-                        std::string luaPath = g_steamPath + "config\\stplug-in\\" + lf.filename;
++                        std::string luaPath = luaDir + lf.filename;
+                         if (IsSelfUnlockingLua(luaPath, appId))
+                             AddNamespaceApp(appId);
+                     }
+@@ -3321,6 +3573,10 @@ static std::string ComputeFileSHA256(const std::string& path) {
  }
  
  static void TryAutoUpdateDll() {
@@ -407,7 +1257,117 @@ index 8d430c7..18de404 100644
      LOG("[AutoUpdate] Checking for DLL update (local version: %s)...", CR_RELEASE_VERSION);
  
      // Fetch releases from GitHub
-@@ -4042,6 +4046,8 @@ void Init(const std::string& steamPath) {
+@@ -3645,6 +3901,8 @@ void Init(const std::string& steamPath) {
+     g_steamPath = steamPath;
+     if (!g_steamPath.empty() && g_steamPath.back() != '\\')
+         g_steamPath += '\\';
++    g_cloudInitBlocked.store(false, std::memory_order_release);
++    BootstrapSteamIdFromLoginUsers();
+ 
+     // Read Steam version early (used by version gate below and auto-update).
+     uint64_t detectedVersion = ReadSteamVersion(g_steamPath);
+@@ -3657,15 +3915,19 @@ void Init(const std::string& steamPath) {
+ 
+     PreStageStatsFromLocalCache(g_steamPath);
+ 
+-    // Auto-detect namespace apps from {steamPath}\config\stplug-in\*.lua, restricted to self-unlocking luas (base-game addappid for own id).
+-    std::string pluginDir = g_steamPath + "config\\stplug-in\\*";
+-    std::string pluginBase = g_steamPath + "config\\stplug-in\\";
++    // Auto-detect namespace apps from OpenSteamTool Lua directories, restricted to
++    // self-unlocking luas (base-game addappid for own id).
+     int totalLuas = 0, selfUnlocking = 0;
+-    // Wide enumeration; FindFirstFileA fails on non-ASCII g_steamPath.
+-    auto pluginDirWide = FileUtil::Utf8ToPath(pluginDir).wstring();
+-    WIN32_FIND_DATAW fd;
+-    HANDLE hFind = FindFirstFileW(pluginDirWide.c_str(), &fd);
+-    if (hFind != INVALID_HANDLE_VALUE) {
++    for (const auto& luaBase : GetOpenSteamToolLuaDirs()) {
++        std::string patternUtf8 = luaBase + "*.lua";
++        auto patternWide = FileUtil::Utf8ToPath(patternUtf8).wstring();
++        WIN32_FIND_DATAW fd;
++        HANDLE hFind = FindFirstFileW(patternWide.c_str(), &fd);
++        if (hFind == INVALID_HANDLE_VALUE) {
++            LOG("[NS] Lua directory not found or unreadable: %s (err=%u)",
++                luaBase.c_str(), GetLastError());
++            continue;
++        }
+         do {
+             std::string name = FileUtil::WideToUtf8(fd.cFileName);
+             if (name.empty()) continue;
+@@ -3679,7 +3941,7 @@ void Init(const std::string& steamPath) {
+                     uint32_t appId = (uint32_t)strtoul(stem.c_str(), nullptr, 10);
+                     if (appId > 0) {
+                         totalLuas++;
+-                        std::string luaPath = pluginBase + name;
++                        std::string luaPath = luaBase + name;
+                         if (IsSelfUnlockingLua(luaPath, appId)) {
+                             AddNamespaceApp(appId);
+                             selfUnlocking++;
+@@ -3689,9 +3951,6 @@ void Init(const std::string& steamPath) {
+             }
+         } while (FindNextFileW(hFind, &fd));
+         FindClose(hFind);
+-    } else {
+-        LOG("[NS] Failed to scan stplug-in directory: %s (err=%u)",
+-            pluginDir.c_str(), GetLastError());
+     }
+ 
+     if (HasNamespaceApps()) {
+@@ -3740,12 +3999,13 @@ void Init(const std::string& steamPath) {
+             // Load lua setManifestid pins (when auto_comment=false or app
+             // is in pinned_apps). Wide enumeration for non-ASCII paths.
+             if (g_manifestPinsEnabled.load()) {
+-                std::string luaDir = g_steamPath + "config\\stplug-in\\";
+-                auto luaDirWide = FileUtil::Utf8ToPath(luaDir).wstring();
+-                std::wstring pattern = luaDirWide + L"*.lua";
+-                WIN32_FIND_DATAW fd;
+-                HANDLE hFind = FindFirstFileW(pattern.c_str(), &fd);
+-                if (hFind != INVALID_HANDLE_VALUE) {
++                for (const auto& luaDir : GetOpenSteamToolLuaDirs()) {
++                    auto luaDirWide = FileUtil::Utf8ToPath(luaDir).wstring();
++                    std::wstring pattern = luaDirWide + L"*.lua";
++                    WIN32_FIND_DATAW fd;
++                    HANDLE hFind = FindFirstFileW(pattern.c_str(), &fd);
++                    if (hFind == INVALID_HANDLE_VALUE)
++                        continue;
+                     do {
+                         // strtoul on narrowed cFileName: pure-digit prefixes are single-byte in both encodings.
+                         std::string nameUtf8 = FileUtil::WideToUtf8(fd.cFileName);
+@@ -3785,7 +4045,7 @@ void Init(const std::string& steamPath) {
+                             g_manifestPins[fileAppId][depotId] = manifestId;
+                             totalPins++;
+                             LOG("[ManifestPin] Lua pin: app %u depot %u -> manifest %llu (from %s)",
+-                                fileAppId, depotId, manifestId, nameUtf8.c_str());
++                                fileAppId, depotId, manifestId, luaPath.c_str());
+                         }
+                     } while (FindNextFileW(hFind, &fd));
+                     FindClose(hFind);
+@@ -3814,6 +4074,7 @@ void Init(const std::string& steamPath) {
+             // CloudRedirect mode: block cloud init, but STFixer still works.
+             if (detectedVersion == 0) {
+                 LOG("FATAL: Could not read Steam version from manifest");
++                g_cloudInitBlocked.store(true, std::memory_order_release);
+                 MessageBoxA(nullptr,
+                     "CloudRedirect could not determine the installed Steam version.\n\n"
+                     "CloudRedirect cannot activate. STFixer patches will still apply.",
+@@ -3825,6 +4086,7 @@ void Init(const std::string& steamPath) {
+                 LOG("FATAL: Steam version mismatch! supported_newest=%llu actual=%llu (%s)",
+                     newestSupported, detectedVersion,
+                     steamIsNewer ? "Steam is newer" : "Steam is older");
++                g_cloudInitBlocked.store(true, std::memory_order_release);
+                 char msg[512];
+                 if (steamIsNewer) {
+                     snprintf(msg, sizeof(msg),
+@@ -3995,7 +4257,7 @@ void Init(const std::string& steamPath) {
+ 
+     // start local HTTP server for upload/download
+     std::string blobRoot = g_steamPath + "cloud_redirect\\storage\\";
+-    if (HttpServer::Start(blobRoot)) {
++    if (HttpServer::Start(blobRoot, GetAccountId())) {
+         LOG("[NS] HTTP server started on port %u, blob root: %s",
+             HttpServer::GetPort(), blobRoot.c_str());
+     } else {
+@@ -4042,6 +4304,8 @@ void Init(const std::string& steamPath) {
                  std::string syncPath = cfg["sync_path"].str();
                  if (providerName == "folder" && !syncPath.empty()) {
                      initPath = syncPath;
@@ -416,6 +1376,250 @@ index 8d430c7..18de404 100644
                  }
  
                  if (!initPath.empty() && provider->Init(initPath)) {
+@@ -4104,6 +4368,9 @@ void Init(const std::string& steamPath) {
+ 
+         // DLL auto-update (default OFF)
+         if (cfg["auto_update_dll"].type == Json::Type::Bool && cfg["auto_update_dll"].boolean()) {
++#ifdef CR_CUSTOM_WEB_DAV_BUILD
++            LOG("[NS] DLL auto-update requested, but this custom WebDAV build will not download the official DLL");
++#endif
+             std::thread t(TryAutoUpdateDll);
+             std::lock_guard<std::mutex> lock(g_bgThreadsMutex);
+             g_bgThreads.push_back(std::move(t));
+@@ -4165,6 +4432,10 @@ void InstallManifestPinHook() {
+         LOG("[ManifestPin] Pins not enabled, skipping hook");
+         return;
+     }
++    if (g_bddOrigAddr || g_bddTrampoline || g_origBuildDepotDependency) {
++        LOG("[ManifestPin] Hook already installed or in progress, skipping");
++        return;
++    }
+ 
+     HMODULE hSteamClient = GetModuleHandleA("steamclient64.dll");
+     if (!hSteamClient) {
+@@ -4264,6 +4535,65 @@ void InstallReleaseStateNop() {
+     // Stub -- release-state patching removed from public builds.
+ }
+ 
++void InstallDirectHooks() {
++    for (int attempt = 0; attempt < 240 && !g_shuttingDown.load(std::memory_order_acquire); ++attempt) {
++        HMODULE hSteamClient = GetModuleHandleA("steamclient64.dll");
++        if (hSteamClient) {
++            g_steamClientBase = reinterpret_cast<uintptr_t>(hSteamClient);
++            LOG("[OpenSteamTool] steamclient64.dll base: %p (attempt %d)", hSteamClient, attempt + 1);
++            break;
++        }
++
++        if (attempt == 0)
++            LOG("[OpenSteamTool] steamclient64.dll not loaded yet; waiting before direct hook install");
++        Sleep(500);
++    }
++
++    if (!g_steamClientBase) {
++        LOG("[OpenSteamTool] steamclient64.dll did not load; direct hook install aborted");
++        return;
++    }
++
++    InstallManifestPinHook();
++    InstallReleaseStateNop();
++
++    if (!g_cloudRedirectEnabled.load(std::memory_order_relaxed)) {
++        LOG("[OpenSteamTool] Cloud redirection disabled; direct cloud hooks skipped");
++        return;
++    }
++    if (g_cloudInitBlocked.load(std::memory_order_acquire)) {
++        LOG("[OpenSteamTool] Cloud initialization was blocked; direct cloud hooks skipped");
++        return;
++    }
++
++    size_t namespaceCount = NamespaceAppCount();
++    if (namespaceCount == 0) {
++        LOG("[OpenSteamTool] No namespace apps detected; vtable hook will not be installed yet");
++        return;
++    }
++
++    LOG("[OpenSteamTool] Installing direct Cloud RPC vtable hook for %zu namespace app(s)", namespaceCount);
++    for (int attempt = 0; attempt < 120 && !g_shuttingDown.load(std::memory_order_acquire); ++attempt) {
++        if (!g_vtableHookInstalled.load(std::memory_order_acquire) &&
++            HasNamespaceApps()) {
++            InstallServiceMethodHook();
++        }
++        if (g_vtableHookInstalled.load(std::memory_order_acquire))
++            break;
++
++        // Keep probing the old SteamTools send/receive path for diagnostics and
++        // Approach-D fallback support, but direct vtable installation must not
++        // depend on CCMInterface being found.
++        TryFindCCMInterface();
++        Sleep(500);
++    }
++
++    LOG("[OpenSteamTool] Direct hook install finished: namespaceApps=%zu cmInterface=%d vtable=%d",
++        NamespaceAppCount(),
++        g_cmInterfaceFound.load(std::memory_order_acquire),
++        g_vtableHookInstalled.load(std::memory_order_acquire));
++}
++
+ 
+ 
+ void SetSendPktAddr(void* recvPktGlobalAddr) {
+@@ -4309,19 +4639,12 @@ bool OnSendPkt(void* thisptr, const uint8_t* data, uint32_t size) {
+     uint64_t jobSrc = GetJobIdSource(pkt.header);
+ 
+     // capture SteamID and SessionID from first packet
+-    if (g_steamId.load() == 0) {
+-        auto* sidField = PB::FindField(pkt.header, HDR_STEAMID);
+-        if (sidField) {
+-            g_steamId.store(sidField->varintVal);
+-            LOG("[NS] Captured SteamID: %llu (accountId=%u)", g_steamId.load(), GetAccountId());
+-            HttpServer::SetAccountId(GetAccountId());
+-            ScheduleStartupMetadataSync();
+-        }
+-        auto* sessField = PB::FindField(pkt.header, HDR_SESSIONID);
+-        if (sessField) {
+-            g_sessionId.store((int32_t)sessField->varintVal);
+-        }
+-    }
++    auto* sidField = PB::FindField(pkt.header, HDR_STEAMID);
++    if (sidField)
++        SetSteamIdFromSource(sidField->varintVal, "SendPkt header", true);
++    auto* sessField = PB::FindField(pkt.header, HDR_SESSIONID);
++    if (sessField)
++        g_sessionId.store((int32_t)sessField->varintVal);
+ 
+     // With slots 4+5 hooked, namespace Cloud RPCs should not reach SendPkt;
+     // log and fall through to Approach D as a safety net if they do.
+diff --git a/src/platform/win/cloud_intercept.h b/src/platform/win/cloud_intercept.h
+index 0fbf8e1..4c9bf50 100644
+--- a/src/platform/win/cloud_intercept.h
++++ b/src/platform/win/cloud_intercept.h
+@@ -31,6 +31,9 @@ void InstallRecvPktMonitor(void* savedOrigPtrAddr);
+ // install inline detour on steamclient64 for manifest pinning
+ void InstallManifestPinHook();
+ 
++// install hooks when loaded directly by OpenSteamTool's Lua runtime
++void InstallDirectHooks();
++
+ // Stub -- release-state patching removed from public builds.
+ void InstallReleaseStateNop();
+ 
+diff --git a/src/platform/win/dllmain.cpp b/src/platform/win/dllmain.cpp
+index 27c55ca..4b935aa 100644
+--- a/src/platform/win/dllmain.cpp
++++ b/src/platform/win/dllmain.cpp
+@@ -5,10 +5,14 @@
+ #include "cli.h"
+ #include "steam_kv_injector.h"
+ #include <atomic>
++#include <exception>
+ #include <mutex>
+ 
+ static HMODULE g_thisModule = nullptr;
+ static std::once_flag g_initFlag;
++static std::once_flag g_directInitFlag;
++static std::once_flag g_commonInitFlag;
++static std::atomic<bool> g_commonInitFailed{false};
+ 
+ // Steam dir from the DLL's own location, UTF-8.
+ // All "narrow" std::string paths in the DLL are UTF-8; ACP narrowing here
+@@ -28,26 +32,48 @@ static std::string GetSteamPath() {
+     return FileUtil::WideToUtf8(wdllPath, (size_t)endIdx);
+ }
+ 
+-// Entry point from the SteamTools payload code cave.
+-// Returns nonzero if we handled the packet; zero lets Steam's SendPkt run.
+-extern "C" __declspec(dllexport)
+-int CloudOnSendPkt(void* thisptr, const uint8_t* data, uint32_t size, void* recvPktFn) {
+-    // One-time init; init failure -> return 0 (let Steam handle).
+-    static std::atomic<bool> g_initFailed{false};
+-    std::call_once(g_initFlag, [&]() {
++static void InitializeCommonOnce(const char* source) {
++    std::call_once(g_commonInitFlag, [&]() {
+         try {
+             std::string steamPath = GetSteamPath();
+             std::string logPath = steamPath + "cloud_redirect.log";
+ 
+             Log::Init(logPath.c_str());
+-            LOG("CloudRedirect loaded via code cave, PID=%u", GetCurrentProcessId());
++            LOG("CloudRedirect loaded via %s, PID=%u", source, GetCurrentProcessId());
++#ifdef CR_CUSTOM_WEB_DAV_BUILD
++            LOG("[Build] Custom OpenSteamTool/WebDAV build active; official DLL auto-update is disabled");
++#else
++            LOG("[Build] Official CloudRedirect build active");
++#endif
+             LOG("Steam path: %s", steamPath.c_str());
+ 
+-            // Module bases (for IDA mapping).
+             HMODULE hSteamClient = GetModuleHandleA("steamclient64.dll");
+             LOG("steamclient64.dll base: %p", hSteamClient);
+ 
+             CloudIntercept::Init(steamPath);
++        } catch (const std::exception& ex) {
++            LOG("CloudRedirect common init FAILED via %s: %s", source, ex.what());
++            g_commonInitFailed.store(true, std::memory_order_relaxed);
++        } catch (...) {
++            LOG("CloudRedirect common init FAILED via %s: unknown exception", source);
++            g_commonInitFailed.store(true, std::memory_order_relaxed);
++        }
++    });
++}
++
++// Entry point from the SteamTools payload code cave.
++// Returns nonzero if we handled the packet; zero lets Steam's SendPkt run.
++extern "C" __declspec(dllexport)
++int CloudOnSendPkt(void* thisptr, const uint8_t* data, uint32_t size, void* recvPktFn) {
++    // One-time init; init failure -> return 0 (let Steam handle).
++    static std::atomic<bool> g_initFailed{false};
++    std::call_once(g_initFlag, [&]() {
++        try {
++            InitializeCommonOnce("SteamTools code cave");
++            if (g_commonInitFailed.load(std::memory_order_relaxed)) {
++                g_initFailed.store(true, std::memory_order_relaxed);
++                return;
++            }
+ 
+             if (recvPktFn) {
+                 CloudIntercept::SetSendPktAddr(recvPktFn);
+@@ -82,6 +108,39 @@ int CloudOnSendPkt(void* thisptr, const uint8_t* data, uint32_t size, void* recv
+     return CloudIntercept::OnSendPkt(thisptr, data, size) ? 1 : 0;
+ }
+ 
++// Lua entry point for OpenSteamTool:
++// package.loadlib("cloud_redirect.dll", "CloudRedirectLua")()
++extern "C" __declspec(dllexport)
++int CloudRedirectLua(void* /*luaState*/) {
++    static std::atomic<bool> g_directInitFailed{false};
++    std::call_once(g_directInitFlag, [&]() {
++        try {
++            InitializeCommonOnce("OpenSteamTool Lua");
++            if (g_commonInitFailed.load(std::memory_order_relaxed)) {
++                g_directInitFailed.store(true, std::memory_order_relaxed);
++                return;
++            }
++            SteamKvInjector::Init();
++
++            HANDLE h = CreateThread(nullptr, 0, [](LPVOID) -> DWORD {
++                CloudIntercept::InstallDirectHooks();
++                LOG("CloudRedirect OpenSteamTool direct initialization complete");
++                return 0;
++            }, nullptr, 0, nullptr);
++            if (h) CloseHandle(h);
++            else LOG("CloudRedirect failed to start direct hook thread (%u)", GetLastError());
++        } catch (const std::exception& ex) {
++            LOG("CloudRedirect OpenSteamTool init FAILED: %s", ex.what());
++            g_directInitFailed.store(true, std::memory_order_relaxed);
++        } catch (...) {
++            LOG("CloudRedirect OpenSteamTool init FAILED: unknown exception");
++            g_directInitFailed.store(true, std::memory_order_relaxed);
++        }
++    });
++
++    return 0;
++}
++
+ BOOL APIENTRY DllMain(HMODULE hModule, DWORD reason, LPVOID reserved) {
+     switch (reason) {
+     case DLL_PROCESS_ATTACH:
 diff --git a/src/platform/win/http_transport_win.cpp b/src/platform/win/http_transport_win.cpp
 index 91c374c..88aa592 100644
 --- a/src/platform/win/http_transport_win.cpp
@@ -1423,12 +2627,323 @@ index 0000000..8c67350
 +    std::unordered_set<std::string> m_createdCollections;
 +    std::mutex m_collectionMtx;
 +};
+diff --git a/tests/local_webdav_server.py b/tests/local_webdav_server.py
+new file mode 100644
+index 0000000..0ed7e71
+--- /dev/null
++++ b/tests/local_webdav_server.py
+@@ -0,0 +1,216 @@
++#!/usr/bin/env python3
++"""Tiny local WebDAV server for CloudRedirect compatibility smoke tests."""
++
++from __future__ import annotations
++
++import argparse
++import base64
++import html
++from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
++from pathlib import Path
++from urllib.parse import quote, unquote, urlsplit
++
++
++def encode_href(rel_path: str, is_dir: bool) -> str:
++    pieces = [quote(p) for p in rel_path.replace("\\", "/").split("/") if p]
++    href = "/dav/"
++    if pieces:
++        href += "/".join(pieces)
++        if is_dir:
++            href += "/"
++    return href
++
++
++class WebDavHandler(BaseHTTPRequestHandler):
++    server_version = "CloudRedirectLocalWebDAV/1.0"
++
++    def _send_empty(self, status: int) -> None:
++        self.send_response(status)
++        self.send_header("Content-Length", "0")
++        self.end_headers()
++
++    def _authorized(self) -> bool:
++        expected = "Basic " + base64.b64encode(
++            f"{self.server.username}:{self.server.password}".encode("utf-8")
++        ).decode("ascii")
++        if self.headers.get("Authorization") == expected:
++            return True
++        self.send_response(401)
++        self.send_header("WWW-Authenticate", 'Basic realm="CloudRedirectLocalWebDAV"')
++        self.send_header("Content-Length", "0")
++        self.end_headers()
++        return False
++
++    def _target(self) -> tuple[Path | None, str]:
++        path = unquote(urlsplit(self.path).path)
++        if path == "/":
++            rel = ""
++        elif path.startswith("/dav/"):
++            rel = path[5:]
++        elif path == "/dav":
++            rel = ""
++        else:
++            return None, ""
++
++        rel = rel.strip("/")
++        parts = [p for p in rel.split("/") if p]
++        if any(p in (".", "..") for p in parts):
++            return None, ""
++        target = self.server.root.joinpath(*parts) if parts else self.server.root
++        return target, "/".join(parts)
++
++    def do_OPTIONS(self) -> None:
++        self.send_response(200)
++        self.send_header("DAV", "1, 2")
++        self.send_header("Allow", "OPTIONS, PROPFIND, MKCOL, PUT, GET, HEAD, DELETE")
++        self.send_header("Content-Length", "0")
++        self.end_headers()
++
++    def do_PROPFIND(self) -> None:
++        if not self._authorized():
++            return
++        target, rel = self._target()
++        if target is None:
++            self._send_empty(400)
++            return
++        if not target.exists():
++            self._send_empty(404)
++            return
++
++        depth = self.headers.get("Depth", "0")
++        entries: list[tuple[Path, str]] = [(target, rel)]
++        if depth != "0" and target.is_dir():
++            for child in sorted(target.iterdir(), key=lambda p: p.name.lower()):
++                child_rel = f"{rel}/{child.name}".strip("/")
++                entries.append((child, child_rel))
++
++        responses = []
++        for item, item_rel in entries:
++            is_dir = item.is_dir()
++            href = html.escape(encode_href(item_rel, is_dir))
++            resourcetype = "<D:collection/>" if is_dir else ""
++            size = 0 if is_dir else item.stat().st_size
++            responses.append(
++                "<D:response>"
++                f"<D:href>{href}</D:href>"
++                "<D:propstat><D:prop>"
++                f"<D:resourcetype>{resourcetype}</D:resourcetype>"
++                f"<D:getcontentlength>{size}</D:getcontentlength>"
++                "</D:prop><D:status>HTTP/1.1 200 OK</D:status></D:propstat>"
++                "</D:response>"
++            )
++
++        body = (
++            '<?xml version="1.0" encoding="utf-8"?>'
++            '<D:multistatus xmlns:D="DAV:">'
++            + "".join(responses)
++            + "</D:multistatus>"
++        ).encode("utf-8")
++        self.send_response(207)
++        self.send_header("Content-Type", "application/xml; charset=utf-8")
++        self.send_header("Content-Length", str(len(body)))
++        self.end_headers()
++        self.wfile.write(body)
++
++    def do_MKCOL(self) -> None:
++        if not self._authorized():
++            return
++        target, _ = self._target()
++        if target is None:
++            self._send_empty(400)
++            return
++        if target.exists():
++            self._send_empty(405)
++            return
++        if not target.parent.exists():
++            self._send_empty(409)
++            return
++        target.mkdir()
++        self._send_empty(201)
++
++    def do_PUT(self) -> None:
++        if not self._authorized():
++            return
++        target, _ = self._target()
++        if target is None:
++            self._send_empty(400)
++            return
++        existed = target.exists()
++        target.parent.mkdir(parents=True, exist_ok=True)
++        length = int(self.headers.get("Content-Length", "0") or "0")
++        target.write_bytes(self.rfile.read(length))
++        self._send_empty(204 if existed else 201)
++
++    def do_GET(self) -> None:
++        if not self._authorized():
++            return
++        target, _ = self._target()
++        if target is None or not target.is_file():
++            self._send_empty(404)
++            return
++        data = target.read_bytes()
++        self.send_response(200)
++        self.send_header("Content-Type", "application/octet-stream")
++        self.send_header("Content-Length", str(len(data)))
++        self.end_headers()
++        self.wfile.write(data)
++
++    def do_HEAD(self) -> None:
++        if not self._authorized():
++            return
++        target, _ = self._target()
++        self._send_empty(200 if target is not None and target.exists() else 404)
++
++    def do_DELETE(self) -> None:
++        if not self._authorized():
++            return
++        target, _ = self._target()
++        if target is None:
++            self._send_empty(400)
++            return
++        if not target.exists():
++            self._send_empty(404)
++            return
++        if target.is_file() or target.is_symlink():
++            target.unlink()
++            self._send_empty(204)
++            return
++        try:
++            target.rmdir()
++            self._send_empty(204)
++        except OSError:
++            self._send_empty(409)
++
++    def log_message(self, fmt: str, *args: object) -> None:
++        if self.server.verbose:
++            super().log_message(fmt, *args)
++
++
++class LocalWebDavServer(ThreadingHTTPServer):
++    def __init__(self, server_address, handler_class, root: Path, username: str, password: str, verbose: bool):
++        super().__init__(server_address, handler_class)
++        self.root = root
++        self.username = username
++        self.password = password
++        self.verbose = verbose
++
++
++def main() -> None:
++    parser = argparse.ArgumentParser()
++    parser.add_argument("--host", default="127.0.0.1")
++    parser.add_argument("--port", type=int, required=True)
++    parser.add_argument("--root", required=True)
++    parser.add_argument("--username", default="cloudredirect")
++    parser.add_argument("--password", default="cloudredirect")
++    parser.add_argument("--verbose", action="store_true")
++    args = parser.parse_args()
++
++    root = Path(args.root)
++    root.mkdir(parents=True, exist_ok=True)
++    server = LocalWebDavServer((args.host, args.port), WebDavHandler, root, args.username, args.password, args.verbose)
++    print(f"CloudRedirect local WebDAV listening on http://{args.host}:{args.port}/dav/", flush=True)
++    server.serve_forever()
++
++
++if __name__ == "__main__":
++    main()
+diff --git a/tests/run_local_webdav_compat.ps1 b/tests/run_local_webdav_compat.ps1
+new file mode 100644
+index 0000000..7ba6bad
+--- /dev/null
++++ b/tests/run_local_webdav_compat.ps1
+@@ -0,0 +1,83 @@
++param(
++    [int]$Port = 18987,
++    [string]$Username = 'cloudredirect',
++    [string]$Password = 'cloudredirect'
++)
++
++$ErrorActionPreference = 'Stop'
++
++$repoRoot = Split-Path -Parent $PSScriptRoot
++$serverScript = Join-Path $PSScriptRoot 'local_webdav_server.py'
++$smokeScript = Join-Path $PSScriptRoot 'webdav_compat_smoke.ps1'
++$root = Join-Path ([System.IO.Path]::GetTempPath()) ('cloudredirect-local-webdav-' + [Guid]::NewGuid().ToString('N'))
++$stdoutLog = Join-Path $root 'server.out.log'
++$stderrLog = Join-Path $root 'server.err.log'
++
++function Find-Python {
++    $candidates = @(
++        (Join-Path $repoRoot '.tools\python\python.exe'),
++        'python',
++        'py'
++    )
++
++    foreach ($candidate in $candidates) {
++        try {
++            $cmd = Get-Command $candidate -ErrorAction Stop
++            return $cmd.Source
++        }
++        catch {
++        }
++    }
++
++    throw 'Python was not found. Install Python 3 or put python.exe on PATH.'
++}
++
++New-Item -ItemType Directory -Path $root | Out-Null
++$python = Find-Python
++$baseUrl = "http://127.0.0.1:$Port/dav"
++
++$args = @(
++    $serverScript,
++    '--host', '127.0.0.1',
++    '--port', [string]$Port,
++    '--root', $root,
++    '--username', $Username,
++    '--password', $Password
++)
++
++$server = $null
++try {
++    $server = Start-Process -FilePath $python `
++        -ArgumentList $args `
++        -RedirectStandardOutput $stdoutLog `
++        -RedirectStandardError $stderrLog `
++        -PassThru `
++        -WindowStyle Hidden
++
++    $ready = $false
++    for ($i = 0; $i -lt 40; $i++) {
++        try {
++            $resp = Invoke-WebRequest -Uri $baseUrl -Method Options -UseBasicParsing -TimeoutSec 1
++            if ($resp.StatusCode -eq 200) {
++                $ready = $true
++                break
++            }
++        }
++        catch {
++            Start-Sleep -Milliseconds 250
++        }
++    }
++
++    if (-not $ready) {
++        throw "Local WebDAV server did not start. Logs: $stdoutLog / $stderrLog"
++    }
++
++    & $smokeScript -BaseUrl $baseUrl -Username $Username -Password $Password -AllowHttpForLocal
++}
++finally {
++    if ($server -and -not $server.HasExited) {
++        $server.Kill()
++        $server.WaitForExit()
++    }
++    Write-Output "Local WebDAV test root left for manual cleanup: $root"
++}
 diff --git a/tests/webdav_compat_smoke.ps1 b/tests/webdav_compat_smoke.ps1
 new file mode 100644
-index 0000000..9009bb9
+index 0000000..a264f39
 --- /dev/null
 +++ b/tests/webdav_compat_smoke.ps1
-@@ -0,0 +1,105 @@
+@@ -0,0 +1,147 @@
 +param(
 +    [Parameter(Mandatory = $true)]
 +    [string]$BaseUrl,
@@ -1437,13 +2952,22 @@ index 0000000..9009bb9
 +    [string]$Username,
 +
 +    [Parameter(Mandatory = $true)]
-+    [string]$Password
++    [string]$Password,
++
++    [switch]$AllowHttpForLocal
 +)
 +
 +$ErrorActionPreference = 'Stop'
 +
-+if (-not $BaseUrl.StartsWith('https://', [System.StringComparison]::OrdinalIgnoreCase)) {
-+    throw 'BaseUrl must be an HTTPS WebDAV folder URL.'
++Add-Type -AssemblyName System.Net.Http
++
++$uri = [System.Uri]::new($BaseUrl)
++$isLocalHttp = $AllowHttpForLocal -and
++    $uri.Scheme -eq 'http' -and
++    ($uri.Host -eq '127.0.0.1' -or $uri.Host -eq 'localhost' -or $uri.Host -eq '::1')
++
++if ($uri.Scheme -ne 'https' -and -not $isLocalHttp) {
++    throw 'BaseUrl must be an HTTPS WebDAV folder URL. Use -AllowHttpForLocal only for loopback tests.'
 +}
 +
 +$BaseUrl = $BaseUrl.TrimEnd('/')
@@ -1454,6 +2978,24 @@ index 0000000..9009bb9
 +        AllowAutoRedirect = $true
 +    })
 +$client.Timeout = [TimeSpan]::FromSeconds(30)
++$basic = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes("${Username}:${Password}"))
++$client.DefaultRequestHeaders.Authorization = [System.Net.Http.Headers.AuthenticationHeaderValue]::new('Basic', $basic)
++
++function Join-DavUrl {
++    param([string]$Base, [string]$Path)
++    if ([string]::IsNullOrEmpty($Path)) {
++        return "$Base/"
++    }
++    $trailingSlash = $Path.EndsWith('/')
++    $segments = $Path.Split('/') | Where-Object { $_.Length -gt 0 } | ForEach-Object {
++        [System.Uri]::EscapeDataString($_)
++    }
++    $joined = [string]::Join('/', $segments)
++    if ($trailingSlash) {
++        return "$Base/$joined/"
++    }
++    return "$Base/$joined"
++}
 +
 +function Invoke-Dav {
 +    param(
@@ -1464,7 +3006,7 @@ index 0000000..9009bb9
 +        [string]$ContentType = 'text/plain'
 +    )
 +
-+    $uri = "$BaseUrl/$Path"
++    $uri = Join-DavUrl $BaseUrl $Path
 +    $req = [System.Net.Http.HttpRequestMessage]::new([System.Net.Http.HttpMethod]::new($Method), $uri)
 +    foreach ($key in $Headers.Keys) {
 +        [void]$req.Headers.TryAddWithoutValidation($key, [string]$Headers[$key])
@@ -1473,7 +3015,7 @@ index 0000000..9009bb9
 +        $req.Content = [System.Net.Http.StringContent]::new($Body, [System.Text.Encoding]::UTF8, $ContentType)
 +    }
 +    try {
-+        return $client.Send($req)
++        return $client.SendAsync($req).GetAwaiter().GetResult()
 +    }
 +    finally {
 +        $req.Dispose()
@@ -1490,22 +3032,30 @@ index 0000000..9009bb9
 +}
 +
 +$root = 'cloudredirect-compat-' + [Guid]::NewGuid().ToString('N')
-+$unicodeFile = "$root/中文 文件.txt"
++$unicodeWord = ([string][char]0x4E2D) + ([string][char]0x6587)
++$unicodeFileName = $unicodeWord + ' ' + ([string][char]0x6587) + ([string][char]0x4EF6) + '.txt'
++$unicodePayload = "hello $unicodeWord"
++$unicodeFile = "$root/$unicodeFileName"
++$unicodeEncodedNeedle = [System.Uri]::EscapeDataString($unicodeWord)
 +$emptyDir = "$root/empty-dir"
++$nestedDir = "$root/nested"
++$nestedFile = "$nestedDir/deep.txt"
 +$conflictA = "$root/conflict.txt"
 +
 +try {
 +    Assert-Status (Invoke-Dav MKCOL $root) @(201, 405) 'MKCOL root'
 +    Assert-Status (Invoke-Dav MKCOL $emptyDir) @(201, 405) 'MKCOL empty dir'
++    Assert-Status (Invoke-Dav MKCOL $nestedDir) @(201, 405) 'MKCOL nested dir'
 +
-+    Assert-Status (Invoke-Dav PUT $unicodeFile 'hello 中文') @(200, 201, 204) 'PUT unicode file'
++    Assert-Status (Invoke-Dav PUT $unicodeFile $unicodePayload) @(200, 201, 204) 'PUT unicode file'
++    Assert-Status (Invoke-Dav PUT $nestedFile 'deep') @(200, 201, 204) 'PUT nested file'
 +    Assert-Status (Invoke-Dav PUT $conflictA 'v1') @(200, 201, 204) 'PUT conflict v1'
 +    Assert-Status (Invoke-Dav PUT $conflictA 'v2') @(200, 201, 204) 'PUT conflict overwrite'
 +
 +    $get = Invoke-Dav GET $unicodeFile
 +    Assert-Status $get @(200) 'GET unicode file'
 +    $content = $get.Content.ReadAsStringAsync().GetAwaiter().GetResult()
-+    if ($content -ne 'hello 中文') {
++    if ($content -ne $unicodePayload) {
 +        throw "GET unicode file returned unexpected content: $content"
 +    }
 +
@@ -1513,15 +3063,20 @@ index 0000000..9009bb9
 +    $list = Invoke-Dav PROPFIND "$root/" $propfindBody @{ Depth = '1' } 'application/xml'
 +    Assert-Status $list @(207, 200) 'PROPFIND root'
 +    $xml = $list.Content.ReadAsStringAsync().GetAwaiter().GetResult()
-+    if ($xml -notmatch '中文|%E4%B8%AD%E6%96%87') {
-+        throw 'PROPFIND root did not include the unicode file.'
++    if ($xml -notmatch [regex]::Escape($unicodeWord) -and $xml -notmatch [regex]::Escape($unicodeEncodedNeedle)) {
++        throw "PROPFIND root did not include the unicode file. Response: $xml"
 +    }
 +    if ($xml -notmatch 'empty-dir') {
 +        throw 'PROPFIND root did not include the empty directory.'
 +    }
++    if ($xml -notmatch 'nested') {
++        throw 'PROPFIND root did not include the nested directory.'
++    }
 +
 +    Assert-Status (Invoke-Dav DELETE $unicodeFile) @(200, 202, 204, 404) 'DELETE unicode file'
++    Assert-Status (Invoke-Dav DELETE $nestedFile) @(200, 202, 204, 404) 'DELETE nested file'
 +    Assert-Status (Invoke-Dav DELETE $conflictA) @(200, 202, 204, 404) 'DELETE conflict file'
++    Assert-Status (Invoke-Dav DELETE $nestedDir) @(200, 202, 204, 404) 'DELETE nested dir'
 +    Assert-Status (Invoke-Dav DELETE $emptyDir) @(200, 202, 204, 404) 'DELETE empty dir'
 +    Assert-Status (Invoke-Dav DELETE $root) @(200, 202, 204, 404) 'DELETE root'
 +
@@ -1529,11 +3084,44 @@ index 0000000..9009bb9
 +}
 +finally {
 +    try { [void](Invoke-Dav DELETE $unicodeFile) } catch {}
++    try { [void](Invoke-Dav DELETE $nestedFile) } catch {}
 +    try { [void](Invoke-Dav DELETE $conflictA) } catch {}
++    try { [void](Invoke-Dav DELETE $nestedDir) } catch {}
 +    try { [void](Invoke-Dav DELETE $emptyDir) } catch {}
 +    try { [void](Invoke-Dav DELETE $root) } catch {}
 +    $client.Dispose()
 +}
+diff --git a/ui/CloudRedirect.csproj b/ui/CloudRedirect.csproj
+index 255082c..0e9c3e0 100644
+--- a/ui/CloudRedirect.csproj
++++ b/ui/CloudRedirect.csproj
+@@ -40,6 +40,12 @@
+       <NativeCliSource>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\..\build\Release\cloud_redirect_cli.exe'))</NativeCliSource>
+       <NativeCliDest>$(MSBuildProjectDirectory)\Resources\cloud_redirect_cli.exe</NativeCliDest>
+     </PropertyGroup>
++    <PropertyGroup Condition="Exists('$(MSBuildProjectDirectory)\..\build-nmake\cloud_redirect.dll')">
++      <NativeDllSource>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\..\build-nmake\cloud_redirect.dll'))</NativeDllSource>
++    </PropertyGroup>
++    <PropertyGroup Condition="Exists('$(MSBuildProjectDirectory)\..\build-nmake\cloud_redirect_cli.exe')">
++      <NativeCliSource>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\..\build-nmake\cloud_redirect_cli.exe'))</NativeCliSource>
++    </PropertyGroup>
+     <MakeDir Directories="$(MSBuildProjectDirectory)\Resources" Condition="!Exists('$(MSBuildProjectDirectory)\Resources')" />
+     <Copy SourceFiles="$(NativeDllSource)" DestinationFiles="$(NativeDllDest)"
+           Condition="Exists('$(NativeDllSource)')"
+diff --git a/ui/MainWindow.xaml b/ui/MainWindow.xaml
+index 1182539..728481d 100644
+--- a/ui/MainWindow.xaml
++++ b/ui/MainWindow.xaml
+@@ -110,6 +110,9 @@
+                 <ui:NavigationViewItem Content="{res:Loc Nav_ManifestPinning}"
+                                          Icon="{ui:SymbolIcon Pin24}"
+                                          TargetPageType="{x:Type pages:ManifestPinningPage}" />
++                <ui:NavigationViewItem Content="{res:Loc Nav_Diagnostics}"
++                                       Icon="{ui:SymbolIcon Pulse24}"
++                                       TargetPageType="{x:Type pages:DiagnosticsPage}" />
+             </ui:NavigationView.MenuItems>
+ 
+             <ui:NavigationView.FooterMenuItems>
 diff --git a/ui/Pages/CloudProviderPage.xaml b/ui/Pages/CloudProviderPage.xaml
 index 9c3b918..4f83b2f 100644
 --- a/ui/Pages/CloudProviderPage.xaml
@@ -1862,11 +3450,265 @@ index 1420a17..a6ee15f 100644
          // OAuth providers (gdrive, onedrive)
          if (config.TokenPath != null && preCheckedStatus != null)
          {
+diff --git a/ui/Pages/DiagnosticsPage.xaml b/ui/Pages/DiagnosticsPage.xaml
+new file mode 100644
+index 0000000..e926fe3
+--- /dev/null
++++ b/ui/Pages/DiagnosticsPage.xaml
+@@ -0,0 +1,105 @@
++<Page x:Class="CloudRedirect.Pages.DiagnosticsPage"
++      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
++      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
++      xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
++      xmlns:res="clr-namespace:CloudRedirect.Resources"
++      ScrollViewer.CanContentScroll="False">
++
++    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="24">
++        <StackPanel MaxWidth="920">
++            <DockPanel Margin="0,0,0,20">
++                <ui:Button DockPanel.Dock="Right"
++                           Content="{res:Loc Diagnostics_Refresh}"
++                           Icon="{ui:SymbolIcon ArrowSync24}"
++                           Click="Refresh_Click" />
++                <StackPanel>
++                    <TextBlock Text="{res:Loc Diagnostics_Title}"
++                               FontSize="28"
++                               FontWeight="SemiBold"
++                               Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
++                    <TextBlock Text="{res:Loc Diagnostics_Subtitle}"
++                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
++                               TextWrapping="Wrap" />
++                </StackPanel>
++            </DockPanel>
++
++            <TextBlock Text="{res:Loc Diagnostics_RuntimeStatus}"
++                       FontSize="20"
++                       FontWeight="SemiBold"
++                       Foreground="{DynamicResource TextFillColorPrimaryBrush}"
++                       Margin="0,0,0,12" />
++
++            <ItemsControl x:Name="StatusItems" Margin="0,0,0,24">
++                <ItemsControl.ItemTemplate>
++                    <DataTemplate>
++                        <ui:CardControl Margin="0,0,0,8">
++                            <ui:CardControl.Header>
++                                <StackPanel>
++                                    <TextBlock Text="{Binding Name}"
++                                               FontWeight="SemiBold"
++                                               Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
++                                    <TextBlock Text="{Binding Detail}"
++                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
++                                               TextWrapping="Wrap" />
++                                </StackPanel>
++                            </ui:CardControl.Header>
++                            <ui:SymbolIcon Symbol="{Binding Icon}" FontSize="22" />
++                        </ui:CardControl>
++                    </DataTemplate>
++                </ItemsControl.ItemTemplate>
++            </ItemsControl>
++
++            <TextBlock Text="{res:Loc Diagnostics_OpenSteamToolChecks}"
++                       FontSize="20"
++                       FontWeight="SemiBold"
++                       Foreground="{DynamicResource TextFillColorPrimaryBrush}"
++                       Margin="0,0,0,12" />
++
++            <ItemsControl x:Name="OpenSteamToolItems" Margin="0,0,0,24">
++                <ItemsControl.ItemTemplate>
++                    <DataTemplate>
++                        <Grid Margin="0,0,0,8">
++                            <Grid.ColumnDefinitions>
++                                <ColumnDefinition Width="32" />
++                                <ColumnDefinition Width="220" />
++                                <ColumnDefinition Width="*" />
++                            </Grid.ColumnDefinitions>
++                            <ui:SymbolIcon Grid.Column="0" Symbol="{Binding Icon}" FontSize="18" />
++                            <TextBlock Grid.Column="1"
++                                       Text="{Binding Name}"
++                                       FontWeight="SemiBold"
++                                       Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
++                            <TextBlock Grid.Column="2"
++                                       Text="{Binding Detail}"
++                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
++                                       TextWrapping="Wrap" />
++                        </Grid>
++                    </DataTemplate>
++                </ItemsControl.ItemTemplate>
++            </ItemsControl>
++
++            <TextBlock Text="{res:Loc Diagnostics_RecentLog}"
++                       FontSize="20"
++                       FontWeight="SemiBold"
++                       Foreground="{DynamicResource TextFillColorPrimaryBrush}"
++                       Margin="0,0,0,12" />
++
++            <Border Background="{DynamicResource ControlFillColorDefaultBrush}"
++                    CornerRadius="4"
++                    Padding="12"
++                    MaxHeight="320">
++                <ScrollViewer VerticalScrollBarVisibility="Auto">
++                    <TextBox x:Name="LogOutput"
++                             FontFamily="Cascadia Mono,Consolas,monospace"
++                             FontSize="12"
++                             IsReadOnly="True"
++                             TextWrapping="NoWrap"
++                             AcceptsReturn="True"
++                             Background="Transparent"
++                             BorderThickness="0"
++                             Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
++                </ScrollViewer>
++            </Border>
++        </StackPanel>
++    </ScrollViewer>
++</Page>
+diff --git a/ui/Pages/DiagnosticsPage.xaml.cs b/ui/Pages/DiagnosticsPage.xaml.cs
+new file mode 100644
+index 0000000..ea9fabd
+--- /dev/null
++++ b/ui/Pages/DiagnosticsPage.xaml.cs
+@@ -0,0 +1,54 @@
++using System;
++using System.Collections.Generic;
++using System.Linq;
++using System.Threading.Tasks;
++using System.Windows;
++using System.Windows.Controls;
++using CloudRedirect.Resources;
++using CloudRedirect.Services;
++using Wpf.Ui.Controls;
++
++namespace CloudRedirect.Pages;
++
++public partial class DiagnosticsPage : Page
++{
++    public DiagnosticsPage()
++    {
++        InitializeComponent();
++        Loaded += async (_, _) => await LoadAsync();
++    }
++
++    private sealed record UiStatusItem(string Name, string Detail, SymbolRegular Icon);
++
++    private async Task LoadAsync()
++    {
++        var snapshot = await Task.Run(DiagnosticsService.Load);
++
++        StatusItems.ItemsSource = snapshot.Items
++            .Select(i => new UiStatusItem(
++                i.Name,
++                i.Detail,
++                i.Ok ? SymbolRegular.CheckmarkCircle24 : SymbolRegular.Warning24))
++            .ToList();
++
++        OpenSteamToolItems.ItemsSource = snapshot.OpenSteamTool?.Items
++            .Select(i => new UiStatusItem(
++                i.Name,
++                i.Detail,
++                i.Ok ? SymbolRegular.CheckmarkCircle24 : SymbolRegular.Warning24))
++            .ToList()
++            ?? new List<UiStatusItem>
++            {
++                new("OpenSteamTool", "Steam path not found", SymbolRegular.Warning24)
++            };
++
++        LogOutput.Text = snapshot.RecentLogLines.Count > 0
++            ? string.Join(Environment.NewLine, snapshot.RecentLogLines)
++            : S.Get("Diagnostics_LogMissing");
++    }
++
++    private async void Refresh_Click(object sender, RoutedEventArgs e)
++    {
++        await LoadAsync();
++    }
++}
+diff --git a/ui/Pages/ManifestPinningPage.xaml.cs b/ui/Pages/ManifestPinningPage.xaml.cs
+index 79f1a66..8b2ac50 100644
+--- a/ui/Pages/ManifestPinningPage.xaml.cs
++++ b/ui/Pages/ManifestPinningPage.xaml.cs
+@@ -132,42 +132,52 @@ public partial class ManifestPinningPage : Page
+             var steamPath = SteamDetector.FindSteamPath();
+             if (steamPath == null) return result;
+ 
+-            var luaDir = Path.Combine(steamPath, "config", "stplug-in");
+-            if (!Directory.Exists(luaDir)) return result;
+-
+-            foreach (var file in Directory.GetFiles(luaDir, "*.lua"))
++            foreach (var luaDir in OpenSteamToolIntegration.GetLuaDirectories(steamPath))
+             {
+-                var fileName = Path.GetFileNameWithoutExtension(file);
+-                if (!uint.TryParse(fileName, out var appId) || appId == 0) continue;
++                if (!Directory.Exists(luaDir)) continue;
+ 
+-                var depots = new List<DepotEntry>();
+-                foreach (var line in File.ReadLines(file))
++                foreach (var file in Directory.GetFiles(luaDir, "*.lua"))
+                 {
+-                    var trimmed = line.TrimStart();
+-                    if (trimmed.StartsWith("--")) continue;
++                    var fileName = Path.GetFileNameWithoutExtension(file);
++                    if (!uint.TryParse(fileName, out var appId) || appId == 0) continue;
++
++                    var depots = new List<DepotEntry>();
++                    foreach (var line in File.ReadLines(file))
++                    {
++                        var trimmed = line.TrimStart();
++                        if (trimmed.StartsWith("--")) continue;
++
++                        var match = ManifestIdRegex.Match(line);
++                        if (!match.Success) continue;
++
++                        if (uint.TryParse(match.Groups[1].Value, out _) &&
++                            ulong.TryParse(match.Groups[2].Value, out _))
++                        {
++                            depots.Add(new DepotEntry
++                            {
++                                DepotId = match.Groups[1].Value,
++                                ManifestId = match.Groups[2].Value
++                            });
++                        }
++                    }
+ 
+-                    var match = ManifestIdRegex.Match(line);
+-                    if (!match.Success) continue;
++                    if (depots.Count == 0) continue;
+ 
+-                    if (uint.TryParse(match.Groups[1].Value, out _) &&
+-                        ulong.TryParse(match.Groups[2].Value, out _))
++                    var existing = result.FirstOrDefault(a => a.AppId == appId);
++                    if (existing != null)
+                     {
+-                        depots.Add(new DepotEntry
++                        existing.Depots.AddRange(depots);
++                    }
++                    else
++                    {
++                        result.Add(new LuaApp
+                         {
+-                            DepotId = match.Groups[1].Value,
+-                            ManifestId = match.Groups[2].Value
++                            AppId = appId,
++                            DisplayName = S.Format("Pin_AppFallbackName", appId),
++                            Depots = depots
+                         });
+                     }
+                 }
+-
+-                if (depots.Count == 0) continue;
+-
+-                result.Add(new LuaApp
+-                {
+-                    AppId = appId,
+-                    DisplayName = S.Format("Pin_AppFallbackName", appId),
+-                    Depots = depots
+-                });
+             }
+ 
+             result.Sort((a, b) => a.AppId.CompareTo(b.AppId));
 diff --git a/ui/Pages/SettingsPage.xaml b/ui/Pages/SettingsPage.xaml
-index 467fd0a..029b695 100644
+index 467fd0a..ecc3ab2 100644
 --- a/ui/Pages/SettingsPage.xaml
 +++ b/ui/Pages/SettingsPage.xaml
-@@ -77,10 +77,38 @@
+@@ -77,10 +77,58 @@
              </ui:CardControl>
  
              <StackPanel x:Name="SyncSection">
@@ -1898,6 +3740,26 @@ index 467fd0a..029b695 100644
 +                    <ui:SymbolIcon x:Name="DllSourceIcon" Symbol="PuzzlePiece24" FontSize="24" />
 +                </ui:CardControl>
 +
++                <ui:CardControl Margin="0,0,0,8">
++                    <ui:CardControl.Header>
++                        <StackPanel>
++                            <TextBlock Text="{res:Loc Settings_CurrentAccount}"
++                                       FontWeight="SemiBold"
++                                       Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
++                            <TextBlock x:Name="CurrentAccountText"
++                                       Text="{res:Loc Settings_CurrentAccountNone}"
++                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
++                                       TextWrapping="Wrap" />
++                            <TextBlock x:Name="CurrentAccountDetailText"
++                                       Text="{res:Loc Settings_CurrentAccountWarning}"
++                                       Foreground="{DynamicResource TextFillColorTertiaryBrush}"
++                                       TextWrapping="Wrap"
++                                       Margin="0,4,0,0" />
++                        </StackPanel>
++                    </ui:CardControl.Header>
++                    <ui:SymbolIcon x:Name="CurrentAccountIcon" Symbol="Person24" FontSize="24" />
++                </ui:CardControl>
++
                  <TextBlock Text="{res:Loc Settings_Sync}"
                             FontSize="20" FontWeight="SemiBold"
                             Foreground="{DynamicResource TextFillColorPrimaryBrush}"
@@ -1907,10 +3769,10 @@ index 467fd0a..029b695 100644
                  <TextBlock Text="{res:Loc Settings_SyncHint}"
                             Foreground="{DynamicResource TextFillColorSecondaryBrush}"
 diff --git a/ui/Pages/SettingsPage.xaml.cs b/ui/Pages/SettingsPage.xaml.cs
-index 89f8916..a8e911c 100644
+index 89f8916..91dff09 100644
 --- a/ui/Pages/SettingsPage.xaml.cs
 +++ b/ui/Pages/SettingsPage.xaml.cs
-@@ -8,6 +8,7 @@ using System.Windows;
+@@ -8,12 +8,13 @@ using System.Windows;
  using System.Windows.Controls;
  using CloudRedirect.Resources;
  using CloudRedirect.Services;
@@ -1918,6 +3780,13 @@ index 89f8916..a8e911c 100644
  
  namespace CloudRedirect.Pages;
  
+ public partial class SettingsPage : Page
+ {
+-    private const string ReleasesUrl = "https://github.com/Selectively11/CloudRedirect/releases";
++    private const string ReleasesUrl = "https://github.com/bmoqing/CloudRedirect-OpenSteamTool/releases";
+ 
+     private string? _latestDownloadUrl;
+     private bool _languageLoading;
 @@ -34,6 +35,7 @@ public partial class SettingsPage : Page
          ("Settings_LanguageEnglish", "en"),
          ("Settings_LanguageSpanish", "es"),
@@ -1926,30 +3795,37 @@ index 89f8916..a8e911c 100644
      ];
  
      public SettingsPage()
-@@ -61,7 +63,8 @@ public partial class SettingsPage : Page
+@@ -61,7 +63,9 @@ public partial class SettingsPage : Page
          bool? SyncLuas,
          bool? AutoUpdateDll,
          bool? ParentalIgnorePlaytime,
 -        bool? ParentalBypassPlaytime);
 +        bool? ParentalBypassPlaytime,
-+        DllIdentityInfo DllIdentity);
++        DllIdentityInfo DllIdentity,
++        SteamLoginUser? CurrentUser);
  
      // M15: Move language/mode/sync-toggle config reads off the UI thread.
      // Loaded used to call ReadLanguageSetting + ReadModeSetting +
-@@ -79,7 +82,7 @@ public partial class SettingsPage : Page
+@@ -79,7 +83,12 @@ public partial class SettingsPage : Page
              if (mode == "cloud_redirect")
                  ReadSyncTogglesInto(ref a, ref p, ref l, ref u, ref pip, ref pbp);
  
 -            return new SettingsSnapshot(lang, mode, a, p, l, u, pip, pbp);
-+            return new SettingsSnapshot(lang, mode, a, p, l, u, pip, pbp, Services.DllIdentity.GetCurrent());
++            var steamPath = Services.SteamDetector.FindSteamPath();
++            var currentUser = steamPath != null
++                ? SteamAccountService.GetMostRecentUser(steamPath)
++                : null;
++
++            return new SettingsSnapshot(lang, mode, a, p, l, u, pip, pbp, Services.DllIdentity.GetCurrent(), currentUser);
          });
  
          ApplySettingsSnapshot(snapshot);
-@@ -93,14 +96,15 @@ public partial class SettingsPage : Page
+@@ -93,14 +102,16 @@ public partial class SettingsPage : Page
          if (snap.Mode == "cloud_redirect")
          {
              SyncSection.Visibility = Visibility.Visible;
 +            ApplyDllIdentity(snap.DllIdentity);
++            ApplyCurrentAccount(snap.CurrentUser);
              ApplySyncToggles(snap.SyncAchievements, snap.SyncPlaytime, snap.SyncLuas, snap.AutoUpdateDll,
 -                             snap.ParentalIgnorePlaytime, snap.ParentalBypassPlaytime);
 +                             snap.ParentalIgnorePlaytime, snap.ParentalBypassPlaytime, snap.DllIdentity);
@@ -1963,7 +3839,7 @@ index 89f8916..a8e911c 100644
          }
      }
  
-@@ -129,8 +133,27 @@ public partial class SettingsPage : Page
+@@ -129,8 +140,45 @@ public partial class SettingsPage : Page
          }
      }
  
@@ -1985,6 +3861,24 @@ index 89f8916..a8e911c 100644
 +        DllHashText.Text = S.Format("Settings_DllSourceHashFormat", deployed, embedded);
 +    }
 +
++    private void ApplyCurrentAccount(SteamLoginUser? user)
++    {
++        if (user == null)
++        {
++            CurrentAccountText.Text = S.Get("Settings_CurrentAccountNone");
++            CurrentAccountDetailText.Text = S.Get("Settings_CurrentAccountWarning");
++            CurrentAccountIcon.Symbol = SymbolRegular.Warning24;
++            return;
++        }
++
++        CurrentAccountText.Text = S.Format("Settings_CurrentAccountFormat",
++            string.IsNullOrWhiteSpace(user.PersonaName) ? user.AccountName : user.PersonaName,
++            user.AccountId,
++            user.SteamId64);
++        CurrentAccountDetailText.Text = S.Get("Settings_CurrentAccountWarning");
++        CurrentAccountIcon.Symbol = SymbolRegular.Person24;
++    }
++
      private void ApplySyncToggles(bool? achievements, bool? playtime, bool? luas, bool? autoUpdateDll,
 -                                   bool? parentalIgnorePlaytime, bool? parentalBypassPlaytime)
 +                                   bool? parentalIgnorePlaytime, bool? parentalBypassPlaytime,
@@ -1992,7 +3886,7 @@ index 89f8916..a8e911c 100644
      {
          _syncLoading = true;
          try
-@@ -138,7 +161,17 @@ public partial class SettingsPage : Page
+@@ -138,7 +186,17 @@ public partial class SettingsPage : Page
              if (achievements == true) SyncAchievementsToggle.IsChecked = true;
              if (playtime == true) SyncPlaytimeToggle.IsChecked = true;
              if (luas == true) SyncLuasToggle.IsChecked = true;
@@ -2010,6 +3904,346 @@ index 89f8916..a8e911c 100644
 +            }
              if (parentalIgnorePlaytime == true) ParentalIgnorePlaytimeToggle.IsChecked = true;
              if (parentalBypassPlaytime == true) ParentalBypassPlaytimeToggle.IsChecked = true;
+         }
+diff --git a/ui/Pages/SetupPage.xaml.cs b/ui/Pages/SetupPage.xaml.cs
+index 59d8cf2..83fbfb0 100644
+--- a/ui/Pages/SetupPage.xaml.cs
++++ b/ui/Pages/SetupPage.xaml.cs
+@@ -1,4 +1,4 @@
+-using System;
++﻿using System;
+ using System.Collections.Generic;
+ using System.IO;
+ using System.Text;
+@@ -225,6 +225,8 @@ public partial class SetupPage : Page
+         PatchState OfflineState,
+         PatchState PatchState,
+         int StExeState,
++        bool OpenSteamToolInstalled,
++        bool LoaderInstalled,
+         bool ProbeFailed,
+         string? ProbeError,
+         bool DllExists,
+@@ -285,6 +287,8 @@ public partial class SetupPage : Page
+             OfflineState: offline,
+             PatchState: patchState,
+             StExeState: stExe,
++            OpenSteamToolInstalled: OpenSteamToolIntegration.IsInstalled(steamPath),
++            LoaderInstalled: OpenSteamToolIntegration.IsLoaderCurrent(steamPath),
+             ProbeFailed: probeFailed,
+             ProbeError: probeError,
+             DllExists: dllExists,
+@@ -353,17 +357,33 @@ public partial class SetupPage : Page
+     {
+         ApplyVersionStatus(snap.Version);
+ 
++        OfflineStatusText.Text = snap.OpenSteamToolInstalled
++            ? S.Get("Setup_OpenSteamToolInstalled")
++            : S.Get("Setup_OpenSteamToolNotFound");
++        OfflineRevertButton.Visibility = Visibility.Collapsed;
++        OfflineSetupButton.Visibility = Visibility.Collapsed;
++
++        StExeStatusText.Text = snap.LoaderInstalled
++            ? S.Get("Setup_LoaderInstalled")
++            : S.Get("Setup_LoaderNotInstalled");
++        StExeUnpatchButton.Visibility = snap.LoaderInstalled
++            ? Visibility.Visible
++            : Visibility.Collapsed;
++        StExePatchButton.Content = snap.LoaderInstalled
++            ? S.Get("Setup_ReinstallLoader")
++            : S.Get("Setup_InstallLoader");
++
+         if (snap.ProbeFailed)
+         {
+-            OfflineStatusText.Text = S.Format("Setup_CouldNotCheck", snap.ProbeError ?? "Unknown error");
+-            StExeStatusText.Text = S.Format("Setup_CouldNotCheck", snap.ProbeError ?? "Unknown error");
+             PatchStatusText.Text = S.Format("Setup_CouldNotCheck", snap.ProbeError ?? "Unknown error");
+         }
+         else
+         {
+-            ApplyOfflineStatus(snap.OfflineState);
+-            ApplyStExeStatus(snap.StExeState);
+-            ApplyPatchStatus(snap.PatchState);
++            PatchStatusText.Text = snap.LoaderInstalled && snap.DllExists
++                ? S.Get("Setup_OpenSteamToolReady")
++                : S.Get("Setup_OpenSteamToolNeedsInstall");
++            PatchRevertButton.Visibility = Visibility.Collapsed;
++            PatchButton.Visibility = Visibility.Collapsed;
+         }
+ 
+         if (snap.DllExists)
+@@ -583,13 +603,21 @@ public partial class SetupPage : Page
+ 
+         await EnsureSteamClosed();
+ 
++        if (UseOpenSteamToolIntegration())
++        {
++            bool integrationSucceeded = await InstallOpenSteamToolIntegrationAsync();
++            await PromptCloudProviderConfigAsync(integrationSucceeded);
++            SetBusy(false);
++            return;
++        }
++
+         bool allSucceeded = true;
+ 
+         // Pre-step: if core DLLs are missing, download them and bootstrap Steam
+         bool needsCoreDlls = await Task.Run(() => !new Patcher(_steamPath, Log).HasCoreDll());
+         if (needsCoreDlls)
+         {
+-            Log("═══ Pre-step: Download SteamTools Core DLLs ═══");
++            Log("=== Pre-step: Download SteamTools Core DLLs ===");
+             try
+             {
+                 var patcher = new Patcher(_steamPath, Log);
+@@ -619,7 +647,7 @@ public partial class SetupPage : Page
+         bool needsPayload = await Task.Run(() => !new Patcher(_steamPath, Log).HasPayloadCache());
+         if (needsPayload)
+         {
+-            Log("═══ Pre-step: Bootstrap Steam for Payload ═══");
++            Log("=== Pre-step: Bootstrap Steam for Payload ===");
+             bool payloadFound = await BootstrapSteamForPayload();
+             if (!payloadFound)
+             {
+@@ -632,7 +660,7 @@ public partial class SetupPage : Page
+             Log("");
+         }
+ 
+-        Log("═══ Step 1/4: SteamTools Offline Setup ═══");
++        Log("=== Step 1/4: SteamTools Offline Setup ===");
+         try
+         {
+             PatchResult? result = null;
+@@ -662,7 +690,7 @@ public partial class SetupPage : Page
+ 
+         Log("");
+ 
+-        Log("═══ Step 2/4: Patch SteamTools.exe ═══");
++        Log("=== Step 2/4: Patch SteamTools.exe ===");
+         try
+         {
+             int stResult = 0;
+@@ -691,7 +719,7 @@ public partial class SetupPage : Page
+ 
+         Log("");
+ 
+-        Log("═══ Step 3/4: Cloud Redirect Patch ═══");
++        Log("=== Step 3/4: Cloud Redirect Patch ===");
+         try
+         {
+             PatchResult? patchResult = null;
+@@ -722,7 +750,7 @@ public partial class SetupPage : Page
+ 
+         Log("");
+ 
+-        Log("═══ Step 4/4: Deploy cloud_redirect.dll ═══");
++        Log("=== Step 4/4: Deploy cloud_redirect.dll ===");
+         try
+         {
+             var destPath = Path.Combine(_steamPath, "cloud_redirect.dll");
+@@ -800,6 +828,116 @@ public partial class SetupPage : Page
+         SetBusy(false);
+     }
+ 
++    private static bool UseOpenSteamToolIntegration() => true;
++
++    private async Task<bool> InstallOpenSteamToolIntegrationAsync()
++    {
++        bool allSucceeded = true;
++
++        Log("=== Step 1/3: Check OpenSteamTool ===");
++        if (OpenSteamToolIntegration.IsInstalled(_steamPath!))
++        {
++            OfflineStatusText.Text = S.Get("Setup_OpenSteamToolInstalled");
++            Log("OK: OpenSteamTool files found.");
++        }
++        else
++        {
++            OfflineStatusText.Text = S.Get("Setup_OpenSteamToolNotFound");
++            Log("WARNING: OpenSteamTool.dll was not found in the Steam folder.");
++            Log("Install OpenSteamTool first: copy dwmapi.dll, xinput1_4.dll, and OpenSteamTool.dll to the Steam root.");
++            allSucceeded = false;
++        }
++        Log("");
++
++        Log("=== Step 2/3: Deploy cloud_redirect.dll ===");
++        if (!EmbeddedDll.IsAvailable())
++        {
++            DeployStatusText.Text = S.Get("Setup_DllNotInstalledNoEmbed");
++            Log("FAILED: cloud_redirect.dll is not embedded in this app build.");
++            return false;
++        }
++
++        try
++        {
++            var destPath = Path.Combine(_steamPath!, "cloud_redirect.dll");
++            var deployError = await Task.Run(() => EmbeddedDll.DeployTo(destPath));
++            if (deployError != null)
++            {
++                DeployStatusText.Text = S.Get("Setup_DeployFailed");
++                Log($"FAILED: {deployError}");
++                allSucceeded = false;
++            }
++            else
++            {
++                var info = new FileInfo(destPath);
++                DeployStatusText.Text = S.Format("Setup_DllInstalled", info.Length.ToString("N0"), info.LastWriteTime.ToString("g"));
++                Log($"Deployed to {destPath}");
++                Log("OK");
++            }
++        }
++        catch (Exception ex)
++        {
++            DeployStatusText.Text = S.Get("Setup_DeployFailed");
++            Log($"FAILED: {ex.Message}");
++            allSucceeded = false;
++        }
++        Log("");
++
++        Log("=== Step 3/3: Install OpenSteamTool Lua loader ===");
++        try
++        {
++            await Task.Run(() => OpenSteamToolIntegration.InstallLoader(_steamPath!));
++            StExeStatusText.Text = S.Get("Setup_LoaderInstalled");
++            PatchStatusText.Text = S.Get("Setup_OpenSteamToolReady");
++            Log($"Loader installed to {OpenSteamToolIntegration.GetLoaderPath(_steamPath!)}");
++            Log("OK");
++        }
++        catch (Exception ex)
++        {
++            StExeStatusText.Text = S.Get("Setup_FailedSeeLog");
++            PatchStatusText.Text = S.Get("Setup_OpenSteamToolNeedsInstall");
++            Log($"FAILED: {ex.Message}");
++            allSucceeded = false;
++        }
++
++        Log("");
++        Log(allSucceeded
++            ? "OpenSteamTool integration installed. Restart Steam to load CloudRedirect."
++            : "Install finished with warnings/errors. Review the log above.");
++
++        await RefreshStatuses();
++        return allSucceeded;
++    }
++
++    private async Task PromptCloudProviderConfigAsync(bool allSucceeded)
++    {
++        var mode = SteamDetector.ReadModeSetting();
++        if (mode != "cloud_redirect")
++            return;
++
++        var existingConfig = Services.SteamDetector.ReadConfig();
++        var statusText = allSucceeded ? S.Get("Setup_AllPatchesApplied") : S.Get("Setup_PatchingFinishedWithErrors");
++        string message = existingConfig != null
++            ? S.Format("Setup_ConfigureProviderExisting", statusText, existingConfig.DisplayName)
++            : S.Format("Setup_ConfigureProviderNew", statusText);
++
++        var wantsConfigure = await Services.Dialog.ChoiceAsync(
++            S.Get("Setup_ConfigureProviderTitle"),
++            message,
++            S.Get("Setup_ConfigureProvider"),
++            S.Get("Setup_UseLocalStorage"));
++
++        if (wantsConfigure)
++        {
++            var nav = FindNavigationView();
++            nav?.Navigate(typeof(CloudProviderPage));
++        }
++        else if (existingConfig == null)
++        {
++            await WriteDefaultLocalConfig();
++        }
++    }
++
+     private async void OfflineSetup_Click(object sender, RoutedEventArgs e)
+     {
+         if (_isRunning || _steamPath == null) return;
+@@ -913,6 +1051,27 @@ public partial class SetupPage : Page
+ 
+         await EnsureSteamClosed();
+ 
++        if (UseOpenSteamToolIntegration())
++        {
++            try
++            {
++                await Task.Run(() => OpenSteamToolIntegration.InstallLoader(_steamPath));
++                StExeStatusText.Text = S.Get("Setup_LoaderInstalled");
++                Log($"Loader installed to {OpenSteamToolIntegration.GetLoaderPath(_steamPath)}");
++            }
++            catch (Exception ex)
++            {
++                Log($"ERROR: {ex.Message}");
++                StExeStatusText.Text = S.Get("Setup_FailedSeeLog");
++            }
++            finally
++            {
++                await RefreshStatuses();
++                SetBusy(false);
++            }
++            return;
++        }
++
+         Log("Patching SteamTools.exe to disable DLL deployment...");
+ 
+         try
+@@ -955,6 +1114,27 @@ public partial class SetupPage : Page
+ 
+         await EnsureSteamClosed();
+ 
++        if (UseOpenSteamToolIntegration())
++        {
++            try
++            {
++                await Task.Run(() => OpenSteamToolIntegration.RemoveLoader(_steamPath));
++                StExeStatusText.Text = S.Get("Setup_LoaderNotInstalled");
++                Log($"Deleted {OpenSteamToolIntegration.GetLoaderPath(_steamPath)}");
++            }
++            catch (Exception ex)
++            {
++                Log($"ERROR: {ex.Message}");
++                StExeStatusText.Text = S.Get("Setup_FailedSeeLog");
++            }
++            finally
++            {
++                await RefreshStatuses();
++                SetBusy(false);
++            }
++            return;
++        }
++
+         Log("Restoring SteamTools.exe to original...");
+ 
+         try
+@@ -1118,6 +1298,12 @@ public partial class SetupPage : Page
+                 Log($"Deployed to: {destPath}");
+                 Log($"Size: {info.Length:N0} bytes");
+                 DeployStatusText.Text = S.Format("Setup_DllInstalled", info.Length.ToString("N0"), info.LastWriteTime.ToString("g"));
++                if (UseOpenSteamToolIntegration())
++                {
++                    OpenSteamToolIntegration.InstallLoader(_steamPath);
++                    StExeStatusText.Text = S.Get("Setup_LoaderInstalled");
++                    Log($"Loader installed to: {OpenSteamToolIntegration.GetLoaderPath(_steamPath)}");
++                }
+                 Log("");
+                 Log("DLL deployed successfully.");
+             }
+@@ -1159,10 +1345,17 @@ public partial class SetupPage : Page
+ 
+         try
+         {
+-            await Task.Run(() => File.Delete(dllPath));
++            await Task.Run(() =>
++            {
++                File.Delete(dllPath);
++                if (UseOpenSteamToolIntegration())
++                    OpenSteamToolIntegration.RemoveLoader(_steamPath);
++            });
+             DeployStatusText.Text = S.Get("Setup_NotInstalled");
+             UninstallDllButton.Visibility = Visibility.Collapsed;
+             Log($"Deleted {dllPath}");
++            if (UseOpenSteamToolIntegration())
++                Log($"Deleted {OpenSteamToolIntegration.GetLoaderPath(_steamPath)}");
+             Log("");
+             Log("DLL uninstalled.");
          }
 diff --git a/ui/Resources/Strings.es.resx b/ui/Resources/Strings.es.resx
 index cf1132d..4054bc7 100644
@@ -2498,10 +4732,131 @@ index 15b50aa..4722095 100644
 +  <data name="CloudProvider_WebDavTestNetworkError" xml:space="preserve"><value>Erro de rede ao testar WebDAV: {0}</value></data>
  </root>
 diff --git a/ui/Resources/Strings.resx b/ui/Resources/Strings.resx
-index c695380..d0c1e87 100644
+index c695380..32b16bf 100644
 --- a/ui/Resources/Strings.resx
 +++ b/ui/Resources/Strings.resx
-@@ -553,6 +553,9 @@ If you skip this, saves will be stored locally in your Steam folder.</value>
+@@ -76,6 +76,9 @@
+   <data name="Nav_ChoiceMode" xml:space="preserve">
+     <value>Mode</value>
+   </data>
++  <data name="Nav_Diagnostics" xml:space="preserve">
++    <value>Diagnostics</value>
++  </data>
+ 
+   <!-- ═══════════════════════════════════════════════════════════════════ -->
+   <!-- ChoiceModePage                                                      -->
+@@ -127,7 +130,7 @@
+     <value>Setup</value>
+   </data>
+   <data name="Setup_Description" xml:space="preserve">
+-    <value>Apply patches and deploy CloudRedirect to your Steam installation.</value>
++    <value>Deploy CloudRedirect for OpenSteamTool and install the Lua loader.</value>
+   </data>
+   <data name="Setup_Description_STFixer" xml:space="preserve">
+     <value>Apply patches for the Capcom save fix and manifest pinning.</value>
+@@ -154,16 +157,16 @@
+     <value>Change</value>
+   </data>
+   <data name="Setup_RunAllPatches" xml:space="preserve">
+-    <value>Run All Patches</value>
++    <value>Install OpenSteamTool Integration</value>
+   </data>
+   <data name="Setup_OfflineSetupHeader" xml:space="preserve">
+-    <value>SteamTools Offline Setup</value>
++    <value>OpenSteamTool</value>
+   </data>
+   <data name="Setup_OfflineSetupDescription" xml:space="preserve">
+-    <value>Patches SteamTools so it works even when their activation servers are down. Required for first-time installations.</value>
++    <value>CloudRedirect now loads through OpenSteamTool. Install OpenSteamTool in the Steam root before restarting Steam.</value>
+   </data>
+   <data name="Setup_OfflineSetup" xml:space="preserve">
+-    <value>Offline Setup</value>
++    <value>OpenSteamTool Status</value>
+   </data>
+   <data name="Setup_NotChecked" xml:space="preserve">
+     <value>Not checked</value>
+@@ -175,40 +178,40 @@
+     <value>Revert Patch</value>
+   </data>
+   <data name="Setup_StExeHeader" xml:space="preserve">
+-    <value>SteamTools.exe Patch</value>
++    <value>Lua Loader</value>
+   </data>
+   <data name="Setup_StExeDescription" xml:space="preserve">
+-    <value>Disables the SteamTools Desktop App from overwriting patched DLLs on every startup. Without this, SteamTools will undo core patches.</value>
++    <value>Installs a small Lua file under config\lua so OpenSteamTool loads cloud_redirect.dll.</value>
+   </data>
+   <data name="Setup_DllDeploy" xml:space="preserve">
+-    <value>DLL Deploy</value>
++    <value>Loader Status</value>
+   </data>
+   <data name="Setup_PatchSteamToolsExe" xml:space="preserve">
+-    <value>Patch SteamTools.exe</value>
++    <value>Install Loader</value>
+   </data>
+   <data name="Setup_CloudRedirectPatchHeader" xml:space="preserve">
+-    <value>Cloud Redirect Patch</value>
++    <value>CloudRedirect Runtime</value>
+   </data>
+   <data name="Setup_CloudRedirectPatchHeader_STFixer" xml:space="preserve">
+     <value>Save Fix and Manifest Pinning Patch</value>
+   </data>
+   <data name="Setup_CloudRedirectPatchDescription" xml:space="preserve">
+-    <value>Patches SteamTools payload so lua app cloud saves are routed through the CloudRedirect system.</value>
++    <value>OpenSteamTool loads CloudRedirect from Lua; no SteamTools payload patch is required.</value>
+   </data>
+   <data name="Setup_CloudRedirectPatchDescription_STFixer" xml:space="preserve">
+     <value>Patches SteamTools payload to fix Capcom save routing and enable manifest pinning for lua apps.</value>
+   </data>
+   <data name="Setup_PatchStatus" xml:space="preserve">
+-    <value>Patch Status</value>
++    <value>Runtime Status</value>
+   </data>
+   <data name="Setup_ApplyPatch" xml:space="preserve">
+-    <value>Apply Patch</value>
++    <value>Apply Legacy Patch</value>
+   </data>
+   <data name="Setup_DeployHeader" xml:space="preserve">
+     <value>Deploy CloudRedirect</value>
+   </data>
+   <data name="Setup_DeployDescription" xml:space="preserve">
+-    <value>Copies core DLL to your Steam folder.</value>
++    <value>Copies cloud_redirect.dll to your Steam folder and installs the OpenSteamTool Lua loader.</value>
+   </data>
+   <data name="Setup_DllStatus" xml:space="preserve">
+     <value>DLL Status</value>
+@@ -281,6 +284,30 @@
+   <data name="Setup_StExeNotFound" xml:space="preserve">
+     <value>SteamTools Desktop not found</value>
+   </data>
++  <data name="Setup_OpenSteamToolInstalled" xml:space="preserve">
++    <value>OpenSteamTool found</value>
++  </data>
++  <data name="Setup_OpenSteamToolNotFound" xml:space="preserve">
++    <value>OpenSteamTool not found in Steam root</value>
++  </data>
++  <data name="Setup_LoaderInstalled" xml:space="preserve">
++    <value>Lua loader installed</value>
++  </data>
++  <data name="Setup_LoaderNotInstalled" xml:space="preserve">
++    <value>Lua loader not installed</value>
++  </data>
++  <data name="Setup_InstallLoader" xml:space="preserve">
++    <value>Install Loader</value>
++  </data>
++  <data name="Setup_ReinstallLoader" xml:space="preserve">
++    <value>Reinstall Loader</value>
++  </data>
++  <data name="Setup_OpenSteamToolReady" xml:space="preserve">
++    <value>Ready for OpenSteamTool Lua loading</value>
++  </data>
++  <data name="Setup_OpenSteamToolNeedsInstall" xml:space="preserve">
++    <value>Install cloud_redirect.dll and Lua loader</value>
++  </data>
+   <data name="Setup_CouldNotCheck" xml:space="preserve">
+     <value>Could not check: {0}</value>
+   </data>
+@@ -553,6 +580,9 @@ If you skip this, saves will be stored locally in your Steam folder.</value>
    <data name="Dashboard_NoTokenPath" xml:space="preserve">
      <value>{0} -- No token path configured</value>
    </data>
@@ -2511,7 +4866,7 @@ index c695380..d0c1e87 100644
    <data name="Dashboard_LogNotFound" xml:space="preserve">
      <value>Log file not found. Start Steam with CloudRedirect installed first.</value>
    </data>
-@@ -618,6 +621,9 @@ Force-kill it?</value>
+@@ -618,6 +648,9 @@ Force-kill it?</value>
    <data name="CloudProvider_Description" xml:space="preserve">
      <value>Configure your Steam Cloud provider. Google Drive/OneDrive/Local Folder only for now.</value>
    </data>
@@ -2521,7 +4876,7 @@ index c695380..d0c1e87 100644
    <data name="CloudProvider_Provider" xml:space="preserve">
      <value>Provider</value>
    </data>
-@@ -627,6 +633,9 @@ Force-kill it?</value>
+@@ -627,6 +660,9 @@ Force-kill it?</value>
    <data name="CloudProvider_OneDrive" xml:space="preserve">
      <value>OneDrive</value>
    </data>
@@ -2531,7 +4886,7 @@ index c695380..d0c1e87 100644
    <data name="CloudProvider_FolderMappedDrive" xml:space="preserve">
      <value>Folder / Mapped Drive</value>
    </data>
-@@ -639,6 +648,24 @@ Force-kill it?</value>
+@@ -639,6 +675,24 @@ Force-kill it?</value>
    <data name="CloudProvider_TokenPlaceholder" xml:space="preserve">
      <value>Path to OAuth tokens file</value>
    </data>
@@ -2556,7 +4911,7 @@ index c695380..d0c1e87 100644
    <data name="CloudProvider_Browse" xml:space="preserve">
      <value>Browse</value>
    </data>
-@@ -722,6 +749,51 @@ Force-kill it?</value>
+@@ -722,6 +776,51 @@ Force-kill it?</value>
    <data name="CloudProvider_NoTokenFilePath" xml:space="preserve">
      <value>No token file path specified</value>
    </data>
@@ -2608,7 +4963,7 @@ index c695380..d0c1e87 100644
  
    <!-- ═══════════════════════════════════════════════════════════════════ -->
    <!-- AppsPage XAML                                                      -->
-@@ -1458,6 +1530,9 @@ Are you sure?</value>
+@@ -1458,6 +1557,9 @@ Are you sure?</value>
    <data name="Provider_OneDrive" xml:space="preserve">
      <value>OneDrive</value>
    </data>
@@ -2618,7 +4973,7 @@ index c695380..d0c1e87 100644
    <data name="Provider_FolderNetworkDrive" xml:space="preserve">
      <value>Folder / Network Drive</value>
    </data>
-@@ -1539,6 +1614,12 @@ Are you sure?</value>
+@@ -1539,6 +1641,12 @@ Are you sure?</value>
    <data name="Common_UpdateFailed" xml:space="preserve">
      <value>Update Failed</value>
    </data>
@@ -2631,7 +4986,7 @@ index c695380..d0c1e87 100644
  
    <!-- OAuthService browser pages (user-facing HTML) -->
    <data name="OAuth_AuthSuccessTitle" xml:space="preserve">
-@@ -1587,6 +1668,9 @@ Are you sure?</value>
+@@ -1587,6 +1695,9 @@ Are you sure?</value>
    <data name="Settings_LanguagePortuguese" xml:space="preserve">
      <value>Português (Brasil)</value>
    </data>
@@ -2641,7 +4996,7 @@ index c695380..d0c1e87 100644
    <data name="Settings_Sync" xml:space="preserve">
      <value>Sync</value>
    </data>
-@@ -1617,6 +1701,48 @@ Are you sure?</value>
+@@ -1617,6 +1728,60 @@ Are you sure?</value>
    <data name="Settings_AutoUpdateDllHint" xml:space="preserve">
      <value>Automatically check for and install newer versions of the CloudRedirect DLL when Steam launches. The update takes effect on the next Steam restart.</value>
    </data>
@@ -2687,10 +5042,22 @@ index c695380..d0c1e87 100644
 +  <data name="Settings_DllSourceHashFormat" xml:space="preserve">
 +    <value>Deployed: {0}  Embedded: {1}</value>
 +  </data>
++  <data name="Settings_CurrentAccount" xml:space="preserve">
++    <value>Current Steam Account</value>
++  </data>
++  <data name="Settings_CurrentAccountFormat" xml:space="preserve">
++    <value>{0} / accountId {1} / SteamID64 {2}</value>
++  </data>
++  <data name="Settings_CurrentAccountNone" xml:space="preserve">
++    <value>No current account detected</value>
++  </data>
++  <data name="Settings_CurrentAccountWarning" xml:space="preserve">
++    <value>Cloud saves are stored under this accountId. Check this before switching Steam accounts.</value>
++  </data>
  
    <!-- ═══════════════════════════════════════════════════════════════════ -->
    <!-- Cloud Redirect Toggle                                               -->
-@@ -1683,6 +1809,12 @@ Are you sure?</value>
+@@ -1683,6 +1848,12 @@ Are you sure?</value>
    <data name="Pin_FailedSavePinConfig" xml:space="preserve">
      <value>Couldn't save pin configuration: {0}</value>
    </data>
@@ -2703,7 +5070,7 @@ index c695380..d0c1e87 100644
  
    <!-- ═══════════════════════════════════════════════════════════════════ -->
    <!-- Search                                                              -->
-@@ -1717,5 +1849,50 @@ Are you sure?</value>
+@@ -1717,5 +1888,168 @@ Are you sure?</value>
    <data name="AppUpdate_UpdateNow" xml:space="preserve">
      <value>Update Now</value>
    </data>
@@ -2752,14 +5119,132 @@ index c695380..d0c1e87 100644
 +  <data name="AppUpdate_UpdateFailedFormat" xml:space="preserve">
 +    <value>Update failed: {0}</value>
 +  </data>
++
++  <data name="CloudProvider_WebDavTestSuccessFull" xml:space="preserve">
++    <value>WebDAV compatibility test passed: list, create directories, upload, download, overwrite, verify, and delete all worked.</value>
++  </data>
++  <data name="CloudProvider_WebDavTestStepFailed" xml:space="preserve">
++    <value>WebDAV test step {0} failed: HTTP {1} {2}</value>
++  </data>
++  <data name="CloudProvider_WebDavTestContentMismatch" xml:space="preserve">
++    <value>WebDAV download content did not match the uploaded test file.</value>
++  </data>
++  <data name="Diagnostics_Title" xml:space="preserve">
++    <value>Diagnostics</value>
++  </data>
++  <data name="Diagnostics_Subtitle" xml:space="preserve">
++    <value>Runtime checks for DLL loading, OpenSteamTool integration, Steam account, WebDAV, and recent hook activity.</value>
++  </data>
++  <data name="Diagnostics_Refresh" xml:space="preserve">
++    <value>Refresh</value>
++  </data>
++  <data name="Diagnostics_RuntimeStatus" xml:space="preserve">
++    <value>Runtime Status</value>
++  </data>
++  <data name="Diagnostics_OpenSteamToolChecks" xml:space="preserve">
++    <value>OpenSteamTool Checks</value>
++  </data>
++  <data name="Diagnostics_RecentLog" xml:space="preserve">
++    <value>Recent cloud_redirect.log</value>
++  </data>
++  <data name="Diagnostics_SteamPath" xml:space="preserve">
++    <value>Steam path</value>
++  </data>
++  <data name="Diagnostics_SteamPathNotFound" xml:space="preserve">
++    <value>Not found</value>
++  </data>
++  <data name="Diagnostics_SteamVersion" xml:space="preserve">
++    <value>Steam version</value>
++  </data>
++  <data name="Diagnostics_SteamVersionSupported" xml:space="preserve">
++    <value>{0} (supported)</value>
++  </data>
++  <data name="Diagnostics_SteamVersionUnsupported" xml:space="preserve">
++    <value>{0} (unsupported)</value>
++  </data>
++  <data name="Diagnostics_SteamVersionUnknown" xml:space="preserve">
++    <value>Unknown</value>
++  </data>
++  <data name="Diagnostics_DllSource" xml:space="preserve">
++    <value>DLL source</value>
++  </data>
++  <data name="Diagnostics_DllSourceFormat" xml:space="preserve">
++    <value>{0} - {1}</value>
++  </data>
++  <data name="Diagnostics_OpenSteamToolIntegration" xml:space="preserve">
++    <value>OpenSteamTool integration</value>
++  </data>
++  <data name="Diagnostics_OpenSteamToolReady" xml:space="preserve">
++    <value>Ready</value>
++  </data>
++  <data name="Diagnostics_OpenSteamToolFailed" xml:space="preserve">
++    <value>One or more required checks failed</value>
++  </data>
++  <data name="Diagnostics_CurrentAccount" xml:space="preserve">
++    <value>Current account</value>
++  </data>
++  <data name="Diagnostics_CurrentAccountFormat" xml:space="preserve">
++    <value>{0} / accountId {1} / SteamID64 {2}</value>
++  </data>
++  <data name="Diagnostics_CurrentAccountMissing" xml:space="preserve">
++    <value>No account ID detected</value>
++  </data>
++  <data name="Diagnostics_DllLoaded" xml:space="preserve">
++    <value>DLL loaded</value>
++  </data>
++  <data name="Diagnostics_DllLoadedOk" xml:space="preserve">
++    <value>Loaded through OpenSteamTool Lua</value>
++  </data>
++  <data name="Diagnostics_DllLoadedMissing" xml:space="preserve">
++    <value>No OpenSteamTool load marker in recent log</value>
++  </data>
++  <data name="Diagnostics_CloudRpcHook" xml:space="preserve">
++    <value>Cloud RPC hook</value>
++  </data>
++  <data name="Diagnostics_CloudRpcHookOk" xml:space="preserve">
++    <value>vtable hook active</value>
++  </data>
++  <data name="Diagnostics_CloudRpcHookMissing" xml:space="preserve">
++    <value>No active vtable hook marker in recent log</value>
++  </data>
++  <data name="Diagnostics_AccountId" xml:space="preserve">
++    <value>Account ID</value>
++  </data>
++  <data name="Diagnostics_AccountIdOk" xml:space="preserve">
++    <value>Account ID available</value>
++  </data>
++  <data name="Diagnostics_AccountIdMissing" xml:space="preserve">
++    <value>No account ID marker in recent log</value>
++  </data>
++  <data name="Diagnostics_AccountIdRecentMissing" xml:space="preserve">
++    <value>Recent log still contains no Steam account ID</value>
++  </data>
++  <data name="Diagnostics_WebDavProvider" xml:space="preserve">
++    <value>WebDAV provider</value>
++  </data>
++  <data name="Diagnostics_WebDavProviderOk" xml:space="preserve">
++    <value>Initialized in DLL log</value>
++  </data>
++  <data name="Diagnostics_WebDavProviderMissing" xml:space="preserve">
++    <value>No WebDAV initialization marker in recent log</value>
++  </data>
++  <data name="Diagnostics_RecentSyncActivity" xml:space="preserve">
++    <value>Recent sync activity</value>
++  </data>
++  <data name="Diagnostics_RecentSyncActivityMissing" xml:space="preserve">
++    <value>No intercepted Cloud RPC in recent log</value>
++  </data>
++  <data name="Diagnostics_LogMissing" xml:space="preserve">
++    <value>cloud_redirect.log not found or empty.</value>
++  </data>
  
  </root>
 diff --git a/ui/Resources/Strings.zh-CN.resx b/ui/Resources/Strings.zh-CN.resx
 new file mode 100644
-index 0000000..49c60eb
+index 0000000..757cb7e
 --- /dev/null
 +++ b/ui/Resources/Strings.zh-CN.resx
-@@ -0,0 +1,1737 @@
+@@ -0,0 +1,1807 @@
 +﻿<?xml version="1.0" encoding="utf-8"?>
 +<root>
 +  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
@@ -2834,6 +5319,9 @@ index 0000000..49c60eb
 +  <data name="Nav_ChoiceMode" xml:space="preserve">
 +    <value>模式</value>
 +  </data>
++  <data name="Nav_Diagnostics" xml:space="preserve">
++    <value>诊断</value>
++  </data>
 +  <data name="Choice_Title" xml:space="preserve">
 +    <value>选择使用模式</value>
 +  </data>
@@ -2877,7 +5365,7 @@ index 0000000..49c60eb
 +    <value>安装设置</value>
 +  </data>
 +  <data name="Setup_Description" xml:space="preserve">
-+    <value>将补丁应用并部署 CloudRedirect 到你的 Steam 安装目录。</value>
++    <value>为 OpenSteamTool 部署 CloudRedirect，并安装 Lua 加载器。</value>
 +  </data>
 +  <data name="Setup_Description_STFixer" xml:space="preserve">
 +    <value>应用 Capcom 存档修复和清单固定补丁。</value>
@@ -2904,16 +5392,16 @@ index 0000000..49c60eb
 +    <value>更改</value>
 +  </data>
 +  <data name="Setup_RunAllPatches" xml:space="preserve">
-+    <value>运行全部补丁</value>
++    <value>安装 OpenSteamTool 集成</value>
 +  </data>
 +  <data name="Setup_OfflineSetupHeader" xml:space="preserve">
-+    <value>SteamTools 离线设置</value>
++    <value>OpenSteamTool</value>
 +  </data>
 +  <data name="Setup_OfflineSetupDescription" xml:space="preserve">
-+    <value>为 SteamTools 打补丁，使其在激活服务器不可用时仍能工作。首次安装时需要此步骤。</value>
++    <value>CloudRedirect 现在通过 OpenSteamTool 加载。重启 Steam 前，请先把 OpenSteamTool 安装到 Steam 根目录。</value>
 +  </data>
 +  <data name="Setup_OfflineSetup" xml:space="preserve">
-+    <value>离线设置</value>
++    <value>OpenSteamTool 状态</value>
 +  </data>
 +  <data name="Setup_NotChecked" xml:space="preserve">
 +    <value>未检查</value>
@@ -2925,40 +5413,40 @@ index 0000000..49c60eb
 +    <value>还原补丁</value>
 +  </data>
 +  <data name="Setup_StExeHeader" xml:space="preserve">
-+    <value>SteamTools.exe 补丁</value>
++    <value>Lua 加载器</value>
 +  </data>
 +  <data name="Setup_StExeDescription" xml:space="preserve">
-+    <value>阻止 SteamTools 桌面应用在每次启动时覆盖已打补丁的 DLL。否则 SteamTools 会撤销核心补丁。</value>
++    <value>在 config\lua 下安装一个小 Lua 文件，让 OpenSteamTool 加载 cloud_redirect.dll。</value>
 +  </data>
 +  <data name="Setup_DllDeploy" xml:space="preserve">
-+    <value>DLL 部署</value>
++    <value>加载器状态</value>
 +  </data>
 +  <data name="Setup_PatchSteamToolsExe" xml:space="preserve">
-+    <value>修补 SteamTools.exe</value>
++    <value>安装加载器</value>
 +  </data>
 +  <data name="Setup_CloudRedirectPatchHeader" xml:space="preserve">
-+    <value>Cloud Redirect 补丁</value>
++    <value>CloudRedirect 运行时</value>
 +  </data>
 +  <data name="Setup_CloudRedirectPatchHeader_STFixer" xml:space="preserve">
 +    <value>存档修复和清单固定补丁</value>
 +  </data>
 +  <data name="Setup_CloudRedirectPatchDescription" xml:space="preserve">
-+    <value>修补 SteamTools 载荷，使 lua 应用的云存档通过 CloudRedirect 系统路由。</value>
++    <value>OpenSteamTool 会通过 Lua 加载 CloudRedirect；不再需要 SteamTools 载荷补丁。</value>
 +  </data>
 +  <data name="Setup_CloudRedirectPatchDescription_STFixer" xml:space="preserve">
 +    <value>修补 SteamTools 载荷，以修复 Capcom 存档路由并为 lua 应用启用清单固定。</value>
 +  </data>
 +  <data name="Setup_PatchStatus" xml:space="preserve">
-+    <value>补丁状态</value>
++    <value>运行时状态</value>
 +  </data>
 +  <data name="Setup_ApplyPatch" xml:space="preserve">
-+    <value>应用补丁</value>
++    <value>应用旧版补丁</value>
 +  </data>
 +  <data name="Setup_DeployHeader" xml:space="preserve">
 +    <value>部署 CloudRedirect</value>
 +  </data>
 +  <data name="Setup_DeployDescription" xml:space="preserve">
-+    <value>将核心 DLL 复制到你的 Steam 文件夹。</value>
++    <value>将 cloud_redirect.dll 复制到 Steam 文件夹，并安装 OpenSteamTool Lua 加载器。</value>
 +  </data>
 +  <data name="Setup_DllStatus" xml:space="preserve">
 +    <value>DLL 状态</value>
@@ -3028,6 +5516,30 @@ index 0000000..49c60eb
 +  </data>
 +  <data name="Setup_StExeNotFound" xml:space="preserve">
 +    <value>未找到 SteamTools Desktop</value>
++  </data>
++  <data name="Setup_OpenSteamToolInstalled" xml:space="preserve">
++    <value>已找到 OpenSteamTool</value>
++  </data>
++  <data name="Setup_OpenSteamToolNotFound" xml:space="preserve">
++    <value>Steam 根目录中未找到 OpenSteamTool</value>
++  </data>
++  <data name="Setup_LoaderInstalled" xml:space="preserve">
++    <value>Lua 加载器已安装</value>
++  </data>
++  <data name="Setup_LoaderNotInstalled" xml:space="preserve">
++    <value>Lua 加载器未安装</value>
++  </data>
++  <data name="Setup_InstallLoader" xml:space="preserve">
++    <value>安装加载器</value>
++  </data>
++  <data name="Setup_ReinstallLoader" xml:space="preserve">
++    <value>重新安装加载器</value>
++  </data>
++  <data name="Setup_OpenSteamToolReady" xml:space="preserve">
++    <value>已准备好通过 OpenSteamTool Lua 加载</value>
++  </data>
++  <data name="Setup_OpenSteamToolNeedsInstall" xml:space="preserve">
++    <value>请安装 cloud_redirect.dll 和 Lua 加载器</value>
 +  </data>
 +  <data name="Setup_CouldNotCheck" xml:space="preserve">
 +    <value>无法检查：{0}</value>
@@ -4495,11 +7007,252 @@ index 0000000..49c60eb
 +  <data name="Settings_DllSource" xml:space="preserve"><value>DLL 来源</value></data>
 +  <data name="Settings_DllSourceDeployCustomHint" xml:space="preserve"><value>此应用包含自定义 WebDAV DLL，但 Steam 尚未使用它。请在仪表盘部署/更新 DLL。</value></data>
 +  <data name="Settings_DllSourceHashFormat" xml:space="preserve"><value>已部署：{0}  内嵌：{1}</value></data>
++  <data name="Settings_CurrentAccount" xml:space="preserve"><value>当前 Steam 账号</value></data>
++  <data name="Settings_CurrentAccountFormat" xml:space="preserve"><value>{0} / accountId {1} / SteamID64 {2}</value></data>
++  <data name="Settings_CurrentAccountNone" xml:space="preserve"><value>未检测到当前账号</value></data>
++  <data name="Settings_CurrentAccountWarning" xml:space="preserve"><value>云存档会写入这个 accountId 对应的目录。切换 Steam 账号前请先确认这里显示的是目标账号。</value></data>
 +  <data name="CloudProvider_WebDavTestNetworkError" xml:space="preserve"><value>测试 WebDAV 时发生网络错误：{0}</value></data>
++  <data name="CloudProvider_WebDavTestSuccessFull" xml:space="preserve"><value>WebDAV 兼容性测试通过：列目录、创建目录、上传、下载、覆盖校验和删除均正常。</value></data>
++  <data name="CloudProvider_WebDavTestStepFailed" xml:space="preserve"><value>WebDAV 测试步骤 {0} 失败：HTTP {1} {2}</value></data>
++  <data name="CloudProvider_WebDavTestContentMismatch" xml:space="preserve"><value>WebDAV 下载内容与上传的测试文件不一致。</value></data>
++  <data name="Diagnostics_Title" xml:space="preserve"><value>诊断</value></data>
++  <data name="Diagnostics_Subtitle" xml:space="preserve"><value>检查 DLL 加载、OpenSteamTool 集成、Steam 账号、WebDAV 和最近 hook 活动。</value></data>
++  <data name="Diagnostics_Refresh" xml:space="preserve"><value>刷新</value></data>
++  <data name="Diagnostics_RuntimeStatus" xml:space="preserve"><value>运行状态</value></data>
++  <data name="Diagnostics_OpenSteamToolChecks" xml:space="preserve"><value>OpenSteamTool 检查</value></data>
++  <data name="Diagnostics_RecentLog" xml:space="preserve"><value>最近的 cloud_redirect.log</value></data>
++  <data name="Diagnostics_SteamPath" xml:space="preserve"><value>Steam 路径</value></data>
++  <data name="Diagnostics_SteamPathNotFound" xml:space="preserve"><value>未找到</value></data>
++  <data name="Diagnostics_SteamVersion" xml:space="preserve"><value>Steam 版本</value></data>
++  <data name="Diagnostics_SteamVersionSupported" xml:space="preserve"><value>{0}（受支持）</value></data>
++  <data name="Diagnostics_SteamVersionUnsupported" xml:space="preserve"><value>{0}（不受支持）</value></data>
++  <data name="Diagnostics_SteamVersionUnknown" xml:space="preserve"><value>未知</value></data>
++  <data name="Diagnostics_DllSource" xml:space="preserve"><value>DLL 来源</value></data>
++  <data name="Diagnostics_DllSourceFormat" xml:space="preserve"><value>{0} - {1}</value></data>
++  <data name="Diagnostics_OpenSteamToolIntegration" xml:space="preserve"><value>OpenSteamTool 集成</value></data>
++  <data name="Diagnostics_OpenSteamToolReady" xml:space="preserve"><value>已就绪</value></data>
++  <data name="Diagnostics_OpenSteamToolFailed" xml:space="preserve"><value>一个或多个必要检查未通过</value></data>
++  <data name="Diagnostics_CurrentAccount" xml:space="preserve"><value>当前账号</value></data>
++  <data name="Diagnostics_CurrentAccountFormat" xml:space="preserve"><value>{0} / accountId {1} / SteamID64 {2}</value></data>
++  <data name="Diagnostics_CurrentAccountMissing" xml:space="preserve"><value>未检测到 accountId</value></data>
++  <data name="Diagnostics_DllLoaded" xml:space="preserve"><value>DLL 加载</value></data>
++  <data name="Diagnostics_DllLoadedOk" xml:space="preserve"><value>已通过 OpenSteamTool Lua 加载</value></data>
++  <data name="Diagnostics_DllLoadedMissing" xml:space="preserve"><value>最近日志中没有 OpenSteamTool 加载标记</value></data>
++  <data name="Diagnostics_CloudRpcHook" xml:space="preserve"><value>Cloud RPC hook</value></data>
++  <data name="Diagnostics_CloudRpcHookOk" xml:space="preserve"><value>vtable hook 已激活</value></data>
++  <data name="Diagnostics_CloudRpcHookMissing" xml:space="preserve"><value>最近日志中没有 vtable hook 激活标记</value></data>
++  <data name="Diagnostics_AccountId" xml:space="preserve"><value>Account ID</value></data>
++  <data name="Diagnostics_AccountIdOk" xml:space="preserve"><value>Account ID 可用</value></data>
++  <data name="Diagnostics_AccountIdMissing" xml:space="preserve"><value>最近日志中没有 accountId 标记</value></data>
++  <data name="Diagnostics_AccountIdRecentMissing" xml:space="preserve"><value>最近日志仍显示没有 Steam accountId</value></data>
++  <data name="Diagnostics_WebDavProvider" xml:space="preserve"><value>WebDAV 提供商</value></data>
++  <data name="Diagnostics_WebDavProviderOk" xml:space="preserve"><value>DLL 日志显示 WebDAV 已初始化</value></data>
++  <data name="Diagnostics_WebDavProviderMissing" xml:space="preserve"><value>最近日志中没有 WebDAV 初始化标记</value></data>
++  <data name="Diagnostics_RecentSyncActivity" xml:space="preserve"><value>最近同步活动</value></data>
++  <data name="Diagnostics_RecentSyncActivityMissing" xml:space="preserve"><value>最近日志中没有拦截到 Cloud RPC</value></data>
++  <data name="Diagnostics_LogMissing" xml:space="preserve"><value>未找到 cloud_redirect.log，或日志为空。</value></data>
 +</root>
+diff --git a/ui/Services/AppUpdater.cs b/ui/Services/AppUpdater.cs
+index dddb36a..2e30d50 100644
+--- a/ui/Services/AppUpdater.cs
++++ b/ui/Services/AppUpdater.cs
+@@ -15,8 +15,8 @@ namespace CloudRedirect.Services;
+ /// </summary>
+ internal static class AppUpdater
+ {
+-    private const string RepoOwner = "Selectively11";
+-    private const string RepoName = "CloudRedirect";
++    private const string RepoOwner = "bmoqing";
++    private const string RepoName = "CloudRedirect-OpenSteamTool";
+     // Uses /releases (not /releases/latest) so prerelease/draft flags and tag
+     // suffixes can be filtered client-side.
+     private const string ReleasesApiUrl = $"https://api.github.com/repos/{RepoOwner}/{RepoName}/releases";
+diff --git a/ui/Services/CloudCleanup.cs b/ui/Services/CloudCleanup.cs
+index 68cedae..d4707e2 100644
+--- a/ui/Services/CloudCleanup.cs
++++ b/ui/Services/CloudCleanup.cs
+@@ -150,7 +150,7 @@ namespace CloudRedirect.Services
+         private string _backupTimestamp;
+         private bool _batchActive;
+ 
+-        // Namespace apps detected from stplug-in/*.lua
++        // Namespace apps detected from OpenSteamTool Lua directories
+         private HashSet<uint> _namespaceApps;
+ 
+         // Cross-app remotecache filename map: filename → set of appIds that have it in their remotecache.
+@@ -313,28 +313,29 @@ namespace CloudRedirect.Services
+         }
+ 
+         /// <summary>
+-        /// Find namespace apps via stplug-in/*.lua. Only self-unlocking luas
++        /// Find namespace apps via OpenSteamTool Lua directories. Only self-unlocking luas
+         /// (addappid(&lt;own_appid&gt;) present) count, matching the DLL's logic.
+         /// </summary>
+         private HashSet<uint> DetectNamespaceApps()
+         {
+             var apps = new HashSet<uint>();
+-            string pluginDir = Path.Combine(_steamPath, "config", "stplug-in");
+-
+-            if (!Directory.Exists(pluginDir))
++            foreach (var luaDir in OpenSteamToolIntegration.GetLuaDirectories(_steamPath))
+             {
+-                _log($"  stplug-in directory not found: {pluginDir}");
+-                return apps;
+-            }
+-
+-            foreach (var file in Directory.GetFiles(pluginDir, "*.lua"))
+-            {
+-                string stem = Path.GetFileNameWithoutExtension(file);
+-                if (!uint.TryParse(stem, out uint appId) || appId == 0)
++                if (!Directory.Exists(luaDir))
++                {
++                    _log($"  Lua directory not found: {luaDir}");
+                     continue;
++                }
+ 
+-                if (IsSelfUnlockingLua(file, appId))
+-                    apps.Add(appId);
++                foreach (var file in Directory.GetFiles(luaDir, "*.lua"))
++                {
++                    string stem = Path.GetFileNameWithoutExtension(file);
++                    if (!uint.TryParse(stem, out uint appId) || appId == 0)
++                        continue;
++
++                    if (IsSelfUnlockingLua(file, appId))
++                        apps.Add(appId);
++                }
+             }
+ 
+             return apps;
+diff --git a/ui/Services/DiagnosticsService.cs b/ui/Services/DiagnosticsService.cs
+new file mode 100644
+index 0000000..e05388b
+--- /dev/null
++++ b/ui/Services/DiagnosticsService.cs
+@@ -0,0 +1,120 @@
++using System;
++using System.Collections.Generic;
++using System.IO;
++using System.Linq;
++using CloudRedirect.Resources;
++
++namespace CloudRedirect.Services;
++
++internal sealed record DiagnosticItem(string Name, bool Ok, string Detail);
++
++internal sealed record DiagnosticsSnapshot(
++    string? SteamPath,
++    string? LogPath,
++    long? SteamVersion,
++    bool SteamVersionSupported,
++    DllIdentityInfo DllIdentity,
++    OpenSteamToolCheckResult? OpenSteamTool,
++    IReadOnlyList<DiagnosticItem> Items,
++    IReadOnlyList<string> RecentLogLines);
++
++internal static class DiagnosticsService
++{
++    public static DiagnosticsSnapshot Load()
++    {
++        var steamPath = SteamDetector.FindSteamPath();
++        var logPath = SteamDetector.GetLogPath();
++        var version = steamPath != null ? SteamDetector.GetSteamVersion(steamPath) : null;
++        var dll = DllIdentity.GetCurrent();
++        OpenSteamToolCheckResult? ost = null;
++        if (steamPath != null)
++            ost = OpenSteamToolIntegration.CheckInstallation(steamPath);
++
++        var recentLog = logPath != null && File.Exists(logPath)
++            ? ReadTail(logPath, 260)
++            : Array.Empty<string>();
++
++        var items = new List<DiagnosticItem>();
++        Add(items, steamPath != null, S.Get("Diagnostics_SteamPath"), steamPath ?? S.Get("Diagnostics_SteamPathNotFound"));
++        Add(items, version != null && SteamDetector.IsSupportedSteamVersion(version.Value),
++            S.Get("Diagnostics_SteamVersion"),
++            version != null
++                ? SteamDetector.IsSupportedSteamVersion(version.Value)
++                    ? S.Format("Diagnostics_SteamVersionSupported", version.Value)
++                    : S.Format("Diagnostics_SteamVersionUnsupported", version.Value)
++                : S.Get("Diagnostics_SteamVersionUnknown"));
++        Add(items, dll.Kind is DllSourceKind.CustomWebDav or DllSourceKind.Official,
++            S.Get("Diagnostics_DllSource"), S.Format("Diagnostics_DllSourceFormat", dll.DisplayText, dll.DetailText));
++
++        if (ost != null)
++        {
++            Add(items, ost.IsReady, S.Get("Diagnostics_OpenSteamToolIntegration"),
++                ost.IsReady ? S.Get("Diagnostics_OpenSteamToolReady") : S.Get("Diagnostics_OpenSteamToolFailed"));
++            Add(items, ost.CurrentUser != null, S.Get("Diagnostics_CurrentAccount"),
++                ost.CurrentUser != null
++                    ? S.Format("Diagnostics_CurrentAccountFormat",
++                        string.IsNullOrWhiteSpace(ost.CurrentUser.PersonaName) ? ost.CurrentUser.AccountName : ost.CurrentUser.PersonaName,
++                        ost.CurrentUser.AccountId,
++                        ost.CurrentUser.SteamId64)
++                    : S.Get("Diagnostics_CurrentAccountMissing"));
++        }
++
++        var loaded = recentLog.Any(l => l.Contains("CloudRedirect loaded via OpenSteamTool Lua", StringComparison.OrdinalIgnoreCase));
++        var hookActive = recentLog.Any(l => l.Contains("All hooks ACTIVE", StringComparison.OrdinalIgnoreCase)) ||
++                         recentLog.Any(l => l.Contains("vtable=1", StringComparison.OrdinalIgnoreCase));
++        var accountOk = recentLog.Any(l => l.Contains("[Account] Captured SteamID64", StringComparison.OrdinalIgnoreCase)) ||
++                        recentLog.Any(l => l.Contains("[HTTP] Account ID set to", StringComparison.OrdinalIgnoreCase));
++        var noAccount = recentLog.Any(l => l.Contains("no Steam account ID", StringComparison.OrdinalIgnoreCase));
++        var webDav = recentLog.Any(l => l.Contains("[WebDAV] Initialized", StringComparison.OrdinalIgnoreCase));
++        var intercept = recentLog.LastOrDefault(l => l.Contains("INTERCEPT Cloud.", StringComparison.OrdinalIgnoreCase));
++
++        Add(items, loaded, S.Get("Diagnostics_DllLoaded"),
++            loaded ? S.Get("Diagnostics_DllLoadedOk") : S.Get("Diagnostics_DllLoadedMissing"));
++        Add(items, hookActive, S.Get("Diagnostics_CloudRpcHook"),
++            hookActive ? S.Get("Diagnostics_CloudRpcHookOk") : S.Get("Diagnostics_CloudRpcHookMissing"));
++        Add(items, accountOk && !noAccount, S.Get("Diagnostics_AccountId"),
++            noAccount
++                ? S.Get("Diagnostics_AccountIdRecentMissing")
++                : accountOk ? S.Get("Diagnostics_AccountIdOk") : S.Get("Diagnostics_AccountIdMissing"));
++        Add(items, webDav, S.Get("Diagnostics_WebDavProvider"),
++            webDav ? S.Get("Diagnostics_WebDavProviderOk") : S.Get("Diagnostics_WebDavProviderMissing"));
++        Add(items, intercept != null, S.Get("Diagnostics_RecentSyncActivity"),
++            intercept ?? S.Get("Diagnostics_RecentSyncActivityMissing"));
++
++        return new DiagnosticsSnapshot(
++            steamPath,
++            logPath,
++            version,
++            version != null && SteamDetector.IsSupportedSteamVersion(version.Value),
++            dll,
++            ost,
++            items,
++            recentLog);
++    }
++
++    private static void Add(List<DiagnosticItem> items, bool ok, string name, string detail)
++    {
++        items.Add(new DiagnosticItem(name, ok, detail));
++    }
++
++    private static string[] ReadTail(string path, int maxLines)
++    {
++        try
++        {
++            var queue = new Queue<string>(maxLines);
++            using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
++            using var reader = new StreamReader(fs);
++            while (reader.ReadLine() is { } line)
++            {
++                if (queue.Count == maxLines)
++                    queue.Dequeue();
++                queue.Enqueue(line);
++            }
++            return queue.ToArray();
++        }
++        catch
++        {
++            return Array.Empty<string>();
++        }
++    }
++}
 diff --git a/ui/Services/DllIdentity.cs b/ui/Services/DllIdentity.cs
 new file mode 100644
-index 0000000..318872b
+index 0000000..c054c23
 --- /dev/null
 +++ b/ui/Services/DllIdentity.cs
 @@ -0,0 +1,123 @@
@@ -4528,7 +7281,7 @@ index 0000000..318872b
 +internal static class DllIdentity
 +{
 +    private const string CustomWebDavHash =
-+        "352869A8509A022C9337D11FB5F701F59A90011C2D1E4D265C16885376B05C05";
++        "EDC170BAEA0D549700230F8845D334C949F05B4764828D4C3B10F919D3B5A378";
 +
 +    public static DllIdentityInfo GetCurrent()
 +    {
@@ -4626,6 +7379,307 @@ index 0000000..318872b
 +
 +    private static string S(string key) => Resources.S.Get(key);
 +}
+diff --git a/ui/Services/OpenSteamToolIntegration.cs b/ui/Services/OpenSteamToolIntegration.cs
+new file mode 100644
+index 0000000..6bd4685
+--- /dev/null
++++ b/ui/Services/OpenSteamToolIntegration.cs
+@@ -0,0 +1,295 @@
++using System;
++using System.Collections.Generic;
++using System.IO;
++using System.Linq;
++using System.Text;
++
++namespace CloudRedirect.Services;
++
++internal sealed record OpenSteamToolCheckItem(string Name, bool Ok, string Detail, bool Critical = true);
++
++internal sealed record OpenSteamToolCheckResult(
++    bool IsReady,
++    IReadOnlyList<OpenSteamToolCheckItem> Items,
++    IReadOnlyList<string> LuaDirectories,
++    int LuaFileCount,
++    int NamespaceAppCount,
++    SteamLoginUser? CurrentUser);
++
++internal static class OpenSteamToolIntegration
++{
++    public const string LoaderFileName = "cloud_redirect_loader.lua";
++
++    private const string LoaderContent = """
++do
++  local candidates = {
++    "cloud_redirect.dll",
++    ".\\cloud_redirect.dll",
++    "config\\lua\\..\\..\\cloud_redirect.dll"
++  }
++  local last_error = nil
++  for _, path in ipairs(candidates) do
++    local entry, err = package.loadlib(path, "CloudRedirectLua")
++    if entry then
++      local ok, call_error = pcall(entry)
++      if not ok then
++        error("CloudRedirectLua failed: " .. tostring(call_error))
++      end
++      _G.cloudredirect_loaded = true
++      return
++    end
++    last_error = err
++  end
++  error("CloudRedirect loader could not load cloud_redirect.dll: " .. tostring(last_error))
++end
++""";
++
++    public static bool IsInstalled(string steamPath)
++    {
++        return File.Exists(Path.Combine(steamPath, "OpenSteamTool.dll")) &&
++               (File.Exists(Path.Combine(steamPath, "dwmapi.dll")) ||
++                File.Exists(Path.Combine(steamPath, "xinput1_4.dll")));
++    }
++
++    public static string GetDefaultLuaDir(string steamPath)
++    {
++        return Path.Combine(steamPath, "config", "lua");
++    }
++
++    public static string GetLoaderPath(string steamPath)
++    {
++        return Path.Combine(GetDefaultLuaDir(steamPath), LoaderFileName);
++    }
++
++    public static string GetExpectedLoaderContent() => LoaderContent.Replace("\r\n", "\n");
++
++    public static bool IsLoaderCurrent(string steamPath)
++    {
++        var path = GetLoaderPath(steamPath);
++        if (!File.Exists(path)) return false;
++
++        try
++        {
++            var text = File.ReadAllText(path).Replace("\r\n", "\n");
++            return string.Equals(text, GetExpectedLoaderContent(), StringComparison.Ordinal);
++        }
++        catch
++        {
++            return false;
++        }
++    }
++
++    public static void InstallLoader(string steamPath)
++    {
++        var luaDir = GetDefaultLuaDir(steamPath);
++        Directory.CreateDirectory(luaDir);
++        FileUtils.AtomicWriteAllText(GetLoaderPath(steamPath), GetExpectedLoaderContent());
++    }
++
++    public static void RemoveLoader(string steamPath)
++    {
++        var path = GetLoaderPath(steamPath);
++        if (File.Exists(path))
++            File.Delete(path);
++    }
++
++    public static OpenSteamToolCheckResult CheckInstallation(string steamPath)
++    {
++        var items = new List<OpenSteamToolCheckItem>();
++
++        var ostDll = Path.Combine(steamPath, "OpenSteamTool.dll");
++        var dwmapi = Path.Combine(steamPath, "dwmapi.dll");
++        var xinput = Path.Combine(steamPath, "xinput1_4.dll");
++        var cloudDll = Path.Combine(steamPath, "cloud_redirect.dll");
++        var loader = GetLoaderPath(steamPath);
++        var legacySteamToolsLuaDir = Path.Combine(steamPath, "config", "stplug-in");
++
++        Add(items, File.Exists(ostDll), "OpenSteamTool.dll", ostDll);
++        Add(items, File.Exists(dwmapi) || File.Exists(xinput),
++            "OpenSteamTool proxy DLL", File.Exists(dwmapi) ? dwmapi : xinput);
++        Add(items, File.Exists(cloudDll), "cloud_redirect.dll", cloudDll);
++        Add(items, File.Exists(loader), LoaderFileName, loader);
++        Add(items, IsLoaderCurrent(steamPath), "Lua loader content",
++            IsLoaderCurrent(steamPath) ? "Current" : "Missing or stale");
++
++        var luaDirs = GetLuaDirectories(steamPath);
++        int luaFiles = 0;
++        int namespaceApps = 0;
++        foreach (var dir in luaDirs)
++        {
++            if (!Directory.Exists(dir))
++                continue;
++
++            foreach (var file in Directory.GetFiles(dir, "*.lua"))
++            {
++                luaFiles++;
++                var stem = Path.GetFileNameWithoutExtension(file);
++                if (uint.TryParse(stem, out var appId) &&
++                    CloudCleanup.IsSelfUnlockingLua(file, appId))
++                {
++                    namespaceApps++;
++                }
++            }
++        }
++
++        Add(items, luaDirs.Any(Directory.Exists), "Lua directory",
++            string.Join("; ", luaDirs));
++        Add(items, namespaceApps > 0, "Namespace Lua apps",
++            $"{namespaceApps} self-unlocking / {luaFiles} lua files");
++
++        var legacyLuaCount = Directory.Exists(legacySteamToolsLuaDir)
++            ? Directory.GetFiles(legacySteamToolsLuaDir, "*.lua").Length
++            : 0;
++        Add(items, legacyLuaCount == 0, "Legacy stplug-in Lua folder",
++            legacyLuaCount == 0
++                ? "No lua files in the SteamTools-only stplug-in directory"
++                : $"{legacyLuaCount} lua file(s) found in config\\stplug-in; OpenSteamTool does not read this directory",
++            critical: false);
++
++        var currentUser = SteamAccountService.GetMostRecentUser(steamPath);
++        Add(items, currentUser != null, "Steam account",
++            currentUser != null
++                ? $"{currentUser.PersonaName} ({currentUser.AccountId})"
++                : "No unambiguous MostRecent user in loginusers.vdf");
++
++        var ready = items.All(i => !i.Critical || i.Ok);
++        return new OpenSteamToolCheckResult(ready, items, luaDirs, luaFiles, namespaceApps, currentUser);
++    }
++
++    public static IReadOnlyList<string> GetLuaDirectories(string steamPath)
++    {
++        var dirs = new List<string>();
++        AddUnique(dirs, GetDefaultLuaDir(steamPath));
++
++        var toml = Path.Combine(steamPath, "opensteamtool.toml");
++        if (!File.Exists(toml))
++            return dirs;
++
++        try
++        {
++            bool inLua = false;
++            var pending = new StringBuilder();
++            foreach (var rawLine in File.ReadLines(toml))
++            {
++                var line = rawLine.Trim();
++                if (line.Length == 0 || line.StartsWith("#", StringComparison.Ordinal))
++                    continue;
++
++                if (line.StartsWith("[", StringComparison.Ordinal))
++                {
++                    inLua = string.Equals(line, "[lua]", StringComparison.OrdinalIgnoreCase);
++                    continue;
++                }
++
++                if (!inLua)
++                    continue;
++
++                if (pending.Length == 0)
++                {
++                    var eq = line.IndexOf('=');
++                    if (eq < 0) continue;
++                    var key = line[..eq].Trim();
++                    if (!string.Equals(key, "paths", StringComparison.OrdinalIgnoreCase))
++                        continue;
++                    pending.Append(line[(eq + 1)..]);
++                }
++                else
++                {
++                    pending.Append('\n').Append(line);
++                }
++
++                if (!pending.ToString().Contains(']'))
++                    continue;
++
++                foreach (var path in ParseQuotedArray(pending.ToString()))
++                    AddUnique(dirs, NormalizeLuaPath(steamPath, path));
++                pending.Clear();
++            }
++        }
++        catch
++        {
++            // Ignore malformed optional config; OpenSteamTool itself falls back to defaults.
++        }
++
++        return dirs;
++    }
++
++    private static IEnumerable<string> ParseQuotedArray(string text)
++    {
++        var result = new List<string>();
++        var current = new StringBuilder();
++        bool inQuote = false;
++        bool escape = false;
++
++        foreach (var c in text)
++        {
++            if (!inQuote)
++            {
++                if (c == '"')
++                {
++                    inQuote = true;
++                    current.Clear();
++                }
++                continue;
++            }
++
++            if (escape)
++            {
++                current.Append(c switch
++                {
++                    'n' => '\n',
++                    'r' => '\r',
++                    't' => '\t',
++                    _ => c
++                });
++                escape = false;
++                continue;
++            }
++
++            if (c == '\\')
++            {
++                escape = true;
++                continue;
++            }
++
++            if (c == '"')
++            {
++                inQuote = false;
++                result.Add(current.ToString());
++                current.Clear();
++                continue;
++            }
++
++            current.Append(c);
++        }
++
++        return result;
++    }
++
++    private static string NormalizeLuaPath(string steamPath, string path)
++    {
++        path = path.Trim();
++        if (path.Length == 0) return path;
++        path = path.Replace('/', Path.DirectorySeparatorChar);
++
++        if (!Path.IsPathRooted(path))
++            path = Path.Combine(steamPath, path);
++
++        return Path.GetFullPath(path);
++    }
++
++    private static void AddUnique(List<string> dirs, string path)
++    {
++        if (string.IsNullOrWhiteSpace(path)) return;
++        path = Path.GetFullPath(path);
++        foreach (var existing in dirs)
++            if (string.Equals(existing, path, StringComparison.OrdinalIgnoreCase))
++                return;
++        dirs.Add(path);
++    }
++
++    private static void Add(List<OpenSteamToolCheckItem> items, bool ok, string name, string detail, bool critical = true)
++    {
++        items.Add(new OpenSteamToolCheckItem(name, ok, detail, critical));
++    }
++}
 diff --git a/ui/Services/Providers/CliUiCloudProvider.cs b/ui/Services/Providers/CliUiCloudProvider.cs
 index e4f4de9..3dcb651 100644
 --- a/ui/Services/Providers/CliUiCloudProvider.cs
@@ -4644,6 +7698,168 @@ index e4f4de9..3dcb651 100644
      private readonly Action<string>? _log;
  
      public CliUiCloudProvider(string provider, Action<string>? log)
+diff --git a/ui/Services/SteamAccountService.cs b/ui/Services/SteamAccountService.cs
+new file mode 100644
+index 0000000..075b7cd
+--- /dev/null
++++ b/ui/Services/SteamAccountService.cs
+@@ -0,0 +1,156 @@
++using System;
++using System.Collections.Generic;
++using System.IO;
++
++namespace CloudRedirect.Services;
++
++internal sealed record SteamLoginUser(
++    ulong SteamId64,
++    uint AccountId,
++    string AccountName,
++    string PersonaName,
++    bool MostRecent);
++
++internal static class SteamAccountService
++{
++    private const ulong SteamId64Base = 76561197960265728UL;
++
++    public static IReadOnlyList<SteamLoginUser> GetLoginUsers(string steamPath)
++    {
++        var users = new List<SteamLoginUser>();
++        var path = Path.Combine(steamPath, "config", "loginusers.vdf");
++        if (!File.Exists(path))
++            return users;
++
++        ulong currentSteamId = 0;
++        string accountName = "";
++        string personaName = "";
++        bool mostRecent = false;
++        bool inUser = false;
++        int braceDepth = 0;
++
++        void FlushUser()
++        {
++            if (currentSteamId <= SteamId64Base)
++                return;
++
++            users.Add(new SteamLoginUser(
++                currentSteamId,
++                unchecked((uint)(currentSteamId & 0xFFFFFFFFUL)),
++                accountName,
++                personaName,
++                mostRecent));
++        }
++
++        foreach (var rawLine in File.ReadLines(path))
++        {
++            var line = rawLine.Trim();
++            if (line.Length == 0)
++                continue;
++
++            if (line == "{")
++            {
++                braceDepth++;
++                continue;
++            }
++
++            if (line == "}")
++            {
++                if (braceDepth == 2 && inUser)
++                {
++                    FlushUser();
++                    currentSteamId = 0;
++                    accountName = "";
++                    personaName = "";
++                    mostRecent = false;
++                    inUser = false;
++                }
++
++                if (braceDepth > 0)
++                    braceDepth--;
++                continue;
++            }
++
++            if (braceDepth == 1 && TryParseQuotedSteamId(line, out var sid))
++            {
++                currentSteamId = sid;
++                accountName = "";
++                personaName = "";
++                mostRecent = false;
++                inUser = true;
++                continue;
++            }
++
++            if (!inUser || braceDepth != 2)
++                continue;
++
++            if (!TryParseKeyValue(line, out var key, out var value))
++                continue;
++
++            if (string.Equals(key, "AccountName", StringComparison.OrdinalIgnoreCase))
++                accountName = value;
++            else if (string.Equals(key, "PersonaName", StringComparison.OrdinalIgnoreCase))
++                personaName = value;
++            else if (string.Equals(key, "MostRecent", StringComparison.OrdinalIgnoreCase))
++                mostRecent = value == "1";
++        }
++
++        return users;
++    }
++
++    public static SteamLoginUser? GetMostRecentUser(string steamPath)
++    {
++        var users = GetLoginUsers(steamPath);
++        foreach (var user in users)
++            if (user.MostRecent)
++                return user;
++
++        return users.Count == 1 ? users[0] : null;
++    }
++
++    private static bool TryParseQuotedSteamId(string line, out ulong steamId)
++    {
++        steamId = 0;
++        if (!TryParseKey(line, out var key))
++            return false;
++
++        if (!ulong.TryParse(key, out var sid) || sid <= SteamId64Base)
++            return false;
++
++        steamId = sid;
++        return true;
++    }
++
++    private static bool TryParseKeyValue(string line, out string key, out string value)
++    {
++        key = "";
++        value = "";
++        if (!TryParseKey(line, out key, out var keyEnd))
++            return false;
++
++        var rest = line[keyEnd..].TrimStart();
++        if (!TryParseKey(rest, out value))
++            return false;
++
++        return true;
++    }
++
++    private static bool TryParseKey(string line, out string key)
++        => TryParseKey(line, out key, out _);
++
++    private static bool TryParseKey(string line, out string key, out int endIndex)
++    {
++        key = "";
++        endIndex = 0;
++        if (line.Length < 2 || line[0] != '"')
++            return false;
++
++        var end = line.IndexOf('"', 1);
++        if (end < 0)
++            return false;
++
++        key = line[1..end];
++        endIndex = end + 1;
++        return true;
++    }
++}
 diff --git a/ui/Services/SteamDetector.cs b/ui/Services/SteamDetector.cs
 index a612949..67528f9 100644
 --- a/ui/Services/SteamDetector.cs
@@ -4716,11 +7932,12 @@ index 5033e12..f462e68 100644
          };
 diff --git a/ui/Services/WebDavConnectionTester.cs b/ui/Services/WebDavConnectionTester.cs
 new file mode 100644
-index 0000000..1e6d478
+index 0000000..2e8b3ac
 --- /dev/null
 +++ b/ui/Services/WebDavConnectionTester.cs
-@@ -0,0 +1,79 @@
+@@ -0,0 +1,193 @@
 +using System;
++using System.Net.Http.Headers;
 +using System.Net;
 +using System.Net.Http;
 +using System.Text;
@@ -4765,29 +7982,80 @@ index 0000000..1e6d478
 +        };
 +        client.DefaultRequestHeaders.UserAgent.ParseAdd("CloudRedirect-WebDAV-Test/1.0");
 +
-+        using var request = new HttpRequestMessage(new HttpMethod("PROPFIND"), uri);
-+        request.Headers.TryAddWithoutValidation("Depth", "0");
-+        request.Content = new StringContent(
-+            "<?xml version=\"1.0\" encoding=\"utf-8\"?><d:propfind xmlns:d=\"DAV:\"><d:prop><d:resourcetype/></d:prop></d:propfind>",
-+            Encoding.UTF8,
-+            "application/xml");
-+
 +        try
 +        {
-+            using var response = await client.SendAsync(request, cancellationToken);
-+            var code = (int)response.StatusCode;
-+            if (response.StatusCode == HttpStatusCode.MultiStatus || response.IsSuccessStatusCode)
-+                return new WebDavTestResult(true, S.Format("CloudProvider_WebDavTestSuccess", code));
++            var baseUri = EnsureTrailingSlash(uri);
++            var rootName = "cloudredirect-test-" + Guid.NewGuid().ToString("N");
++            var rootUri = new Uri(baseUri, Uri.EscapeDataString(rootName) + "/");
++            var nestedUri = new Uri(rootUri, "nested/");
++            var emptyDirUri = new Uri(rootUri, "empty-dir/");
++            var fileUri = new Uri(nestedUri, Uri.EscapeDataString("中文 文件.txt"));
++            var conflictUri = new Uri(rootUri, "conflict.txt");
++            var payload = "CloudRedirect WebDAV test " + Guid.NewGuid().ToString("N");
++            var conflictPayload = "CloudRedirect WebDAV overwrite " + Guid.NewGuid().ToString("N");
 +
-+            var message = response.StatusCode switch
++            try
 +            {
-+                HttpStatusCode.Unauthorized => S.Get("CloudProvider_WebDavTestUnauthorized"),
-+                HttpStatusCode.Forbidden => S.Get("CloudProvider_WebDavTestForbidden"),
-+                HttpStatusCode.NotFound => S.Get("CloudProvider_WebDavTestNotFound"),
-+                HttpStatusCode.MethodNotAllowed => S.Get("CloudProvider_WebDavTestMethodNotAllowed"),
-+                _ => S.Format("CloudProvider_WebDavTestHttpError", code, response.ReasonPhrase ?? "")
-+            };
-+            return new WebDavTestResult(false, message);
++                using var rootCheck = await SendAsync(client, "PROPFIND", baseUri, cancellationToken, Depth0Body(), "application/xml", ("Depth", "0"));
++                if (!IsPropfindOk(rootCheck))
++                    return new WebDavTestResult(false, Explain(rootCheck));
++
++                using var mkRoot = await SendAsync(client, "MKCOL", rootUri, cancellationToken);
++                if (!IsAllowed(mkRoot, HttpStatusCode.Created, HttpStatusCode.MethodNotAllowed))
++                    return new WebDavTestResult(false, S.Format("CloudProvider_WebDavTestStepFailed", "MKCOL root", (int)mkRoot.StatusCode, mkRoot.ReasonPhrase ?? ""));
++
++                using var mkNested = await SendAsync(client, "MKCOL", nestedUri, cancellationToken);
++                if (!IsAllowed(mkNested, HttpStatusCode.Created, HttpStatusCode.MethodNotAllowed))
++                    return new WebDavTestResult(false, S.Format("CloudProvider_WebDavTestStepFailed", "MKCOL nested", (int)mkNested.StatusCode, mkNested.ReasonPhrase ?? ""));
++
++                using var mkEmpty = await SendAsync(client, "MKCOL", emptyDirUri, cancellationToken);
++                if (!IsAllowed(mkEmpty, HttpStatusCode.Created, HttpStatusCode.MethodNotAllowed))
++                    return new WebDavTestResult(false, S.Format("CloudProvider_WebDavTestStepFailed", "MKCOL empty", (int)mkEmpty.StatusCode, mkEmpty.ReasonPhrase ?? ""));
++
++                using var put = await SendAsync(client, "PUT", fileUri, cancellationToken, payload, "text/plain");
++                if (!IsAllowed(put, HttpStatusCode.OK, HttpStatusCode.Created, HttpStatusCode.NoContent))
++                    return new WebDavTestResult(false, S.Format("CloudProvider_WebDavTestStepFailed", "PUT", (int)put.StatusCode, put.ReasonPhrase ?? ""));
++
++                using (var get = await client.GetAsync(fileUri, cancellationToken))
++                {
++                    if (get.StatusCode != HttpStatusCode.OK)
++                        return new WebDavTestResult(false, S.Format("CloudProvider_WebDavTestStepFailed", "GET", (int)get.StatusCode, get.ReasonPhrase ?? ""));
++                    var text = await get.Content.ReadAsStringAsync(cancellationToken);
++                    if (!string.Equals(text, payload, StringComparison.Ordinal))
++                        return new WebDavTestResult(false, S.Get("CloudProvider_WebDavTestContentMismatch"));
++                }
++
++                using var putConflict1 = await SendAsync(client, "PUT", conflictUri, cancellationToken, "v1", "text/plain");
++                if (!IsAllowed(putConflict1, HttpStatusCode.OK, HttpStatusCode.Created, HttpStatusCode.NoContent))
++                    return new WebDavTestResult(false, S.Format("CloudProvider_WebDavTestStepFailed", "PUT conflict", (int)putConflict1.StatusCode, putConflict1.ReasonPhrase ?? ""));
++
++                using var putConflict2 = await SendAsync(client, "PUT", conflictUri, cancellationToken, conflictPayload, "text/plain");
++                if (!IsAllowed(putConflict2, HttpStatusCode.OK, HttpStatusCode.Created, HttpStatusCode.NoContent))
++                    return new WebDavTestResult(false, S.Format("CloudProvider_WebDavTestStepFailed", "PUT overwrite", (int)putConflict2.StatusCode, putConflict2.ReasonPhrase ?? ""));
++
++                using (var getConflict = await client.GetAsync(conflictUri, cancellationToken))
++                {
++                    if (getConflict.StatusCode != HttpStatusCode.OK)
++                        return new WebDavTestResult(false, S.Format("CloudProvider_WebDavTestStepFailed", "GET overwrite", (int)getConflict.StatusCode, getConflict.ReasonPhrase ?? ""));
++                    var text = await getConflict.Content.ReadAsStringAsync(cancellationToken);
++                    if (!string.Equals(text, conflictPayload, StringComparison.Ordinal))
++                        return new WebDavTestResult(false, S.Get("CloudProvider_WebDavTestContentMismatch"));
++                }
++
++                using var list = await SendAsync(client, "PROPFIND", rootUri, cancellationToken, Depth0Body(), "application/xml", ("Depth", "1"));
++                if (!IsPropfindOk(list))
++                    return new WebDavTestResult(false, S.Format("CloudProvider_WebDavTestStepFailed", "PROPFIND list", (int)list.StatusCode, list.ReasonPhrase ?? ""));
++
++                return new WebDavTestResult(true, S.Get("CloudProvider_WebDavTestSuccessFull"));
++            }
++            finally
++            {
++                await TryDeleteAsync(client, fileUri, cancellationToken);
++                await TryDeleteAsync(client, conflictUri, cancellationToken);
++                await TryDeleteAsync(client, nestedUri, cancellationToken);
++                await TryDeleteAsync(client, emptyDirUri, cancellationToken);
++                await TryDeleteAsync(client, rootUri, cancellationToken);
++            }
 +        }
 +        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
 +        {
@@ -4796,6 +8064,68 @@ index 0000000..1e6d478
 +        catch (HttpRequestException ex)
 +        {
 +            return new WebDavTestResult(false, S.Format("CloudProvider_WebDavTestNetworkError", ex.Message));
++        }
++    }
++
++    private static Uri EnsureTrailingSlash(Uri uri)
++    {
++        var text = uri.ToString();
++        return text.EndsWith("/", StringComparison.Ordinal) ? uri : new Uri(text + "/");
++    }
++
++    private static string Depth0Body()
++        => "<?xml version=\"1.0\" encoding=\"utf-8\"?><d:propfind xmlns:d=\"DAV:\"><d:prop><d:resourcetype/><d:getcontentlength/></d:prop></d:propfind>";
++
++    private static async Task<HttpResponseMessage> SendAsync(
++        HttpClient client,
++        string method,
++        Uri uri,
++        CancellationToken cancellationToken,
++        string? body = null,
++        string contentType = "text/plain",
++        params (string Name, string Value)[] headers)
++    {
++        using var request = new HttpRequestMessage(new HttpMethod(method), uri);
++        foreach (var (name, value) in headers)
++            request.Headers.TryAddWithoutValidation(name, value);
++        if (body != null)
++        {
++            request.Content = new StringContent(body, Encoding.UTF8);
++            request.Content.Headers.ContentType = MediaTypeHeaderValue.Parse(contentType);
++        }
++
++        return await client.SendAsync(request, cancellationToken);
++    }
++
++    private static bool IsPropfindOk(HttpResponseMessage response)
++        => response.StatusCode == HttpStatusCode.MultiStatus || response.IsSuccessStatusCode;
++
++    private static bool IsAllowed(HttpResponseMessage response, params HttpStatusCode[] allowed)
++        => Array.IndexOf(allowed, response.StatusCode) >= 0;
++
++    private static string Explain(HttpResponseMessage response)
++    {
++        var code = (int)response.StatusCode;
++        return response.StatusCode switch
++        {
++            HttpStatusCode.Unauthorized => S.Get("CloudProvider_WebDavTestUnauthorized"),
++            HttpStatusCode.Forbidden => S.Get("CloudProvider_WebDavTestForbidden"),
++            HttpStatusCode.NotFound => S.Get("CloudProvider_WebDavTestNotFound"),
++            HttpStatusCode.MethodNotAllowed => S.Get("CloudProvider_WebDavTestMethodNotAllowed"),
++            _ => S.Format("CloudProvider_WebDavTestHttpError", code, response.ReasonPhrase ?? "")
++        };
++    }
++
++    private static async Task TryDeleteAsync(HttpClient client, Uri uri, CancellationToken cancellationToken)
++    {
++        try
++        {
++            using var request = new HttpRequestMessage(HttpMethod.Delete, uri);
++            using var _ = await client.SendAsync(request, cancellationToken);
++        }
++        catch
++        {
++            // Cleanup best-effort only.
 +        }
 +    }
 +}

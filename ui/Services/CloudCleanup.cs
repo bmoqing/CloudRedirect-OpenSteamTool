@@ -150,7 +150,7 @@ namespace CloudRedirect.Services
         private string _backupTimestamp;
         private bool _batchActive;
 
-        // Namespace apps detected from stplug-in/*.lua
+        // Namespace apps detected from OpenSteamTool Lua directories
         private HashSet<uint> _namespaceApps;
 
         // Cross-app remotecache filename map: filename → set of appIds that have it in their remotecache.
@@ -313,28 +313,29 @@ namespace CloudRedirect.Services
         }
 
         /// <summary>
-        /// Find namespace apps via stplug-in/*.lua. Only self-unlocking luas
+        /// Find namespace apps via OpenSteamTool Lua directories. Only self-unlocking luas
         /// (addappid(&lt;own_appid&gt;) present) count, matching the DLL's logic.
         /// </summary>
         private HashSet<uint> DetectNamespaceApps()
         {
             var apps = new HashSet<uint>();
-            string pluginDir = Path.Combine(_steamPath, "config", "stplug-in");
-
-            if (!Directory.Exists(pluginDir))
+            foreach (var luaDir in OpenSteamToolIntegration.GetLuaDirectories(_steamPath))
             {
-                _log($"  stplug-in directory not found: {pluginDir}");
-                return apps;
-            }
-
-            foreach (var file in Directory.GetFiles(pluginDir, "*.lua"))
-            {
-                string stem = Path.GetFileNameWithoutExtension(file);
-                if (!uint.TryParse(stem, out uint appId) || appId == 0)
+                if (!Directory.Exists(luaDir))
+                {
+                    _log($"  Lua directory not found: {luaDir}");
                     continue;
+                }
 
-                if (IsSelfUnlockingLua(file, appId))
-                    apps.Add(appId);
+                foreach (var file in Directory.GetFiles(luaDir, "*.lua"))
+                {
+                    string stem = Path.GetFileNameWithoutExtension(file);
+                    if (!uint.TryParse(stem, out uint appId) || appId == 0)
+                        continue;
+
+                    if (IsSelfUnlockingLua(file, appId))
+                        apps.Add(appId);
+                }
             }
 
             return apps;

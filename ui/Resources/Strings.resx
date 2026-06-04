@@ -76,6 +76,9 @@
   <data name="Nav_ChoiceMode" xml:space="preserve">
     <value>Mode</value>
   </data>
+  <data name="Nav_Diagnostics" xml:space="preserve">
+    <value>Diagnostics</value>
+  </data>
 
   <!-- ═══════════════════════════════════════════════════════════════════ -->
   <!-- ChoiceModePage                                                      -->
@@ -127,7 +130,7 @@
     <value>Setup</value>
   </data>
   <data name="Setup_Description" xml:space="preserve">
-    <value>Apply patches and deploy CloudRedirect to your Steam installation.</value>
+    <value>Deploy CloudRedirect for OpenSteamTool and install the Lua loader.</value>
   </data>
   <data name="Setup_Description_STFixer" xml:space="preserve">
     <value>Apply patches for the Capcom save fix and manifest pinning.</value>
@@ -154,16 +157,16 @@
     <value>Change</value>
   </data>
   <data name="Setup_RunAllPatches" xml:space="preserve">
-    <value>Run All Patches</value>
+    <value>Install OpenSteamTool Integration</value>
   </data>
   <data name="Setup_OfflineSetupHeader" xml:space="preserve">
-    <value>SteamTools Offline Setup</value>
+    <value>OpenSteamTool</value>
   </data>
   <data name="Setup_OfflineSetupDescription" xml:space="preserve">
-    <value>Patches SteamTools so it works even when their activation servers are down. Required for first-time installations.</value>
+    <value>CloudRedirect now loads through OpenSteamTool. Install OpenSteamTool in the Steam root before restarting Steam.</value>
   </data>
   <data name="Setup_OfflineSetup" xml:space="preserve">
-    <value>Offline Setup</value>
+    <value>OpenSteamTool Status</value>
   </data>
   <data name="Setup_NotChecked" xml:space="preserve">
     <value>Not checked</value>
@@ -175,40 +178,40 @@
     <value>Revert Patch</value>
   </data>
   <data name="Setup_StExeHeader" xml:space="preserve">
-    <value>SteamTools.exe Patch</value>
+    <value>Lua Loader</value>
   </data>
   <data name="Setup_StExeDescription" xml:space="preserve">
-    <value>Disables the SteamTools Desktop App from overwriting patched DLLs on every startup. Without this, SteamTools will undo core patches.</value>
+    <value>Installs a small Lua file under config\lua so OpenSteamTool loads cloud_redirect.dll.</value>
   </data>
   <data name="Setup_DllDeploy" xml:space="preserve">
-    <value>DLL Deploy</value>
+    <value>Loader Status</value>
   </data>
   <data name="Setup_PatchSteamToolsExe" xml:space="preserve">
-    <value>Patch SteamTools.exe</value>
+    <value>Install Loader</value>
   </data>
   <data name="Setup_CloudRedirectPatchHeader" xml:space="preserve">
-    <value>Cloud Redirect Patch</value>
+    <value>CloudRedirect Runtime</value>
   </data>
   <data name="Setup_CloudRedirectPatchHeader_STFixer" xml:space="preserve">
     <value>Save Fix and Manifest Pinning Patch</value>
   </data>
   <data name="Setup_CloudRedirectPatchDescription" xml:space="preserve">
-    <value>Patches SteamTools payload so lua app cloud saves are routed through the CloudRedirect system.</value>
+    <value>OpenSteamTool loads CloudRedirect from Lua; no SteamTools payload patch is required.</value>
   </data>
   <data name="Setup_CloudRedirectPatchDescription_STFixer" xml:space="preserve">
     <value>Patches SteamTools payload to fix Capcom save routing and enable manifest pinning for lua apps.</value>
   </data>
   <data name="Setup_PatchStatus" xml:space="preserve">
-    <value>Patch Status</value>
+    <value>Runtime Status</value>
   </data>
   <data name="Setup_ApplyPatch" xml:space="preserve">
-    <value>Apply Patch</value>
+    <value>Apply Legacy Patch</value>
   </data>
   <data name="Setup_DeployHeader" xml:space="preserve">
     <value>Deploy CloudRedirect</value>
   </data>
   <data name="Setup_DeployDescription" xml:space="preserve">
-    <value>Copies core DLL to your Steam folder.</value>
+    <value>Copies cloud_redirect.dll to your Steam folder and installs the OpenSteamTool Lua loader.</value>
   </data>
   <data name="Setup_DllStatus" xml:space="preserve">
     <value>DLL Status</value>
@@ -280,6 +283,30 @@
   </data>
   <data name="Setup_StExeNotFound" xml:space="preserve">
     <value>SteamTools Desktop not found</value>
+  </data>
+  <data name="Setup_OpenSteamToolInstalled" xml:space="preserve">
+    <value>OpenSteamTool found</value>
+  </data>
+  <data name="Setup_OpenSteamToolNotFound" xml:space="preserve">
+    <value>OpenSteamTool not found in Steam root</value>
+  </data>
+  <data name="Setup_LoaderInstalled" xml:space="preserve">
+    <value>Lua loader installed</value>
+  </data>
+  <data name="Setup_LoaderNotInstalled" xml:space="preserve">
+    <value>Lua loader not installed</value>
+  </data>
+  <data name="Setup_InstallLoader" xml:space="preserve">
+    <value>Install Loader</value>
+  </data>
+  <data name="Setup_ReinstallLoader" xml:space="preserve">
+    <value>Reinstall Loader</value>
+  </data>
+  <data name="Setup_OpenSteamToolReady" xml:space="preserve">
+    <value>Ready for OpenSteamTool Lua loading</value>
+  </data>
+  <data name="Setup_OpenSteamToolNeedsInstall" xml:space="preserve">
+    <value>Install cloud_redirect.dll and Lua loader</value>
   </data>
   <data name="Setup_CouldNotCheck" xml:space="preserve">
     <value>Could not check: {0}</value>
@@ -1743,6 +1770,18 @@ Are you sure?</value>
   <data name="Settings_DllSourceHashFormat" xml:space="preserve">
     <value>Deployed: {0}  Embedded: {1}</value>
   </data>
+  <data name="Settings_CurrentAccount" xml:space="preserve">
+    <value>Current Steam Account</value>
+  </data>
+  <data name="Settings_CurrentAccountFormat" xml:space="preserve">
+    <value>{0} / accountId {1} / SteamID64 {2}</value>
+  </data>
+  <data name="Settings_CurrentAccountNone" xml:space="preserve">
+    <value>No current account detected</value>
+  </data>
+  <data name="Settings_CurrentAccountWarning" xml:space="preserve">
+    <value>Cloud saves are stored under this accountId. Check this before switching Steam accounts.</value>
+  </data>
 
   <!-- ═══════════════════════════════════════════════════════════════════ -->
   <!-- Cloud Redirect Toggle                                               -->
@@ -1893,6 +1932,124 @@ Are you sure?</value>
   </data>
   <data name="AppUpdate_UpdateFailedFormat" xml:space="preserve">
     <value>Update failed: {0}</value>
+  </data>
+
+  <data name="CloudProvider_WebDavTestSuccessFull" xml:space="preserve">
+    <value>WebDAV compatibility test passed: list, create directories, upload, download, overwrite, verify, and delete all worked.</value>
+  </data>
+  <data name="CloudProvider_WebDavTestStepFailed" xml:space="preserve">
+    <value>WebDAV test step {0} failed: HTTP {1} {2}</value>
+  </data>
+  <data name="CloudProvider_WebDavTestContentMismatch" xml:space="preserve">
+    <value>WebDAV download content did not match the uploaded test file.</value>
+  </data>
+  <data name="Diagnostics_Title" xml:space="preserve">
+    <value>Diagnostics</value>
+  </data>
+  <data name="Diagnostics_Subtitle" xml:space="preserve">
+    <value>Runtime checks for DLL loading, OpenSteamTool integration, Steam account, WebDAV, and recent hook activity.</value>
+  </data>
+  <data name="Diagnostics_Refresh" xml:space="preserve">
+    <value>Refresh</value>
+  </data>
+  <data name="Diagnostics_RuntimeStatus" xml:space="preserve">
+    <value>Runtime Status</value>
+  </data>
+  <data name="Diagnostics_OpenSteamToolChecks" xml:space="preserve">
+    <value>OpenSteamTool Checks</value>
+  </data>
+  <data name="Diagnostics_RecentLog" xml:space="preserve">
+    <value>Recent cloud_redirect.log</value>
+  </data>
+  <data name="Diagnostics_SteamPath" xml:space="preserve">
+    <value>Steam path</value>
+  </data>
+  <data name="Diagnostics_SteamPathNotFound" xml:space="preserve">
+    <value>Not found</value>
+  </data>
+  <data name="Diagnostics_SteamVersion" xml:space="preserve">
+    <value>Steam version</value>
+  </data>
+  <data name="Diagnostics_SteamVersionSupported" xml:space="preserve">
+    <value>{0} (supported)</value>
+  </data>
+  <data name="Diagnostics_SteamVersionUnsupported" xml:space="preserve">
+    <value>{0} (unsupported)</value>
+  </data>
+  <data name="Diagnostics_SteamVersionUnknown" xml:space="preserve">
+    <value>Unknown</value>
+  </data>
+  <data name="Diagnostics_DllSource" xml:space="preserve">
+    <value>DLL source</value>
+  </data>
+  <data name="Diagnostics_DllSourceFormat" xml:space="preserve">
+    <value>{0} - {1}</value>
+  </data>
+  <data name="Diagnostics_OpenSteamToolIntegration" xml:space="preserve">
+    <value>OpenSteamTool integration</value>
+  </data>
+  <data name="Diagnostics_OpenSteamToolReady" xml:space="preserve">
+    <value>Ready</value>
+  </data>
+  <data name="Diagnostics_OpenSteamToolFailed" xml:space="preserve">
+    <value>One or more required checks failed</value>
+  </data>
+  <data name="Diagnostics_CurrentAccount" xml:space="preserve">
+    <value>Current account</value>
+  </data>
+  <data name="Diagnostics_CurrentAccountFormat" xml:space="preserve">
+    <value>{0} / accountId {1} / SteamID64 {2}</value>
+  </data>
+  <data name="Diagnostics_CurrentAccountMissing" xml:space="preserve">
+    <value>No account ID detected</value>
+  </data>
+  <data name="Diagnostics_DllLoaded" xml:space="preserve">
+    <value>DLL loaded</value>
+  </data>
+  <data name="Diagnostics_DllLoadedOk" xml:space="preserve">
+    <value>Loaded through OpenSteamTool Lua</value>
+  </data>
+  <data name="Diagnostics_DllLoadedMissing" xml:space="preserve">
+    <value>No OpenSteamTool load marker in recent log</value>
+  </data>
+  <data name="Diagnostics_CloudRpcHook" xml:space="preserve">
+    <value>Cloud RPC hook</value>
+  </data>
+  <data name="Diagnostics_CloudRpcHookOk" xml:space="preserve">
+    <value>vtable hook active</value>
+  </data>
+  <data name="Diagnostics_CloudRpcHookMissing" xml:space="preserve">
+    <value>No active vtable hook marker in recent log</value>
+  </data>
+  <data name="Diagnostics_AccountId" xml:space="preserve">
+    <value>Account ID</value>
+  </data>
+  <data name="Diagnostics_AccountIdOk" xml:space="preserve">
+    <value>Account ID available</value>
+  </data>
+  <data name="Diagnostics_AccountIdMissing" xml:space="preserve">
+    <value>No account ID marker in recent log</value>
+  </data>
+  <data name="Diagnostics_AccountIdRecentMissing" xml:space="preserve">
+    <value>Recent log still contains no Steam account ID</value>
+  </data>
+  <data name="Diagnostics_WebDavProvider" xml:space="preserve">
+    <value>WebDAV provider</value>
+  </data>
+  <data name="Diagnostics_WebDavProviderOk" xml:space="preserve">
+    <value>Initialized in DLL log</value>
+  </data>
+  <data name="Diagnostics_WebDavProviderMissing" xml:space="preserve">
+    <value>No WebDAV initialization marker in recent log</value>
+  </data>
+  <data name="Diagnostics_RecentSyncActivity" xml:space="preserve">
+    <value>Recent sync activity</value>
+  </data>
+  <data name="Diagnostics_RecentSyncActivityMissing" xml:space="preserve">
+    <value>No intercepted Cloud RPC in recent log</value>
+  </data>
+  <data name="Diagnostics_LogMissing" xml:space="preserve">
+    <value>cloud_redirect.log not found or empty.</value>
   </data>
 
 </root>

@@ -1,5 +1,7 @@
 build/
 build-*/
+bin/
+.tools/
 ui/bin/
 ui/obj/
 ui/NuGet/

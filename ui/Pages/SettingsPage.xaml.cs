@@ -14,7 +14,7 @@ namespace CloudRedirect.Pages;
 
 public partial class SettingsPage : Page
 {
-    private const string ReleasesUrl = "https://github.com/Selectively11/CloudRedirect/releases";
+    private const string ReleasesUrl = "https://github.com/bmoqing/CloudRedirect-OpenSteamTool/releases";
 
     private string? _latestDownloadUrl;
     private bool _languageLoading;
@@ -64,7 +64,8 @@ public partial class SettingsPage : Page
         bool? AutoUpdateDll,
         bool? ParentalIgnorePlaytime,
         bool? ParentalBypassPlaytime,
-        DllIdentityInfo DllIdentity);
+        DllIdentityInfo DllIdentity,
+        SteamLoginUser? CurrentUser);
 
     // M15: Move language/mode/sync-toggle config reads off the UI thread.
     // Loaded used to call ReadLanguageSetting + ReadModeSetting +
@@ -82,7 +83,12 @@ public partial class SettingsPage : Page
             if (mode == "cloud_redirect")
                 ReadSyncTogglesInto(ref a, ref p, ref l, ref u, ref pip, ref pbp);
 
-            return new SettingsSnapshot(lang, mode, a, p, l, u, pip, pbp, Services.DllIdentity.GetCurrent());
+            var steamPath = Services.SteamDetector.FindSteamPath();
+            var currentUser = steamPath != null
+                ? SteamAccountService.GetMostRecentUser(steamPath)
+                : null;
+
+            return new SettingsSnapshot(lang, mode, a, p, l, u, pip, pbp, Services.DllIdentity.GetCurrent(), currentUser);
         });
 
         ApplySettingsSnapshot(snapshot);
@@ -97,6 +103,7 @@ public partial class SettingsPage : Page
         {
             SyncSection.Visibility = Visibility.Visible;
             ApplyDllIdentity(snap.DllIdentity);
+            ApplyCurrentAccount(snap.CurrentUser);
             ApplySyncToggles(snap.SyncAchievements, snap.SyncPlaytime, snap.SyncLuas, snap.AutoUpdateDll,
                              snap.ParentalIgnorePlaytime, snap.ParentalBypassPlaytime, snap.DllIdentity);
         }
@@ -149,6 +156,24 @@ public partial class SettingsPage : Page
         var deployed = identity.DeployedHash is { Length: >= 12 } ? identity.DeployedHash[..12] : "-";
         var embedded = identity.EmbeddedHash is { Length: >= 12 } ? identity.EmbeddedHash[..12] : "-";
         DllHashText.Text = S.Format("Settings_DllSourceHashFormat", deployed, embedded);
+    }
+
+    private void ApplyCurrentAccount(SteamLoginUser? user)
+    {
+        if (user == null)
+        {
+            CurrentAccountText.Text = S.Get("Settings_CurrentAccountNone");
+            CurrentAccountDetailText.Text = S.Get("Settings_CurrentAccountWarning");
+            CurrentAccountIcon.Symbol = SymbolRegular.Warning24;
+            return;
+        }
+
+        CurrentAccountText.Text = S.Format("Settings_CurrentAccountFormat",
+            string.IsNullOrWhiteSpace(user.PersonaName) ? user.AccountName : user.PersonaName,
+            user.AccountId,
+            user.SteamId64);
+        CurrentAccountDetailText.Text = S.Get("Settings_CurrentAccountWarning");
+        CurrentAccountIcon.Symbol = SymbolRegular.Person24;
     }
 
     private void ApplySyncToggles(bool? achievements, bool? playtime, bool? luas, bool? autoUpdateDll,

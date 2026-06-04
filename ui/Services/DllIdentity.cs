@@ -23,7 +23,7 @@ internal sealed record DllIdentityInfo(
 internal static class DllIdentity
 {
     private const string CustomWebDavHash =
-        "352869A8509A022C9337D11FB5F701F59A90011C2D1E4D265C16885376B05C05";
+        "EDC170BAEA0D549700230F8845D334C949F05B4764828D4C3B10F919D3B5A378";
 
     public static DllIdentityInfo GetCurrent()
     {

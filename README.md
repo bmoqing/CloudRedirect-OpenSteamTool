@@ -1,79 +1,97 @@
-# CloudRedirect
+# CloudRedirect OpenSteamTool 自定义版
 
-## Custom Build Attribution
+这是基于 [Selectively11/CloudRedirect](https://github.com/Selectively11/CloudRedirect) v2.1.2 制作的自定义版本。上游项目提供核心 Steam Cloud 重定向、DLL hook 和 WPF 管理程序；这个仓库在此基础上加入 OpenSteamTool 加载方式、简体中文界面、WebDAV 云服务和诊断/维护工具。
 
-This repository is a custom build based on
-[Selectively11/CloudRedirect](https://github.com/Selectively11/CloudRedirect).
-The upstream project provides the core CloudRedirect implementation. This fork adds
-Simplified Chinese localization, WebDAV provider support, custom build notes, and
-release packaging for the custom build.
+请先阅读风险提示：CloudRedirect 会拦截 Steam Cloud 相关调用并把 lua 游戏的云存档重定向到你配置的云服务或本地目录。使用前请备份重要存档，尤其是已经被 SteamTools 污染过的 userdata 目录。
 
-""Steam Cloud"" for 'lua' games.
+## 主要改动
 
-> ****This software is experimental and under active development.**** The underlying techniques are fairly insane. What this software tries to do is nuts to attempt. This software could damage your save files and probably will! It could overwrite your saves, cause weird conflicts, make your saves disappear, make you cry. Back up any saves you care about before using this software.
+- 适配 OpenSteamTool：通过 `Steam\config\lua\cloud_redirect_loader.lua` 加载 `cloud_redirect.dll`，不再依赖 `config\stplug-in`。
+- 增加 WebDAV 云服务提供商，适合 Nextcloud、Alist、坚果云等支持 WebDAV 的服务。
+- 增加 WebDAV 测试连接：会实际执行 PROPFIND、MKCOL、PUT、GET、覆盖、列目录和删除。
+- 增加简体中文界面，并在设置里提供中文选项。
+- 设置页显示当前 DLL 来源：官方版、自定义 WebDAV 版、哈希不匹配或未安装。
+- 自定义 DLL 构建会禁用官方 DLL 自动更新，避免 WebDAV 版被上游官方 DLL 覆盖。
+- 增加诊断页：检查 DLL 加载、OpenSteamTool 安装、Lua 目录、当前 Steam accountId、WebDAV 初始化和最近 hook 日志。
+- 增加本地 WebDAV 兼容性测试脚本，方便开发时验证中文文件名、空目录、多级目录和冲突覆盖。
+- 增加 `patches/` 和 `CUSTOM_BUILD_NOTES.md`，后续上游更新时可以按步骤复用改动。
 
->****DO NOT USE THIS SOFTWARE IF YOU ARE AN IDIOT. Do not use this if you do not actively want cloud saves for "lua" games. If all you care about is the Steam Cloud error, disable Steam Cloud in properties for that game.****
+## 安装方式
 
-> ****Again, this tool is very experimental and could be dangerous. Know what you are using before you use it.****
+1. 安装 OpenSteamTool，把 `dwmapi.dll`、`xinput1_4.dll`、`OpenSteamTool.dll` 放到 Steam 根目录，例如 `C:\Program Files (x86)\Steam`。
+2. 运行本项目 Release 里的 `CloudRedirect.exe`。
+3. 在“安装设置”里点击“安装 OpenSteamTool 集成”。
+4. 在“云服务提供商”里选择 Google Drive、OneDrive、WebDAV、文件夹/网络驱动器或仅本地。
+5. 如果选择 WebDAV，请填写 HTTPS WebDAV URL、用户名和密码/应用密码，然后点击“测试连接”。
+6. 重启 Steam 后，在“诊断”页查看 DLL 是否已通过 OpenSteamTool Lua 加载、vtable hook 是否激活、accountId 是否正确。
 
-## What it does
+OpenSteamTool 读取的 Lua 目录默认是：
 
-Valve patched the (sinful) thing SteamTools did to sync saves. Specifically, SteamTools rewrote requests to AppID 760, which is Steam Screenshots. It sent all Steam Cloud requests for non-owned AppIDs there. It did not create prefixes for each individual game, which means that each lua app shared the saves with all others. This can cause saves to conflict if multiple games use the same save file name. This also means that your saves are replicated in the `Steam/Userdata/<steamid>/<appid for lua game>` folder for each lua app.
-
-It also did not support Steam AutoCloud games at all. It would simply show a fake success message for those games.
-
-What _this_ tool does is redirect Steam Cloud requests for games that are injected to Google Drive/OneDrive/a local folder, including AutoCloud games. Everything is native inside the Steam Client, but the actual data is read/written to and from your cloud account. This was much harder to do than just redirecting read/write to an AppID that your account owns, but it was fun to make. It also is less likely to piss off Valve.
-
-This isn't uploading your save files manually or something silly like that. It's the real deal. Steam Cloud, but going to a cloud provider and not Valve.
-
-The tool also has a function to reset the progress of games (useful for auto cloud games that you want to start over in) and a tool to scan SteamTools games for the pollution described above. ****DO NOT USE THOSE FUNCTIONS IF YOU DO NOT KNOW WHAT YOU ARE DOING. YOU WILL END UP DELETING YOUR SAVE. WHILE THE TOOL DOES TAKE A BACKUP AND CAN EASILY RESTORE IT, YOU STILL SHOULD NOT USE THAT TOOL UNLESS YOU KNOW WHAT YOU ARE DOING.****
-
-Please treat the cloud 'folder' on your cloud provider the same way you would treat Steam Cloud itself. If you delete that folder from Google Drive/OneDrive without disabling the provider in CloudRedirect, expect bad things to happen.
-
-CloudRedirect is good software. It's clever.
-
-## How it works
-
-CloudRedirect consists of a C++ DLL and a WPF companion app:
-
-1. The companion app patches the SteamTools payload to load the CloudRedirect DLL at startup.
-2. The DLL hooks Steam's internal cloud save RPC handlers via ~~vtable interception~~ black magic.
-3. When a lua game attempts to read or write cloud save data, the DLL intercepts the calls and redirects them to a local cache directory. If the game is owned, the game uses normal Steam Cloud as expected. If a lua is present that only unlocks DLC, the game will use normal Steam Cloud.
-4. More dark magic occurs and the saves are synced to or from your chosen cloud provider. This all is visible in the Steam UI and looks identical to normal Steam Cloud functionality.
-   
-## Supported cloud providers
-
-- **Google Drive**
-- **OneDrive**
-- **WebDAV** -- custom build addition.
-- **Local folder / mapped drive** -- by request of literally one user.
-
-## Usage
-
-Make sure you are on Steam version 1777411435 or 1773426488. Those are the only supported versions of Steam.
-
-Grab the latest release from the [Releases page](https://github.com/Selectively11/CloudRedirect/releases).
-
-Note that you do not need to run STFixer with this. The 'Capcom save fix' is always present with this tool. 
-
-Run the EXE. In Setup, hit 'Run All Patches'. Go to the Cloud Provider tab, select your provider. If it is a cloud provider, hit 'Sign In' and sign in. 
-
-That's it. Go launch Steam. Your games should start syncing now. You may have errors if your userdata folder was filled with garbage by SteamTools and the game is a Steam AutoCloud save. In that case, you need to identify which files belong in that folder and which files belong to another game and clean it up. 
-
-## Building from source
-
-### Prerequisites
-
-- Visual Studio 2022 (or Build Tools) with the C++ and .NET 8 workloads
-- CMake 3.20+
-
-### Build
-
-```bash
-cmake -B build -G "Visual Studio 17 2022" -A x64
-cmake --build build --config Release
+```text
+C:\Program Files (x86)\Steam\config\lua
 ```
 
-This builds both the C++ DLL (`build/Release/cloud_redirect.dll`) and publishes the WPF app (`ui/bin/publish/CloudRedirect.exe`). The DLL is automatically embedded into the executable.
+不要把 lua 放到旧的 SteamTools 目录：
 
-Or don't build it? Building Windows apps is pain.
+```text
+C:\Program Files (x86)\Steam\config\stplug-in
+```
+
+## 多账号提醒
+
+CloudRedirect 的本地缓存和云端路径会按 Steam `accountId` 分目录。切换 Steam 账号前，请在“设置”或“诊断”页确认当前显示的 accountId 是目标账号，避免把云存档写到另一个账号目录。
+
+## WebDAV 配置说明
+
+WebDAV URL 必须是 HTTPS，不能包含 query string 或 fragment。常见示例：
+
+```text
+https://example.com/remote.php/dav/files/user/CloudRedirect
+```
+
+当前实现支持 Basic Auth，并带有 Digest Auth 兼容逻辑。很多服务需要使用“应用密码”，不要直接使用网页登录密码。
+
+## 构建
+
+需要：
+
+- Visual Studio 2022 或 Build Tools，包含 C++ 工具链
+- .NET 8 Windows Desktop Runtime/SDK
+- CMake 3.20+
+
+构建 native DLL 和 CLI：
+
+```powershell
+cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+cmake --build build --config Release --target cloud_redirect cloud_redirect_cli
+```
+
+发布单文件 EXE：
+
+```powershell
+dotnet publish ui/CloudRedirect.csproj -c Release -r win-x64 --self-contained false -o ui/bin/publish
+```
+
+输出：
+
+```text
+ui/bin/publish/CloudRedirect.exe
+build/Release/cloud_redirect.dll
+build/Release/cloud_redirect_cli.exe
+```
+
+## 本地 WebDAV 兼容性测试
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tests\run_local_webdav_compat.ps1
+```
+
+这个脚本会启动一个本地 WebDAV 测试服务，验证创建目录、上传、下载、中文文件名、空目录、多级目录、覆盖冲突和删除。测试结束后会打印临时目录路径，按项目规则不会自动批量删除目录。
+
+## 上游来源
+
+本项目是自定义构建，核心实现来自：
+
+[Selectively11/CloudRedirect](https://github.com/Selectively11/CloudRedirect)
+
+如果上游发布新版本，请先保留上游 hook/RVA/signature 更新，再按 `CUSTOM_BUILD_NOTES.md` 和 `patches/` 重新套用本项目的汉化、OpenSteamTool 和 WebDAV 改动。

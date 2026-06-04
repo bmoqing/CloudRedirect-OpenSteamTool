@@ -1,149 +1,208 @@
-# CloudRedirect Custom Build Notes
+# Custom Build Notes
 
-This workspace contains a custom build based on upstream
-`Selectively11/CloudRedirect` `v2.1.2`.
+This repository is a custom build based on
+[Selectively11/CloudRedirect](https://github.com/Selectively11/CloudRedirect) `v2.1.2`.
 
-Custom changes:
+Target repository:
 
-- Adds Simplified Chinese localization and a Chinese language option.
-- Adds a WebDAV cloud provider alongside Google Drive, OneDrive, folder, and local modes.
-- Shows the deployed DLL source in Settings: official, custom WebDAV, hash mismatch, or missing.
-- Disables the official GitHub DLL auto-update path for the custom WebDAV build.
-- Adds a WebDAV "Test Connection" button that runs a real `PROPFIND`.
-- Adds WebDAV Digest authentication fallback in addition to Basic Auth.
-- Adds a manual WebDAV compatibility smoke test script.
-- Publishes the WPF app as a single-file Windows executable with the custom native DLL embedded.
+- `bmoqing/CloudRedirect-OpenSteamTool`
 
-Upstream `v2.1.2` keeps Steam client version `1780352834` support and fixes Manifest Pinning for
-that Steam build. The upstream `BuildDepotDependency` RVA is preserved at `0x4AC910`.
+## Custom Scope
+
+- Simplified Chinese localization and a Chinese language option.
+- OpenSteamTool loading path:
+  - exports `CloudRedirectLua` from `cloud_redirect.dll`
+  - installs `Steam\config\lua\cloud_redirect_loader.lua`
+  - reads OpenSteamTool Lua paths from `opensteamtool.toml`
+  - does not depend on `Steam\config\stplug-in`
+- Direct OpenSteamTool hook initialization:
+  - installs manifest pinning hook
+  - installs Cloud RPC vtable hook without relying on SteamTools `CCMInterface`
+  - bootstraps SteamID64/accountId from `config\loginusers.vdf` when packet capture has not happened yet
+- WebDAV provider support:
+  - HTTPS URL validation
+  - Basic Auth and Digest Auth fallback
+  - path-prefix and URL encoding support
+  - UI test connection that exercises PROPFIND, MKCOL, PUT, GET, overwrite, list, and DELETE
+- Runtime diagnostics page:
+  - Steam path/version
+  - DLL source
+  - OpenSteamTool files and loader state
+  - Lua directories and namespace lua count
+  - current accountId
+  - recent `cloud_redirect.log` hook state
+- Custom DLL source labeling:
+  - official DLL
+  - custom WebDAV DLL
+  - hash mismatch
+  - not installed
+- Official DLL auto-update protection:
+  - settings toggle is disabled for the custom DLL
+  - native DLL compiled with `CR_CUSTOM_WEB_DAV_BUILD=1` skips official GitHub DLL updates
+- Local WebDAV compatibility tests:
+  - `tests/webdav_compat_smoke.ps1`
+  - `tests/local_webdav_server.py`
+  - `tests/run_local_webdav_compat.ps1`
+- App update source is switched to `bmoqing/CloudRedirect-OpenSteamTool`.
+- GitHub Actions release workflow builds and uploads:
+  - `CloudRedirect.exe`
+  - `cloud_redirect.dll`
+  - `cloud_redirect_cli.exe`
+  - SHA256 files
 
 ## Patch Files
 
 Reusable patch:
 
-- `patches/0001-add-zh-cn-localization-and-webdav.patch`
+- `patches/0001-opensteamtool-zh-cn-webdav-diagnostics.patch`
 
-The patch was generated against upstream `v2.1.2` and should be checked with `git apply --check`
-before applying to any future upstream release.
-
-## Build Outputs
-
-- Single-file EXE: `ui/bin/publish/CloudRedirect.exe`
-- Native DLL: `build/Release/cloud_redirect.dll`
-- Native CLI: `build/Release/cloud_redirect_cli.exe`
-
-Current output hashes:
-
-- `CloudRedirect.exe`: `B8E598A11A866C3F9FE89492B69C69DB985789C3DC0EA2C86E802F6D5108ED7A`
-- `cloud_redirect.dll`: `352869A8509A022C9337D11FB5F701F59A90011C2D1E4D265C16885376B05C05`
-- `cloud_redirect_cli.exe`: `C6D2D725E3745AC92229ED102A46B6B973BDC154FD0880545C92BB021330F463`
-
-## Apply To A Fresh Upstream Release
-
-From a fresh upstream source tree:
+Check before applying:
 
 ```powershell
-git apply --check D:\Downloads\Compressed\CloudRedirect-2.1.2\patches\0001-add-zh-cn-localization-and-webdav.patch
-git apply D:\Downloads\Compressed\CloudRedirect-2.1.2\patches\0001-add-zh-cn-localization-and-webdav.patch
+git apply --check patches\0001-opensteamtool-zh-cn-webdav-diagnostics.patch
 ```
 
-If applying to a newer upstream version, run `git apply --check` first. If conflicts occur, likely
-areas are:
+Apply:
+
+```powershell
+git apply patches\0001-opensteamtool-zh-cn-webdav-diagnostics.patch
+```
+
+For a newer upstream release, first check out the upstream tag, then run `git apply --check`.
+Conflicts are most likely in:
 
 - `CMakeLists.txt`
-- `src/common/cli.cpp`
-- `src/common/cloud_storage.cpp`
 - `src/platform/win/cloud_intercept.cpp`
-- `ui/Pages/CloudProviderPage.xaml`
-- `ui/Pages/CloudProviderPage.xaml.cs`
-- `ui/Pages/SettingsPage.xaml`
-- `ui/Pages/SettingsPage.xaml.cs`
+- `src/platform/win/dllmain.cpp`
+- `src/providers/webdav_provider.*`
+- `ui/Pages/SetupPage.xaml.cs`
+- `ui/Pages/CloudProviderPage.xaml*`
+- `ui/Pages/SettingsPage.xaml*`
 - `ui/Resources/Strings*.resx`
+- `ui/Services/AppUpdater.cs`
 
-When upstream changes Steam hook support again, keep the upstream core hook/RVA/signature updates
-and only reapply the WebDAV/localization layer.
+When upstream changes Steam hook support, keep the upstream RVA/signature/vtable fixes first,
+then reapply the localization, WebDAV, OpenSteamTool loader, diagnostics, and GitHub packaging layer.
 
-## WebDAV Configuration
+## Build
 
-The WebDAV provider reads these fields from `%AppData%/CloudRedirect/config.json`:
-
-```json
-{
-  "provider": "webdav",
-  "webdav_url": "https://example.com/remote.php/dav/files/user/CloudRedirect",
-  "webdav_username": "user",
-  "webdav_password": "app-password-or-password",
-  "webdav_auth_mode": "auto"
-}
-```
-
-Notes:
-
-- `webdav_url` must be HTTPS.
-- Query strings and fragments are rejected.
-- The current implementation supports Basic Auth and Digest Auth fallback.
-- The current implementation stores the WebDAV password in plain text in `config.json`.
-
-## Build Native DLL And CLI
+Native DLL and CLI:
 
 ```powershell
-cmd /c 'call "C:\Program Files (x86)\Microsoft Visual Studio\18\BuildTools\VC\Auxiliary\Build\vcvars64.bat" && "D:\Downloads\Compressed\CloudRedirect-2.1.0-preview\.tools\cmake-3.31.8-windows-x86_64\bin\cmake.exe" -S . -B build-nmake -G "NMake Makefiles" -DCMAKE_BUILD_TYPE=Release'
-cmd /c 'call "C:\Program Files (x86)\Microsoft Visual Studio\18\BuildTools\VC\Auxiliary\Build\vcvars64.bat" && "D:\Downloads\Compressed\CloudRedirect-2.1.0-preview\.tools\cmake-3.31.8-windows-x86_64\bin\cmake.exe" --build build-nmake --config Release --target cloud_redirect cloud_redirect_cli'
+cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+cmake --build build --config Release --target cloud_redirect cloud_redirect_cli
 ```
 
-Copy native outputs to the path expected by `ui/CloudRedirect.csproj`:
+Single-file EXE:
 
 ```powershell
-New-Item -ItemType Directory -Force build\Release | Out-Null
-Copy-Item build-nmake\cloud_redirect.dll build\Release\cloud_redirect.dll -Force
-Copy-Item build-nmake\cloud_redirect_cli.exe build\Release\cloud_redirect_cli.exe -Force
+dotnet publish ui\CloudRedirect.csproj -c Release -r win-x64 --self-contained false -o ui\bin\publish
 ```
 
-After rebuilding the DLL, update `ui/Services/DllIdentity.cs` with the new custom DLL SHA256.
-
-## Publish Single-File EXE
+If using the bundled local tools in this workspace:
 
 ```powershell
-$env:DOTNET_CLI_HOME='D:\Downloads\Compressed\CloudRedirect-2.1.0-preview\.tools'
-$env:DOTNET_SKIP_FIRST_TIME_EXPERIENCE='1'
-$env:DOTNET_CLI_TELEMETRY_OPTOUT='1'
-$env:NUGET_PACKAGES='D:\Downloads\Compressed\CloudRedirect-2.1.0-preview\.tools\nuget-packages'
-$env:APPDATA='D:\Downloads\Compressed\CloudRedirect-2.1.0-preview\.tools\AppData\Roaming'
-$env:LOCALAPPDATA='D:\Downloads\Compressed\CloudRedirect-2.1.0-preview\.tools\AppData\Local'
-$env:USERPROFILE='D:\Downloads\Compressed\CloudRedirect-2.1.0-preview\.tools\UserProfile'
-D:\Downloads\Compressed\CloudRedirect-2.1.0-preview\.tools\dotnet\dotnet.exe restore ui\CloudRedirect.csproj --configfile D:\Downloads\Compressed\CloudRedirect-2.1.0-preview\NuGet.Config
-D:\Downloads\Compressed\CloudRedirect-2.1.0-preview\.tools\dotnet\dotnet.exe publish ui\CloudRedirect.csproj -c Release -r win-x64 --self-contained false -o ui\bin\publish --configfile D:\Downloads\Compressed\CloudRedirect-2.1.0-preview\NuGet.Config --no-restore
+$cmake = Join-Path (Get-Location) '.tools\cmake-3.31.8-windows-x86_64\bin\cmake.exe'
+$dotnetRoot = Join-Path (Get-Location) '.tools\dotnet'
+$vcvars = 'C:\Program Files (x86)\Microsoft Visual Studio\18\BuildTools\VC\Auxiliary\Build\vcvars64.bat'
+cmd /d /s /c "set DOTNET_ROOT=$dotnetRoot&& set PATH=$dotnetRoot;%PATH%&& call `"$vcvars`" >nul && `"$cmake`" --build build-nmake --config Release"
 ```
 
-This framework-dependent single-file build requires the `.NET 8 Windows Desktop Runtime` on the
-target machine.
-
-## Validation Checklist
+If `ui\bin\publish\CloudRedirect.exe` is locked by a running app instance, publish to a different
+directory for verification:
 
 ```powershell
-git apply --check D:\Downloads\Compressed\CloudRedirect-2.1.2\patches\0001-add-zh-cn-localization-and-webdav.patch
+dotnet publish ui\CloudRedirect.csproj -c Release -r win-x64 --self-contained false -o ui\bin\publish-final
+```
+
+## Hash Maintenance
+
+After rebuilding `cloud_redirect.dll`, update the custom DLL SHA256 in:
+
+```text
+ui/Services/DllIdentity.cs
+```
+
+Then rebuild the UI so the embedded DLL and displayed source identity match.
+
+Verify outputs:
+
+```powershell
 Get-FileHash ui\bin\publish\CloudRedirect.exe -Algorithm SHA256
-Get-FileHash build\Release\cloud_redirect.dll -Algorithm SHA256
-Get-FileHash build\Release\cloud_redirect_cli.exe -Algorithm SHA256
+Get-FileHash build-nmake\cloud_redirect.dll -Algorithm SHA256
+Get-FileHash build-nmake\cloud_redirect_cli.exe -Algorithm SHA256
 ```
 
-Manual WebDAV compatibility smoke test:
+Current verified output hashes from this workspace:
+
+```text
+CloudRedirect.exe:      F171C3DCC5574719B86E8D083EDDEDCA237BC135562F282020E4914848D616E0
+cloud_redirect.dll:     EDC170BAEA0D549700230F8845D334C949F05B4764828D4C3B10F919D3B5A378
+cloud_redirect_cli.exe: 88BDF46E90B6742FB34C22FFB16A8D9DD4EF697C4897DF515D895FF7590173F1
+```
+
+Verify exports:
 
 ```powershell
-.\tests\webdav_compat_smoke.ps1 `
+dumpbin /exports ui\Resources\cloud_redirect.dll | findstr /C:CloudRedirectLua /C:CloudOnSendPkt
+```
+
+## Runtime Validation
+
+After deploying the DLL and restarting Steam, inspect `cloud_redirect.log`.
+
+Expected markers:
+
+```text
+CloudRedirect loaded via OpenSteamTool Lua
+[Build] Custom OpenSteamTool/WebDAV build active; official DLL auto-update is disabled
+[Account] Captured SteamID64=... via loginusers.vdf (accountId=...)
+[OpenSteamTool] Installing direct Cloud RPC vtable hook...
+[VtHook] All hooks ACTIVE -- Cloud RPCs...
+[OpenSteamTool] Direct hook install finished: ... vtable=1
+```
+
+Bad markers to investigate:
+
+```text
+Version Mismatch
+Prologue mismatch
+RVA mismatch
+vtable mismatch
+no Steam account ID
+```
+
+## WebDAV Test
+
+External WebDAV endpoint:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tests\webdav_compat_smoke.ps1 `
   -BaseUrl "https://example.com/remote.php/dav/files/user/CloudRedirect" `
   -Username "user" `
-  -Password "app-password-or-password"
+  -Password "app-password"
 ```
 
-After deploying the custom DLL and starting Steam, inspect `cloud_redirect.log` and confirm there
-are no `Version Mismatch`, `Prologue mismatch`, `RVA mismatch`, or `vtable` mismatch messages.
+Local loopback test:
 
-## Runtime Notes
+```powershell
+powershell -ExecutionPolicy Bypass -File tests\run_local_webdav_compat.ps1
+```
 
-To keep WebDAV support, the UI disables the official DLL auto-update toggle when it detects this
-custom WebDAV build. The DLL itself also skips the official GitHub DLL updater when compiled with
-`CR_CUSTOM_WEB_DAV_BUILD`.
+The local test intentionally leaves its temporary WebDAV root printed in the terminal for manual
+cleanup instead of bulk deleting a directory.
 
-If Steam still has the upstream official DLL or an older custom DLL, the UI may show a DLL source
-mismatch. Deploy or update the DLL from the app so Steam loads this custom WebDAV-enabled DLL.
+## GitHub Release
+
+The workflow in `.github/workflows/release.yml` creates a release when a tag like `v2.1.2-ost.1`
+is pushed.
+
+Manual release trigger is also available from the GitHub Actions page.
+
+Recommended release note wording:
+
+```text
+Based on Selectively11/CloudRedirect v2.1.2.
+Custom build: OpenSteamTool integration, Simplified Chinese localization, WebDAV provider,
+diagnostics page, DLL source labeling, and compatibility tests.
+```
