@@ -367,12 +367,11 @@ Please select the folder where Steam is installed.</value>
 Rebuild the UI after building the C++ DLL.</value>
   </data>
   <data name="Setup_ConfirmRunAll" xml:space="preserve">
-    <value>This will apply all patches and deploy the DLL:
+    <value>This will install the OpenSteamTool integration and deploy CloudRedirect:
 
-  1. SteamTools Offline Setup
-  2. Patch SteamTools.exe
-  3. Cloud Redirect Patch
-  4. Deploy cloud_redirect.dll
+  1. Check OpenSteamTool
+  2. Deploy cloud_redirect.dll
+  3. Install the OpenSteamTool Lua loader
 
 If Steam is running, it will be closed automatically.
 Backups will be created.
@@ -397,8 +396,7 @@ If Steam is running, it will be closed automatically.
 Continue?</value>
   </data>
   <data name="Setup_ConfirmPatchStExe" xml:space="preserve">
-    <value>This patches SteamTools.exe to stop it from overwriting
-patched DLLs on every startup.
+    <value>This will install or refresh the OpenSteamTool Lua loader so it can load cloud_redirect.dll from Steam's config\lua directory.
 
 If Steam is running, it will be closed automatically.
 A backup will be created.
@@ -479,10 +477,10 @@ If you skip this, saves will be stored locally in your Steam folder.</value>
     <value>Revert Offline Setup</value>
   </data>
   <data name="Setup_PatchSteamToolsExeTitle" xml:space="preserve">
-    <value>Patch SteamTools.exe</value>
+    <value>Install OpenSteamTool Loader</value>
   </data>
   <data name="Setup_RevertStExeTitle" xml:space="preserve">
-    <value>Revert SteamTools.exe Patch</value>
+    <value>Remove OpenSteamTool Loader</value>
   </data>
   <data name="Setup_ApplyPatchTitle" xml:space="preserve">
     <value>Apply Patch</value>
@@ -500,6 +498,36 @@ If you skip this, saves will be stored locally in your Steam folder.</value>
   <!-- ═══════════════════════════════════════════════════════════════════ -->
   <!-- DashboardPage XAML                                                 -->
   <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <data name="OpenSteamTool_UpdateTitle" xml:space="preserve"><value>OpenSteamTool Version</value></data>
+  <data name="OpenSteamTool_Checking" xml:space="preserve"><value>Checking OpenSteamTool...</value></data>
+  <data name="OpenSteamTool_CheckAndInstall" xml:space="preserve"><value>Check and Install</value></data>
+  <data name="OpenSteamTool_InstallButton" xml:space="preserve"><value>Install OpenSteamTool</value></data>
+  <data name="OpenSteamTool_UpdateButton" xml:space="preserve"><value>Update OpenSteamTool</value></data>
+  <data name="OpenSteamTool_UpToDateButton" xml:space="preserve"><value>Already Latest</value></data>
+  <data name="OpenSteamTool_RetryCheck" xml:space="preserve"><value>Retry Check</value></data>
+  <data name="OpenSteamTool_NotInstalled" xml:space="preserve"><value>Not installed</value></data>
+  <data name="OpenSteamTool_InstalledUnknownVersion" xml:space="preserve"><value>Installed, version unknown</value></data>
+  <data name="OpenSteamTool_CurrentFormat" xml:space="preserve"><value>Current: {0}</value></data>
+  <data name="OpenSteamTool_UpdateAvailableFormat" xml:space="preserve"><value>Current: {0}; latest: {1}</value></data>
+  <data name="OpenSteamTool_UpToDateFormat" xml:space="preserve"><value>Current: {0}; latest: {1}</value></data>
+  <data name="OpenSteamTool_CheckFailedFormat" xml:space="preserve"><value>Current: {0}; update check failed: {1}</value></data>
+  <data name="OpenSteamTool_CheckFailedFriendly" xml:space="preserve"><value>GitHub API is rate limited and the release-page fallback also failed: {0}</value></data>
+  <data name="OpenSteamTool_LatestTagNotFound" xml:space="preserve"><value>Could not determine the latest OpenSteamTool release tag.</value></data>
+  <data name="OpenSteamTool_NoReleaseAsset" xml:space="preserve"><value>No OpenSteamTool Release zip was found in the latest GitHub release.</value></data>
+  <data name="OpenSteamTool_Downloading" xml:space="preserve"><value>Downloading OpenSteamTool...</value></data>
+  <data name="OpenSteamTool_Installing" xml:space="preserve"><value>Installing OpenSteamTool files...</value></data>
+  <data name="OpenSteamTool_MissingFileInZip" xml:space="preserve"><value>The OpenSteamTool zip does not contain {0}.</value></data>
+  <data name="OpenSteamTool_InstallConfirmTitle" xml:space="preserve"><value>Install OpenSteamTool?</value></data>
+  <data name="OpenSteamTool_InstallConfirmMessage" xml:space="preserve"><value>This will download the latest OpenSteamTool release and copy dwmapi.dll, xinput1_4.dll, and OpenSteamTool.dll to your Steam root.
+
+Current: {0}
+Latest: {1}
+
+If Steam is running, it will be closed automatically.</value></data>
+  <data name="OpenSteamTool_InstallDoneTitle" xml:space="preserve"><value>OpenSteamTool Installed</value></data>
+  <data name="OpenSteamTool_InstallDoneFormat" xml:space="preserve"><value>OpenSteamTool has been installed or updated to {0}.</value></data>
+  <data name="OpenSteamTool_InstallFailedFormat" xml:space="preserve"><value>OpenSteamTool install failed: {0}</value></data>
+
   <data name="Dashboard_Title" xml:space="preserve">
     <value>Dashboard</value>
   </data>
@@ -1372,6 +1400,27 @@ Files can be restored from the Restore tab. Continue?</value>
   <data name="Settings_Title" xml:space="preserve">
     <value>Settings</value>
   </data>
+  <data name="Settings_Appearance" xml:space="preserve">
+    <value>Appearance</value>
+  </data>
+  <data name="Settings_Theme" xml:space="preserve">
+    <value>Theme</value>
+  </data>
+  <data name="Settings_ThemeHint" xml:space="preserve">
+    <value>Switch between light and dark mode.</value>
+  </data>
+  <data name="Settings_LightThemeActive" xml:space="preserve">
+    <value>Light mode is active.</value>
+  </data>
+  <data name="Settings_DarkThemeActive" xml:space="preserve">
+    <value>Dark mode is active.</value>
+  </data>
+  <data name="Settings_SwitchToLightTheme" xml:space="preserve">
+    <value>Light Mode</value>
+  </data>
+  <data name="Settings_SwitchToDarkTheme" xml:space="preserve">
+    <value>Dark Mode</value>
+  </data>
   <data name="Settings_Updates" xml:space="preserve">
     <value>Updates</value>
   </data>
@@ -1532,6 +1581,12 @@ Are you sure?</value>
   </data>
   <data name="Dialog_No" xml:space="preserve">
     <value>No</value>
+  </data>
+  <data name="Dialog_Continue" xml:space="preserve">
+    <value>Continue</value>
+  </data>
+  <data name="Dialog_Cancel" xml:space="preserve">
+    <value>Cancel</value>
   </data>
   <data name="Dialog_YesCountdownFormat" xml:space="preserve">
     <value>Yes ({0})</value>
@@ -2108,5 +2163,31 @@ Are you sure?</value>
   <data name="DataRestore_InvalidLuaSize" xml:space="preserve"><value>Invalid Lua file size.</value></data>
   <data name="DataRestore_InvalidLuaContent" xml:space="preserve"><value>Lua file appears to contain binary data.</value></data>
   <data name="DataRestore_LuaArchiveTooLarge" xml:space="preserve"><value>Lua archive is too large.</value></data>
+
+  <data name="ForceUpload_Title" xml:space="preserve"><value>Force full local save upload</value></data>
+  <data name="ForceUpload_Hint" xml:space="preserve"><value>Scans Steam userdata for one app, then uploads every local save file and rebuilds CloudRedirect cloud state.</value></data>
+  <data name="ForceUpload_AppIdTooltip" xml:space="preserve"><value>Steam App ID, for example 1196590.</value></data>
+  <data name="ForceUpload_Button" xml:space="preserve"><value>Force Full Upload</value></data>
+  <data name="ForceUpload_Running" xml:space="preserve"><value>Uploading local saves...</value></data>
+  <data name="ForceUpload_InvalidAppIdTitle" xml:space="preserve"><value>Invalid App ID</value></data>
+  <data name="ForceUpload_InvalidAppIdMessage" xml:space="preserve"><value>Enter a numeric Steam App ID.</value></data>
+  <data name="ForceUpload_SteamRunningMessage" xml:space="preserve"><value>Exit Steam completely first. This reads local save files and publishes them as the cloud version.</value></data>
+  <data name="ForceUpload_ConfirmTitle" xml:space="preserve"><value>Force upload local saves?</value></data>
+  <data name="ForceUpload_ConfirmMessage" xml:space="preserve"><value>This will upload all local files from app {0} for accountId {1} and make them the CloudRedirect cloud version.</value></data>
+  <data name="ForceUpload_DoneTitle" xml:space="preserve"><value>Full upload complete</value></data>
+  <data name="ForceUpload_DoneMessage" xml:space="preserve"><value>Uploaded {0} file(s). New change number: {1}.</value></data>
+  <data name="ForceUpload_NotCleanTitle" xml:space="preserve"><value>Upload needs attention</value></data>
+  <data name="ForceUpload_NotClean" xml:space="preserve"><value>Force upload did not complete cleanly.</value></data>
+  <data name="ForceUpload_FailedFormat" xml:space="preserve"><value>Force upload failed: {0}</value></data>
+  <data name="ForceUpload_ConfigMissing" xml:space="preserve"><value>Cloud provider is not configured.</value></data>
+  <data name="ForceUpload_LocalOnly" xml:space="preserve"><value>Current provider is local-only, so there is no remote cloud target.</value></data>
+  <data name="ForceUpload_CliMissing" xml:space="preserve"><value>Embedded CloudRedirect CLI is missing.</value></data>
+  <data name="ForceUpload_CliFailedFormat" xml:space="preserve"><value>CLI exited with code {0}: {1}</value></data>
+  <data name="ForceUpload_ResultSummaryFormat" xml:space="preserve"><value>App {0}: uploaded {1} of {2} scanned file(s), skipped {3}, failed {4}</value></data>
+  <data name="ForceUpload_ResultBytesFormat" xml:space="preserve"><value>Total bytes: {0}</value></data>
+  <data name="ForceUpload_ResultCnFormat" xml:space="preserve"><value>Change number: {0} -> {1}</value></data>
+  <data name="ForceUpload_ResultSourceFormat" xml:space="preserve"><value>Source: {0}</value></data>
+  <data name="ForceUpload_ResultFlagsFormat" xml:space="preserve"><value>State published: {0}; queue drained: {1}; tokens published: {2}</value></data>
+  <data name="ForceUpload_ResultErrorFormat" xml:space="preserve"><value>Error: {0}</value></data>
 
 </root>

@@ -18,6 +18,7 @@ public partial class SetupPage : Page
     private readonly StringBuilder _logBuffer = new();
     private readonly object _logLock = new();
     private bool _isRunning;
+    private OpenSteamToolUpdateInfo? _openSteamToolUpdateInfo;
 
     // Bumped on every refresh; stale results are discarded.
     private int _refreshGeneration;
@@ -120,6 +121,7 @@ public partial class SetupPage : Page
             OfflineSetupButton.IsEnabled = !busy;
             OfflineRevertButton.IsEnabled = !busy;
             RunAllButton.IsEnabled = !busy;
+            OpenSteamToolUpdateButton.IsEnabled = !busy;
             StExePatchButton.IsEnabled = !busy;
             StExeUnpatchButton.IsEnabled = !busy;
             PatchButton.IsEnabled = !busy;
@@ -311,6 +313,8 @@ public partial class SetupPage : Page
             StExeStatusText.Text = S.Get("Setup_SteamNotFound");
             PatchStatusText.Text = S.Get("Setup_SteamNotFound");
             DeployStatusText.Text = S.Get("Setup_SteamNotFound");
+            OpenSteamToolVersionText.Text = S.Get("Setup_SteamNotFound");
+            OpenSteamToolUpdateButton.IsEnabled = false;
             VersionStatusText.Text = S.Get("Setup_VersionCouldNotDetermine");
             VersionIcon.Symbol = Wpf.Ui.Controls.SymbolRegular.Warning24;
             return;
@@ -340,6 +344,7 @@ public partial class SetupPage : Page
         try
         {
             ApplyStatusSnapshot(snap);
+            await RefreshOpenSteamToolUpdateAsync(capturedPath);
         }
         catch (Exception ex)
         {
@@ -416,6 +421,42 @@ public partial class SetupPage : Page
             DeployStatusText.Text = S.Get("Setup_DllNotInstalledNoEmbed");
             DeployButton.Content = S.Get("Setup_Deploy");
             UninstallDllButton.Visibility = Visibility.Collapsed;
+        }
+    }
+
+    private async Task RefreshOpenSteamToolUpdateAsync(string steamPath)
+    {
+        OpenSteamToolUpdateButton.IsEnabled = !_isRunning;
+        OpenSteamToolVersionText.Text = S.Format("OpenSteamTool_CurrentFormat",
+            OpenSteamToolUpdater.DetectInstalledVersion(steamPath));
+        OpenSteamToolUpdateButton.Content = S.Get("OpenSteamTool_CheckAndInstall");
+
+        var info = await OpenSteamToolUpdater.CheckLatestAsync(steamPath);
+        _openSteamToolUpdateInfo = info;
+
+        if (info.Error != null)
+        {
+            OpenSteamToolVersionText.Text = S.Format("OpenSteamTool_CheckFailedFormat",
+                info.CurrentVersion, info.Error);
+            OpenSteamToolUpdateButton.Content = info.IsInstalled
+                ? S.Get("OpenSteamTool_RetryCheck")
+                : S.Get("OpenSteamTool_CheckAndInstall");
+            return;
+        }
+
+        if (info.UpdateAvailable)
+        {
+            OpenSteamToolVersionText.Text = S.Format("OpenSteamTool_UpdateAvailableFormat",
+                info.CurrentVersion, info.LatestVersion);
+            OpenSteamToolUpdateButton.Content = info.IsInstalled
+                ? S.Get("OpenSteamTool_UpdateButton")
+                : S.Get("OpenSteamTool_InstallButton");
+        }
+        else
+        {
+            OpenSteamToolVersionText.Text = S.Format("OpenSteamTool_UpToDateFormat",
+                info.CurrentVersion, info.LatestVersion ?? info.CurrentVersion);
+            OpenSteamToolUpdateButton.Content = S.Get("OpenSteamTool_UpToDateButton");
         }
     }
 
@@ -594,7 +635,7 @@ public partial class SetupPage : Page
     {
         if (_isRunning || _steamPath == null) return;
 
-        var confirm = await Services.Dialog.ConfirmAsync(S.Get("Setup_RunAllPatches"),
+        var confirm = await Services.Dialog.ContinueCancelAsync(S.Get("Setup_RunAllPatches"),
             S.Get("Setup_ConfirmRunAll"));
 
         if (!confirm) return;
@@ -618,7 +659,7 @@ public partial class SetupPage : Page
         bool needsCoreDlls = await Task.Run(() => !new Patcher(_steamPath, Log).HasCoreDll());
         if (needsCoreDlls)
         {
-            Log("=== Pre-step: Download SteamTools Core DLLs ===");
+            Log("=== Legacy pre-step: Download SteamTools Core DLLs ===");
             try
             {
                 var patcher = new Patcher(_steamPath, Log);
@@ -661,7 +702,7 @@ public partial class SetupPage : Page
             Log("");
         }
 
-        Log("=== Step 1/4: SteamTools Offline Setup ===");
+        Log("=== Legacy Step 1/4: SteamTools Offline Setup ===");
         try
         {
             PatchResult? result = null;
@@ -691,7 +732,7 @@ public partial class SetupPage : Page
 
         Log("");
 
-        Log("=== Step 2/4: Patch SteamTools.exe ===");
+        Log("=== Legacy Step 2/4: Patch SteamTools.exe ===");
         try
         {
             int stResult = 0;
@@ -837,6 +878,74 @@ public partial class SetupPage : Page
             await PromptAutoUpdateAsync();
 
         SetBusy(false);
+    }
+
+    private async void OpenSteamToolUpdate_Click(object sender, RoutedEventArgs e)
+    {
+        if (_isRunning || _steamPath == null) return;
+
+        SetBusy(true);
+        ClearLog();
+        try
+        {
+            Log(S.Get("OpenSteamTool_Checking"));
+            var info = _openSteamToolUpdateInfo;
+            if (info == null || info.Error != null || string.IsNullOrWhiteSpace(info.DownloadUrl))
+            {
+                info = await OpenSteamToolUpdater.CheckLatestAsync(_steamPath);
+                _openSteamToolUpdateInfo = info;
+            }
+
+            if (info.Error != null)
+            {
+                Log(S.Format("OpenSteamTool_CheckFailedFormat", info.CurrentVersion, info.Error));
+                OpenSteamToolVersionText.Text = S.Format("OpenSteamTool_CheckFailedFormat",
+                    info.CurrentVersion, info.Error);
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(info.DownloadUrl))
+            {
+                Log(S.Get("OpenSteamTool_NoReleaseAsset"));
+                return;
+            }
+
+            var confirm = await Services.Dialog.ContinueCancelAsync(
+                S.Get("OpenSteamTool_InstallConfirmTitle"),
+                S.Format("OpenSteamTool_InstallConfirmMessage",
+                    info.CurrentVersion,
+                    info.LatestVersion ?? S.Get("OpenSteamTool_InstalledUnknownVersion")));
+            if (!confirm)
+                return;
+
+            await EnsureSteamClosed();
+
+            var result = await OpenSteamToolUpdater.DownloadAndInstallAsync(
+                _steamPath,
+                info.DownloadUrl,
+                info.LatestVersion ?? S.Get("OpenSteamTool_InstalledUnknownVersion"),
+                Log);
+
+            if (!result.Success)
+            {
+                Log(S.Format("OpenSteamTool_InstallFailedFormat", result.Error ?? "Unknown error"));
+                await Services.Dialog.ShowErrorAsync(S.Get("Common_Error"),
+                    S.Format("OpenSteamTool_InstallFailedFormat", result.Error ?? "Unknown error"));
+                return;
+            }
+
+            Log(S.Format("OpenSteamTool_InstallDoneFormat", result.Version));
+            foreach (var path in result.InstalledFiles)
+                Log($"  {path}");
+
+            await RefreshStatuses();
+            await Services.Dialog.ShowInfoAsync(S.Get("OpenSteamTool_InstallDoneTitle"),
+                S.Format("OpenSteamTool_InstallDoneFormat", result.Version));
+        }
+        finally
+        {
+            SetBusy(false);
+        }
     }
 
     private static bool HasBeenPromptedForAutoUpdate()
@@ -1093,7 +1202,7 @@ public partial class SetupPage : Page
     {
         if (_isRunning || _steamPath == null) return;
 
-        var confirm = await Services.Dialog.ConfirmAsync(S.Get("Setup_PatchSteamToolsExeTitle"),
+        var confirm = await Services.Dialog.ContinueCancelAsync(S.Get("Setup_PatchSteamToolsExeTitle"),
             S.Get("Setup_ConfirmPatchStExe"));
 
         if (!confirm) return;

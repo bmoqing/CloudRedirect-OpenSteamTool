@@ -90,7 +90,10 @@ public partial class DataRestorePage : Page
             SourceText.Text = S.Get("DataRestore_NoSource");
             SourceCountsText.Text = "";
             SourceIcon.Symbol = SymbolRegular.Warning24;
-            SetButtonsEnabled(false);
+            RestorePlaytimeButton.IsEnabled = false;
+            RestoreStatsButton.IsEnabled = false;
+            RestoreLuaButton.IsEnabled = false;
+            ForceUploadButton.IsEnabled = _currentUser != null;
             return;
         }
 
@@ -101,6 +104,7 @@ public partial class DataRestorePage : Page
         RestorePlaytimeButton.IsEnabled = _source.PlaytimeCount > 0;
         RestoreStatsButton.IsEnabled = _source.StatsCount > 0;
         RestoreLuaButton.IsEnabled = _source.LuaCount > 0;
+        ForceUploadButton.IsEnabled = _currentUser != null;
     }
 
     private async void RestorePlaytime_Click(object sender, RoutedEventArgs e)
@@ -132,6 +136,64 @@ public partial class DataRestorePage : Page
             S.Get("DataRestore_LuaConfirmMessage"),
             source => DataRestoreService.RestoreLua(_steamPath!, source),
             requireSteamClosed: false);
+    }
+
+    private async void ForceUpload_Click(object sender, RoutedEventArgs e)
+    {
+        if (_steamPath == null || _currentUser == null)
+            return;
+
+        var appId = ForceUploadAppIdBox.Text.Trim();
+        if (!uint.TryParse(appId, out var parsedAppId) || parsedAppId == 0)
+        {
+            await Dialog.ShowWarningAsync(S.Get("ForceUpload_InvalidAppIdTitle"),
+                S.Get("ForceUpload_InvalidAppIdMessage"));
+            return;
+        }
+
+        if (SteamDetector.IsSteamRunning())
+        {
+            await Dialog.ShowWarningAsync(S.Get("DataRestore_SteamRunningTitle"),
+                S.Get("ForceUpload_SteamRunningMessage"));
+            return;
+        }
+
+        var confirmed = await Dialog.ConfirmAsync(S.Get("ForceUpload_ConfirmTitle"),
+            S.Format("ForceUpload_ConfirmMessage", appId, _currentUser.AccountId));
+        if (!confirmed)
+            return;
+
+        SetButtonsEnabled(false);
+        ForceUploadButton.Content = S.Get("ForceUpload_Running");
+        ResultOutput.Text = S.Get("ForceUpload_Running");
+
+        try
+        {
+            var summary = await ForceUploadService.ForceUploadLocalAppAsync(
+                _steamPath, _currentUser.AccountId.ToString(), appId);
+            ResultOutput.Text = ForceUploadService.FormatSummary(summary);
+            if (summary.Success)
+            {
+                await Dialog.ShowInfoAsync(S.Get("ForceUpload_DoneTitle"),
+                    S.Format("ForceUpload_DoneMessage", summary.Uploaded, summary.NewChangeNumber));
+            }
+            else
+            {
+                await Dialog.ShowWarningAsync(S.Get("ForceUpload_NotCleanTitle"),
+                    summary.Error ?? S.Get("ForceUpload_NotClean"));
+            }
+        }
+        catch (Exception ex)
+        {
+            ResultOutput.Text = S.Format("ForceUpload_FailedFormat", ex.Message);
+            await Dialog.ShowErrorAsync(S.Get("Common_Error"),
+                S.Format("ForceUpload_FailedFormat", ex.Message));
+        }
+        finally
+        {
+            ForceUploadButton.Content = S.Get("ForceUpload_Button");
+            ApplySnapshot();
+        }
     }
 
     private async Task RunRestoreAsync(
@@ -204,5 +266,6 @@ public partial class DataRestorePage : Page
         RestorePlaytimeButton.IsEnabled = enabled;
         RestoreStatsButton.IsEnabled = enabled;
         RestoreLuaButton.IsEnabled = enabled;
+        ForceUploadButton.IsEnabled = enabled && _currentUser != null;
     }
 }

@@ -8,15 +8,24 @@
 #include "local_storage.h"
 #include "pending_ops_journal.h"
 #include "cloud_provider.h"
+#include "autocloud_util.h"
+#include "file_util.h"
 #include "json.h"
 #include "log.h"
 
+#include <algorithm>
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <ctime>
+#include <filesystem>
+#include <fstream>
 #include <map>
 #include <memory>
 #include <sstream>
+#include <unordered_map>
+#include <unordered_set>
 
 #ifdef _WIN32
 #include <Windows.h>
@@ -101,6 +110,39 @@ static std::string NormalizeCloudRoot(std::string cloudRoot) {
     if (cloudRoot.back() != '/') cloudRoot += '/';
 #endif
     return cloudRoot;
+}
+
+static std::string NormalizeSteamRoot(std::string steamRoot) {
+    if (steamRoot.empty()) return steamRoot;
+#ifdef _WIN32
+    if (steamRoot.back() != '\\' && steamRoot.back() != '/') steamRoot += '\\';
+#else
+    if (steamRoot.back() != '/') steamRoot += '/';
+#endif
+    return steamRoot;
+}
+
+static bool ReadWholeFile(const std::filesystem::path& path, std::vector<uint8_t>& out) {
+    std::ifstream f(path, std::ios::binary | std::ios::ate);
+    if (!f) return false;
+    std::streamoff size = f.tellg();
+    if (size < 0) return false;
+    f.seekg(0, std::ios::beg);
+    out.resize(static_cast<size_t>(size));
+    if (!out.empty()) f.read(reinterpret_cast<char*>(out.data()), size);
+    return f.good() || (out.empty() && f.eof());
+}
+
+static std::string PathToUtf8(const std::filesystem::path& path) {
+    return FileUtil::PathToUtf8(path);
+}
+
+static std::string ToCloudRelativePath(const std::filesystem::path& root,
+                                       const std::filesystem::path& path) {
+    std::error_code ec;
+    auto rel = std::filesystem::relative(path, root, ec);
+    if (ec) return {};
+    return AutoCloudUtil::NormalizeSlashes(PathToUtf8(rel));
 }
 
 // ── JSON helpers ────────────────────────────────────────────────────────
@@ -715,6 +757,198 @@ std::string CmdPublishFullManifest(const std::string& provider, const std::strin
     });
 }
 
+std::string CmdForceUploadLocalApp(const std::string& provider,
+                                   const std::string& accountId,
+                                   const std::string& appId,
+                                   const std::string& cloudRootArg,
+                                   const std::string& steamRootArg) {
+    std::string initPath = GetProviderInitPath(provider);
+    if (initPath.empty()) {
+        return JsonError("Cannot determine config directory");
+    }
+
+    uint32_t parsedAccountId = static_cast<uint32_t>(std::strtoul(accountId.c_str(), nullptr, 10));
+    uint32_t parsedAppId = static_cast<uint32_t>(std::strtoul(appId.c_str(), nullptr, 10));
+    if (parsedAccountId == 0 || parsedAppId == 0) {
+        return JsonError("Invalid account_id or app_id");
+    }
+
+    std::string cloudRoot = NormalizeCloudRoot(cloudRootArg);
+    if (cloudRoot.empty()) {
+        return JsonError("cloud_root is required");
+    }
+    std::string steamRoot = NormalizeSteamRoot(steamRootArg);
+    if (steamRoot.empty()) {
+        return JsonError("steam_root is required");
+    }
+
+    std::filesystem::path remoteRoot =
+        FileUtil::Utf8ToPath(steamRoot) / "userdata" / std::to_string(parsedAccountId) /
+        std::to_string(parsedAppId) / "remote";
+    std::error_code ec;
+    if (!std::filesystem::is_directory(remoteRoot, ec)) {
+        return JsonError("Steam userdata remote directory not found");
+    }
+
+    auto prov = CreateCloudProvider(provider);
+    if (!prov) {
+        return JsonError("Unknown provider: " + provider);
+    }
+
+    if (!prov->Init(initPath)) {
+        return JsonError("Failed to initialize provider");
+    }
+
+    if (!prov->IsAuthenticated()) {
+        prov->Shutdown();
+        return JsonError("Not authenticated");
+    }
+
+    std::string storageRoot = cloudRoot + "storage/";
+#ifdef _WIN32
+    for (auto& c : storageRoot) { if (c == '/') c = '\\'; }
+#endif
+
+    LocalStorage::Init(storageRoot);
+    LocalMetadataStore::Init(storageRoot);
+    LocalStorage::InitApp(parsedAccountId, parsedAppId);
+    LocalMetadataStore::InitApp(parsedAccountId, parsedAppId);
+    PendingOpsJournal::Init(storageRoot);
+    CloudStorage::Init(cloudRoot, std::move(prov));
+
+    int scanned = 0;
+    int uploaded = 0;
+    int skipped = 0;
+    int failed = 0;
+    int64_t totalBytes = 0;
+    std::ostringstream details;
+    const uint8_t emptyByte = 0;
+    CloudStorage::Manifest manifest;
+    std::unordered_map<std::string, std::string> fileTokens;
+    std::unordered_set<std::string> rootTokens;
+    rootTokens.insert("");
+
+    const auto started = std::chrono::steady_clock::now();
+    for (std::filesystem::recursive_directory_iterator it(remoteRoot, ec), end;
+         !ec && it != end; it.increment(ec)) {
+        if (ec) break;
+        if (!it->is_regular_file(ec)) continue;
+
+        if (++scanned > static_cast<int>(AutoCloudUtil::kMaxAutoCloudScanFiles)) {
+            skipped++;
+            details << "scan limit reached at " << AutoCloudUtil::kMaxAutoCloudScanFiles << " files\n";
+            break;
+        }
+
+        if (std::chrono::steady_clock::now() - started > std::chrono::seconds(30)) {
+            skipped++;
+            details << "scan timeout reached\n";
+            break;
+        }
+
+        auto filePath = it->path();
+        auto rel = ToCloudRelativePath(remoteRoot, filePath);
+        if (rel.empty() || !AutoCloudUtil::IsSafeRelativePath(rel)) {
+            skipped++;
+            details << "skipped unsafe path: " << PathToUtf8(filePath) << "\n";
+            continue;
+        }
+
+        auto size = it->file_size(ec);
+        if (ec || size > AutoCloudUtil::kMaxAutoCloudCandidateBytes) {
+            skipped++;
+            details << "skipped oversized/unreadable file: " << rel << "\n";
+            ec.clear();
+            continue;
+        }
+
+        std::vector<uint8_t> data;
+        if (!ReadWholeFile(filePath, data)) {
+            failed++;
+            details << "failed to read: " << rel << "\n";
+            continue;
+        }
+
+        const uint8_t* ptr = data.empty() ? &emptyByte : data.data();
+        if (!CloudStorage::StoreBlobForceUpload(parsedAccountId, parsedAppId,
+                rel, ptr, data.size())) {
+            failed++;
+            details << "failed to queue upload: " << rel << "\n";
+            continue;
+        }
+
+        CloudStorage::ManifestEntry me;
+        me.sha = LocalStorage::SHA1(ptr, data.size());
+        me.size = data.size();
+        me.timestamp = AutoCloudUtil::FileTimeToUnixSeconds(it->last_write_time(ec));
+        if (ec) {
+            me.timestamp = static_cast<uint64_t>(std::time(nullptr));
+            ec.clear();
+        }
+        manifest[rel] = me;
+        fileTokens[rel] = "";
+        totalBytes += static_cast<int64_t>(data.size());
+        uploaded++;
+        if (uploaded <= 80) details << "queued: " << rel << " (" << data.size() << " bytes)\n";
+    }
+
+    bool scanComplete = (ec.value() == 0) && skipped == 0;
+    if (ec) {
+        details << "scan aborted: " << ec.message() << "\n";
+        ec.clear();
+    }
+
+    bool tokensOk = false;
+    bool drained = CloudWorkQueue::DrainQueueForApp(parsedAccountId, parsedAppId);
+
+    uint64_t oldCN = LocalStorage::GetChangeNumber(parsedAccountId, parsedAppId);
+    uint64_t cn = oldCN;
+    bool stateOk = false;
+    bool manifestOk = false;
+    if (uploaded > 0 && failed == 0 && scanComplete && drained) {
+        tokensOk = CloudStorage::SaveRootTokens(parsedAccountId, parsedAppId, rootTokens) &&
+                   CloudStorage::SaveFileTokens(parsedAccountId, parsedAppId, fileTokens);
+    }
+    if (uploaded > 0 && failed == 0 && scanComplete && drained && tokensOk) {
+        cn = LocalStorage::IncrementChangeNumber(parsedAccountId, parsedAppId);
+        manifestOk = CloudStorage::SaveManifestLocal(parsedAccountId, parsedAppId, manifest);
+
+        CloudStorage::CloudAppState state;
+        state.cn = cn;
+        for (const auto& [name, me] : manifest) {
+            CloudStorage::FileEntry fe;
+            fe.sha = me.sha;
+            fe.timestamp = me.timestamp;
+            fe.size = me.size;
+            state.files[name] = std::move(fe);
+        }
+        stateOk = CloudStorage::PublishCloudState(parsedAccountId, parsedAppId, state);
+    }
+
+    CloudStorage::Shutdown();
+
+    bool success = uploaded > 0 && failed == 0 && skipped == 0 &&
+                   tokensOk && drained && manifestOk && stateOk;
+    return JsonObject({
+        {"success", JsonBool(success)},
+        {"scanned", JsonInt(scanned)},
+        {"uploaded", JsonInt(uploaded)},
+        {"skipped", JsonInt(skipped)},
+        {"failed", JsonInt(failed)},
+        {"total_bytes", JsonInt(totalBytes)},
+        {"old_cn", JsonInt(static_cast<int64_t>(oldCN))},
+        {"new_cn", JsonInt(static_cast<int64_t>(cn))},
+        {"scan_complete", JsonBool(scanComplete)},
+        {"manifest_published", JsonBool(manifestOk && stateOk)},
+        {"drained", JsonBool(drained)},
+        {"tokens_published", JsonBool(tokensOk)},
+        {"source", JsonString(PathToUtf8(remoteRoot))},
+        {"authority", JsonString("steam_userdata_remote")},
+        {"details", JsonString(details.str())},
+        {"error", success ? JsonString("") : JsonString("Force upload did not complete cleanly")}
+    });
+}
+
 std::string CmdGcBlobs(const std::string& provider, const std::string& accountId, const std::string& appId,
                        const std::string& cloudRootArg) {
     std::string initPath = GetProviderInitPath(provider);
@@ -790,8 +1024,9 @@ static void PrintUsage() {
     fprintf(stderr, "  sync-all-remote-apps <provider> <account_id> <cloud_root>  Run SyncAllFromCloud for one account\n");
     fprintf(stderr, "  prune-local-legacy-metadata <cloud_root>  Remove local legacy metadata siblings where safe\n");
     fprintf(stderr, "  publish-full-manifest <provider> <account_id> <app_id> <cloud_root>  Publish local inventory manifest and CN\n");
+    fprintf(stderr, "  force-upload-local-app <provider> <account_id> <app_id> <cloud_root> <steam_root>  Upload Steam userdata remote/ as authoritative cloud state\n");
     fprintf(stderr, "  gc-blobs <provider> <account_id> <app_id> <cloud_root>  Delete unreferenced SHA blobs from cloud\n");
-    fprintf(stderr, "\nProviders: gdrive, onedrive\n");
+    fprintf(stderr, "\nProviders: gdrive, onedrive, webdav, folder\n");
 }
 
 int RunCli(int argc, char** argv) {
@@ -884,6 +1119,13 @@ int RunCli(int argc, char** argv) {
             return 1;
         }
         result = CmdPublishFullManifest(argv[3], argv[4], argv[5], argv[6]);
+    }
+    else if (strcmp(command, "force-upload-local-app") == 0) {
+        if (argc < 8) {
+            fprintf(stderr, "Error: force-upload-local-app requires <provider> <account_id> <app_id> <cloud_root> <steam_root>\n");
+            return 1;
+        }
+        result = CmdForceUploadLocalApp(argv[3], argv[4], argv[5], argv[6], argv[7]);
     }
     else if (strcmp(command, "gc-blobs") == 0) {
         if (argc < 7) {

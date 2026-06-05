@@ -25,16 +25,15 @@ public static class Dialog
         {
             Title = title,
             Content = new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap },
-            CloseButtonText = S.Get("Dialog_OK")
+            PrimaryButtonText = S.Get("Dialog_OK"),
+            IsPrimaryButtonEnabled = true,
+            IsCloseButtonEnabled = false
         };
         return box.ShowDialogAsync();
     }
 
     public static Task ShowWarningAsync(string title, string message)
     {
-        // CloseButtonText defaults to "Close" in WPF-UI's MessageBox, so
-        // setting only PrimaryButtonText leaves a redundant second button
-        // that does the same thing as the primary "OK". Suppress it.
         var box = new MessageBox
         {
             Title = title,
@@ -42,7 +41,7 @@ public static class Dialog
             PrimaryButtonText = S.Get("Dialog_OK"),
             PrimaryButtonAppearance = ControlAppearance.Caution,
             IsPrimaryButtonEnabled = true,
-            CloseButtonText = string.Empty
+            IsCloseButtonEnabled = false
         };
         return box.ShowDialogAsync();
     }
@@ -56,7 +55,7 @@ public static class Dialog
             PrimaryButtonText = S.Get("Dialog_OK"),
             PrimaryButtonAppearance = ControlAppearance.Danger,
             IsPrimaryButtonEnabled = true,
-            CloseButtonText = string.Empty
+            IsCloseButtonEnabled = false
         };
         return box.ShowDialogAsync();
     }
@@ -68,7 +67,9 @@ public static class Dialog
             Title = title,
             Content = new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap },
             PrimaryButtonText = S.Get("Dialog_Yes"),
-            CloseButtonText = S.Get("Dialog_No")
+            SecondaryButtonText = S.Get("Dialog_No"),
+            IsSecondaryButtonEnabled = true,
+            IsCloseButtonEnabled = false
         };
         return await box.ShowDialogAsync() == MessageBoxResult.Primary;
     }
@@ -81,7 +82,9 @@ public static class Dialog
             Content = new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap },
             PrimaryButtonText = S.Get("Dialog_Yes"),
             PrimaryButtonAppearance = ControlAppearance.Danger,
-            CloseButtonText = S.Get("Dialog_No")
+            SecondaryButtonText = S.Get("Dialog_No"),
+            IsSecondaryButtonEnabled = true,
+            IsCloseButtonEnabled = false
         };
         return await box.ShowDialogAsync() == MessageBoxResult.Primary;
     }
@@ -94,7 +97,9 @@ public static class Dialog
             Content = content,
             PrimaryButtonText = S.Get("Dialog_Yes"),
             PrimaryButtonAppearance = ControlAppearance.Danger,
-            CloseButtonText = S.Get("Dialog_No")
+            SecondaryButtonText = S.Get("Dialog_No"),
+            IsSecondaryButtonEnabled = true,
+            IsCloseButtonEnabled = false
         };
         return await box.ShowDialogAsync() == MessageBoxResult.Primary;
     }
@@ -118,7 +123,9 @@ public static class Dialog
             PrimaryButtonText = countdownSeconds > 0 ? S.Format("Dialog_YesCountdownFormat", countdownSeconds) : S.Get("Dialog_YesDeleteEverything"),
             PrimaryButtonAppearance = ControlAppearance.Danger,
             IsPrimaryButtonEnabled = countdownSeconds <= 0,
-            CloseButtonText = S.Get("Dialog_No")
+            SecondaryButtonText = S.Get("Dialog_No"),
+            IsSecondaryButtonEnabled = true,
+            IsCloseButtonEnabled = false
         };
 
         DispatcherTimer timer = null;
@@ -162,7 +169,23 @@ public static class Dialog
             Title = title,
             Content = new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap },
             PrimaryButtonText = primaryText,
-            CloseButtonText = secondaryText
+            SecondaryButtonText = secondaryText,
+            IsSecondaryButtonEnabled = true,
+            IsCloseButtonEnabled = false
+        };
+        return await box.ShowDialogAsync() == MessageBoxResult.Primary;
+    }
+
+    public static async Task<bool> ContinueCancelAsync(string title, string message)
+    {
+        var box = new MessageBox
+        {
+            Title = title,
+            Content = new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap },
+            PrimaryButtonText = S.Get("Dialog_Continue"),
+            SecondaryButtonText = S.Get("Dialog_Cancel"),
+            IsSecondaryButtonEnabled = true,
+            IsCloseButtonEnabled = false
         };
         return await box.ShowDialogAsync() == MessageBoxResult.Primary;
     }

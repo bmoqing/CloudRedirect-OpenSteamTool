@@ -3,6 +3,7 @@ using System.Globalization;
 using System.IO;
 using System.Text.Json;
 using System.Threading;
+using CloudRedirect.Services;
 using Wpf.Ui.Appearance;
 
 namespace CloudRedirect;
@@ -13,7 +14,7 @@ public partial class App : System.Windows.Application
     {
         ApplyLanguagePreference();
         base.OnStartup(e);
-        ApplicationThemeManager.Apply(ApplicationTheme.Dark);
+        AppThemeSettings.ApplySavedTheme();
     }
 
     /// <summary>

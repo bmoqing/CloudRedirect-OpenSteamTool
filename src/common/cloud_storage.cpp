@@ -973,11 +973,52 @@ bool IsCloudActive() {
     return g_provider && g_provider->IsAuthenticated();
 }
 
+static void InvalidateBlobIndex(uint32_t accountId, uint32_t appId);
+
 bool StoreBlob(uint32_t accountId, uint32_t appId,
                const std::string& filename,
                const uint8_t* data, size_t len) {
     ClearMissingMetadataForApp(accountId, appId);
     return StoreBlobStaged(accountId, appId, 0, filename, data, len);
+}
+
+bool StoreBlobForceUpload(uint32_t accountId, uint32_t appId,
+                          const std::string& filename,
+                          const uint8_t* data, size_t len) {
+    const uint8_t emptyByte = 0;
+    if (!data && len == 0) data = &emptyByte;
+
+    if (CloudIntercept::IsReservedBlobFilename(filename)) {
+        LOG("[CloudStorage] StoreBlobForceUpload: rejecting reserved /blobs/ filename app=%u file=%s",
+            appId, filename.c_str());
+        return false;
+    }
+
+    if (!LocalStorage::WriteFileNoIncrement(accountId, appId, filename, data, len)) {
+        LOG("[CloudStorage] StoreBlobForceUpload: local write failed: app=%u file=%s (%zu bytes)",
+            appId, filename.c_str(), len);
+        return false;
+    }
+    LOG("[CloudStorage] StoreBlobForceUpload: cached locally: %s (%zu bytes)",
+        filename.c_str(), len);
+
+    if (g_provider) {
+        CloudWorkQueue::WorkItem wi;
+        wi.type = CloudWorkQueue::WorkItem::Upload;
+        if (appId == CloudIntercept::kAccountScopeAppId) {
+            wi.cloudPath = CloudBlobPath(accountId, appId, filename);
+        } else {
+            auto sha = FileUtil::SHA1(data, len);
+            wi.cloudPath = CloudBlobPathByNameAndSHA(accountId, appId, filename, ShaToHex(sha));
+            wi.skipIfExists = false;
+        }
+        if (len > 0)
+            wi.data.assign(data, data + len);
+        CloudWorkQueue::EnqueueWork(std::move(wi));
+        InvalidateBlobIndex(accountId, appId);
+    }
+
+    return true;
 }
 
 static void PruneStaleCloudStaging(uint32_t accountId) {

@@ -23,6 +23,10 @@ bool StoreBlob(uint32_t accountId, uint32_t appId,
                const std::string& filename,
                const uint8_t* data, size_t len);
 
+bool StoreBlobForceUpload(uint32_t accountId, uint32_t appId,
+                          const std::string& filename,
+                          const uint8_t* data, size_t len);
+
 bool StoreBlobStaged(uint32_t accountId, uint32_t appId, uint64_t batchId,
                      const std::string& filename,
                      const uint8_t* data, size_t len);

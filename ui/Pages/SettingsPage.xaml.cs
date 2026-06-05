@@ -8,6 +8,7 @@ using System.Windows;
 using System.Windows.Controls;
 using CloudRedirect.Resources;
 using CloudRedirect.Services;
+using Wpf.Ui.Appearance;
 using Wpf.Ui.Controls;
 
 namespace CloudRedirect.Pages;
@@ -46,6 +47,7 @@ public partial class SettingsPage : Page
             LoadAbout();
             try { await LoadSettingsAsync(); }
             catch { }
+            ApplyThemeButton(AppThemeSettings.ReadTheme());
         };
     }
 
@@ -247,6 +249,28 @@ public partial class SettingsPage : Page
         VersionText.Text = version != null
             ? S.Format("Settings_VersionFormat", version.Major, version.Minor, version.Build)
             : S.Get("Settings_CloudRedirect");
+    }
+
+    private void ApplyThemeButton(ApplicationTheme theme)
+    {
+        if (theme == ApplicationTheme.Light)
+        {
+            ThemeHintText.Text = S.Get("Settings_LightThemeActive");
+            ThemeToggleButton.Content = S.Get("Settings_SwitchToDarkTheme");
+            ThemeToggleButton.Icon = new SymbolIcon { Symbol = SymbolRegular.WeatherMoon24 };
+        }
+        else
+        {
+            ThemeHintText.Text = S.Get("Settings_DarkThemeActive");
+            ThemeToggleButton.Content = S.Get("Settings_SwitchToLightTheme");
+            ThemeToggleButton.Icon = new SymbolIcon { Symbol = SymbolRegular.WeatherSunny24 };
+        }
+    }
+
+    private void ThemeToggle_Click(object sender, RoutedEventArgs e)
+    {
+        var theme = AppThemeSettings.Toggle();
+        ApplyThemeButton(theme);
     }
 
     private async void LanguageComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)

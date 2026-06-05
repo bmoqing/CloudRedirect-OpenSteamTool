@@ -23,8 +23,6 @@ public partial class MainWindow : FluentWindow
         {
             try
             {
-                SystemThemeWatcher.Watch(this);
-
                 _ = CheckForAutoUpdateAsync();
 
                 var mode = await Task.Run(() => Services.SteamDetector.ReadModeSetting());

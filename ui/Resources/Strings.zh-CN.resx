@@ -353,12 +353,11 @@
 请在构建 C++ DLL 后重新构建 UI。</value>
   </data>
   <data name="Setup_ConfirmRunAll" xml:space="preserve">
-    <value>这将应用全部补丁并部署 DLL：
+    <value>这将安装 OpenSteamTool 集成并部署 CloudRedirect：
 
-  1. SteamTools 离线设置
-  2. 修补 SteamTools.exe
-  3. Cloud Redirect 补丁
-  4. 部署 cloud_redirect.dll
+  1. 检查 OpenSteamTool
+  2. 部署 cloud_redirect.dll
+  3. 安装 OpenSteamTool Lua 加载器
 
 如果 Steam 正在运行，它将自动关闭。
 将创建备份。
@@ -381,7 +380,7 @@
 继续？</value>
   </data>
   <data name="Setup_ConfirmPatchStExe" xml:space="preserve">
-    <value>这会修补 SteamTools.exe，阻止它在每次启动时覆盖已打补丁的 DLL。
+    <value>这会安装或刷新 OpenSteamTool Lua 加载器，让它从 Steam 的 config\lua 目录加载 cloud_redirect.dll。
 
 如果 Steam 正在运行，它将自动关闭。
 将创建一个备份。
@@ -460,10 +459,10 @@
     <value>还原离线设置</value>
   </data>
   <data name="Setup_PatchSteamToolsExeTitle" xml:space="preserve">
-    <value>修补 SteamTools.exe</value>
+    <value>安装 OpenSteamTool 加载器</value>
   </data>
   <data name="Setup_RevertStExeTitle" xml:space="preserve">
-    <value>还原 SteamTools.exe 补丁</value>
+    <value>移除 OpenSteamTool 加载器</value>
   </data>
   <data name="Setup_ApplyPatchTitle" xml:space="preserve">
     <value>应用补丁</value>
@@ -477,6 +476,36 @@
   <data name="Setup_UninstallDllTitle" xml:space="preserve">
     <value>卸载 DLL</value>
   </data>
+  <data name="OpenSteamTool_UpdateTitle" xml:space="preserve"><value>OpenSteamTool 版本</value></data>
+  <data name="OpenSteamTool_Checking" xml:space="preserve"><value>正在检查 OpenSteamTool...</value></data>
+  <data name="OpenSteamTool_CheckAndInstall" xml:space="preserve"><value>检查并安装</value></data>
+  <data name="OpenSteamTool_InstallButton" xml:space="preserve"><value>安装 OpenSteamTool</value></data>
+  <data name="OpenSteamTool_UpdateButton" xml:space="preserve"><value>更新 OpenSteamTool</value></data>
+  <data name="OpenSteamTool_UpToDateButton" xml:space="preserve"><value>已是最新版</value></data>
+  <data name="OpenSteamTool_RetryCheck" xml:space="preserve"><value>重新检查</value></data>
+  <data name="OpenSteamTool_NotInstalled" xml:space="preserve"><value>未安装</value></data>
+  <data name="OpenSteamTool_InstalledUnknownVersion" xml:space="preserve"><value>已安装，版本未知</value></data>
+  <data name="OpenSteamTool_CurrentFormat" xml:space="preserve"><value>当前：{0}</value></data>
+  <data name="OpenSteamTool_UpdateAvailableFormat" xml:space="preserve"><value>当前：{0}；最新：{1}</value></data>
+  <data name="OpenSteamTool_UpToDateFormat" xml:space="preserve"><value>当前：{0}；最新：{1}</value></data>
+  <data name="OpenSteamTool_CheckFailedFormat" xml:space="preserve"><value>当前：{0}；检查更新失败：{1}</value></data>
+  <data name="OpenSteamTool_CheckFailedFriendly" xml:space="preserve"><value>GitHub API 已限流，Release 页面兜底检查也失败：{0}</value></data>
+  <data name="OpenSteamTool_LatestTagNotFound" xml:space="preserve"><value>无法确定最新版 OpenSteamTool 的 Release 标签。</value></data>
+  <data name="OpenSteamTool_NoReleaseAsset" xml:space="preserve"><value>最新 GitHub Release 中没有找到 OpenSteamTool Release 压缩包。</value></data>
+  <data name="OpenSteamTool_Downloading" xml:space="preserve"><value>正在下载 OpenSteamTool...</value></data>
+  <data name="OpenSteamTool_Installing" xml:space="preserve"><value>正在安装 OpenSteamTool 文件...</value></data>
+  <data name="OpenSteamTool_MissingFileInZip" xml:space="preserve"><value>OpenSteamTool 压缩包中缺少 {0}。</value></data>
+  <data name="OpenSteamTool_InstallConfirmTitle" xml:space="preserve"><value>安装 OpenSteamTool？</value></data>
+  <data name="OpenSteamTool_InstallConfirmMessage" xml:space="preserve"><value>这会下载最新版 OpenSteamTool，并把 dwmapi.dll、xinput1_4.dll、OpenSteamTool.dll 复制到 Steam 根目录。
+
+当前：{0}
+最新：{1}
+
+如果 Steam 正在运行，它将自动关闭。</value></data>
+  <data name="OpenSteamTool_InstallDoneTitle" xml:space="preserve"><value>OpenSteamTool 已安装</value></data>
+  <data name="OpenSteamTool_InstallDoneFormat" xml:space="preserve"><value>OpenSteamTool 已安装或更新到 {0}。</value></data>
+  <data name="OpenSteamTool_InstallFailedFormat" xml:space="preserve"><value>OpenSteamTool 安装失败：{0}</value></data>
+
   <data name="Dashboard_Title" xml:space="preserve">
     <value>仪表盘</value>
   </data>
@@ -1285,6 +1314,27 @@
   <data name="Settings_Title" xml:space="preserve">
     <value>设置</value>
   </data>
+  <data name="Settings_Appearance" xml:space="preserve">
+    <value>外观</value>
+  </data>
+  <data name="Settings_Theme" xml:space="preserve">
+    <value>主题</value>
+  </data>
+  <data name="Settings_ThemeHint" xml:space="preserve">
+    <value>在浅色模式和深色模式之间切换。</value>
+  </data>
+  <data name="Settings_LightThemeActive" xml:space="preserve">
+    <value>当前为浅色模式。</value>
+  </data>
+  <data name="Settings_DarkThemeActive" xml:space="preserve">
+    <value>当前为深色模式。</value>
+  </data>
+  <data name="Settings_SwitchToLightTheme" xml:space="preserve">
+    <value>浅色模式</value>
+  </data>
+  <data name="Settings_SwitchToDarkTheme" xml:space="preserve">
+    <value>深色模式</value>
+  </data>
   <data name="Settings_Updates" xml:space="preserve">
     <value>更新</value>
   </data>
@@ -1433,6 +1483,12 @@
   </data>
   <data name="Dialog_No" xml:space="preserve">
     <value>否</value>
+  </data>
+  <data name="Dialog_Continue" xml:space="preserve">
+    <value>继续</value>
+  </data>
+  <data name="Dialog_Cancel" xml:space="preserve">
+    <value>取消</value>
   </data>
   <data name="Dialog_YesCountdownFormat" xml:space="preserve">
     <value>是（{0}）</value>
@@ -1861,4 +1917,30 @@
   <data name="DataRestore_InvalidLuaSize" xml:space="preserve"><value>Lua 文件大小无效。</value></data>
   <data name="DataRestore_InvalidLuaContent" xml:space="preserve"><value>Lua 文件看起来包含二进制内容。</value></data>
   <data name="DataRestore_LuaArchiveTooLarge" xml:space="preserve"><value>Lua 归档过大。</value></data>
+
+  <data name="ForceUpload_Title" xml:space="preserve"><value>强制全量上传本地存档</value></data>
+  <data name="ForceUpload_Hint" xml:space="preserve"><value>扫描指定游戏的 Steam userdata 本地存档，重新上传所有文件，并重建 CloudRedirect 云端状态。</value></data>
+  <data name="ForceUpload_AppIdTooltip" xml:space="preserve"><value>Steam App ID，例如 1196590。</value></data>
+  <data name="ForceUpload_Button" xml:space="preserve"><value>强制全量上传</value></data>
+  <data name="ForceUpload_Running" xml:space="preserve"><value>正在上传本地存档...</value></data>
+  <data name="ForceUpload_InvalidAppIdTitle" xml:space="preserve"><value>App ID 无效</value></data>
+  <data name="ForceUpload_InvalidAppIdMessage" xml:space="preserve"><value>请输入数字形式的 Steam App ID。</value></data>
+  <data name="ForceUpload_SteamRunningMessage" xml:space="preserve"><value>请先完全退出 Steam。此操作会读取本地存档，并把它发布为云端版本。</value></data>
+  <data name="ForceUpload_ConfirmTitle" xml:space="preserve"><value>强制上传本地存档？</value></data>
+  <data name="ForceUpload_ConfirmMessage" xml:space="preserve"><value>这会上传 accountId {1} 下 app {0} 的所有本地存档文件，并把它们作为 CloudRedirect 云端版本。</value></data>
+  <data name="ForceUpload_DoneTitle" xml:space="preserve"><value>全量上传完成</value></data>
+  <data name="ForceUpload_DoneMessage" xml:space="preserve"><value>已上传 {0} 个文件。新的变更号：{1}。</value></data>
+  <data name="ForceUpload_NotCleanTitle" xml:space="preserve"><value>上传需要检查</value></data>
+  <data name="ForceUpload_NotClean" xml:space="preserve"><value>强制上传没有完全成功。</value></data>
+  <data name="ForceUpload_FailedFormat" xml:space="preserve"><value>强制上传失败：{0}</value></data>
+  <data name="ForceUpload_ConfigMissing" xml:space="preserve"><value>尚未配置云提供商。</value></data>
+  <data name="ForceUpload_LocalOnly" xml:space="preserve"><value>当前是仅本地模式，没有远程云端目标。</value></data>
+  <data name="ForceUpload_CliMissing" xml:space="preserve"><value>内置 CloudRedirect CLI 缺失。</value></data>
+  <data name="ForceUpload_CliFailedFormat" xml:space="preserve"><value>CLI 退出码 {0}：{1}</value></data>
+  <data name="ForceUpload_ResultSummaryFormat" xml:space="preserve"><value>App {0}：已上传 {1}/{2} 个扫描到的文件，跳过 {3}，失败 {4}</value></data>
+  <data name="ForceUpload_ResultBytesFormat" xml:space="preserve"><value>总大小：{0} 字节</value></data>
+  <data name="ForceUpload_ResultCnFormat" xml:space="preserve"><value>变更号：{0} -> {1}</value></data>
+  <data name="ForceUpload_ResultSourceFormat" xml:space="preserve"><value>来源：{0}</value></data>
+  <data name="ForceUpload_ResultFlagsFormat" xml:space="preserve"><value>状态已发布：{0}；队列已清空：{1}；Token 已发布：{2}</value></data>
+  <data name="ForceUpload_ResultErrorFormat" xml:space="preserve"><value>错误：{0}</value></data>
 </root>

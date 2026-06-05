@@ -5,6 +5,7 @@ using System.Net.Http;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace CloudRedirect.Services;
@@ -90,8 +91,7 @@ internal static class AppUpdater
                 var candidateTag = rel.GetProperty("tag_name").GetString() ?? "";
                 if (IsPrereleaseTag(candidateTag)) continue;
 
-                var candidateVerStr = candidateTag.TrimStart('v');
-                if (!Version.TryParse(candidateVerStr, out var candidateVer)) continue;
+                if (!TryParseReleaseVersion(candidateTag, out var candidateVer)) continue;
 
                 root = rel;
                 tagName = candidateTag;
@@ -125,7 +125,10 @@ internal static class AppUpdater
 
             if (downloadUrl == null) return null;
 
-            // Compare local exe hash against published hash; skip if unchanged.
+            // Compare local exe hash against published hash. Custom releases can
+            // keep the same base version (for example v2.1.5-ost.2), so a valid
+            // differing hash is enough to offer the update.
+            bool? hashMatches = null;
             if (sha256Url != null)
             {
                 try
@@ -137,7 +140,8 @@ internal static class AppUpdater
                         if (!string.IsNullOrEmpty(localExePath) && File.Exists(localExePath))
                         {
                             var localHash = ComputeFileSHA256(localExePath);
-                            if (string.Equals(localHash, remoteHash, StringComparison.OrdinalIgnoreCase))
+                            hashMatches = string.Equals(localHash, remoteHash, StringComparison.OrdinalIgnoreCase);
+                            if (hashMatches == true)
                                 return new CheckResult { UpdateAvailable = false };
                         }
                     }
@@ -145,8 +149,10 @@ internal static class AppUpdater
                 catch { /* hash check failed, fall through to version comparison */ }
             }
 
-            // No hash file available, fall back to version comparison
-            if (remoteVersion <= localVersion)
+            if (remoteVersion < localVersion)
+                return new CheckResult { UpdateAvailable = false };
+
+            if (remoteVersion == localVersion && hashMatches != false)
                 return new CheckResult { UpdateAvailable = false };
 
             var body = root.TryGetProperty("body", out var bodyProp)
@@ -178,6 +184,15 @@ internal static class AppUpdater
         using var stream = File.OpenRead(path);
         var hash = sha.ComputeHash(stream);
         return Convert.ToHexString(hash).ToLowerInvariant();
+    }
+
+    private static bool TryParseReleaseVersion(string tagName, out Version version)
+    {
+        version = new Version(0, 0, 0);
+        if (string.IsNullOrWhiteSpace(tagName)) return false;
+
+        var match = Regex.Match(tagName, @"\d+(\.\d+){1,3}");
+        return match.Success && Version.TryParse(match.Value, out version!);
     }
 
     // Hard caps on a downloaded update payload. Framework-dependent single-file is ~8 MB;

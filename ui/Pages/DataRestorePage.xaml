@@ -112,6 +112,30 @@
                                Appearance="Primary"
                                Click="RestoreLua_Click" />
                 </ui:CardControl>
+
+                <ui:CardControl Margin="0,0,0,8">
+                    <ui:CardControl.Header>
+                        <StackPanel>
+                            <TextBlock Text="{res:Loc ForceUpload_Title}"
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                            <TextBlock Text="{res:Loc ForceUpload_Hint}"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                       TextWrapping="Wrap" />
+                            <ui:TextBox x:Name="ForceUploadAppIdBox"
+                                        Margin="0,10,0,0"
+                                        MinWidth="220"
+                                        HorizontalAlignment="Left"
+                                        PlaceholderText="{res:Loc ForceUpload_AppIdTooltip}"
+                                        ToolTip="{res:Loc ForceUpload_AppIdTooltip}" />
+                        </StackPanel>
+                    </ui:CardControl.Header>
+                    <ui:Button x:Name="ForceUploadButton"
+                               Content="{res:Loc ForceUpload_Button}"
+                               Icon="{ui:SymbolIcon CloudArrowUp24}"
+                               Appearance="Primary"
+                               Click="ForceUpload_Click" />
+                </ui:CardControl>
             </UniformGrid>
 
             <TextBlock Text="{res:Loc DataRestore_Result}"
