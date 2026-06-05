@@ -97,7 +97,7 @@ public partial class DataRestorePage : Page
         SourceText.Text = S.Format("DataRestore_SourceFormat", _source.RootPath, _source.AccountId);
         SourceCountsText.Text = S.Format("DataRestore_SourceCountsFormat",
             _source.PlaytimeCount, _source.StatsCount, _source.LuaCount);
-        SourceIcon.Symbol = SymbolRegular.Database24;
+        SourceIcon.Symbol = SymbolRegular.Cloud24;
         RestorePlaytimeButton.IsEnabled = _source.PlaytimeCount > 0;
         RestoreStatsButton.IsEnabled = _source.StatsCount > 0;
         RestoreLuaButton.IsEnabled = _source.LuaCount > 0;

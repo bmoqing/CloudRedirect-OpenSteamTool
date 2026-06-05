@@ -108,7 +108,7 @@
                                          Content="{res:Loc Nav_Cleanup}"
                                          TargetPageType="{x:Type pages:CleanupPage}" />
                 <ui:NavigationViewItem x:Name="NavDataRestore"
-                                       Icon="{ui:SymbolIcon DatabaseArrowUp24}"
+                                       Icon="{ui:SymbolIcon ArrowSync24}"
                                        Content="{res:Loc Nav_DataRestore}"
                                        TargetPageType="{x:Type pages:DataRestorePage}" />
                 <ui:NavigationViewItem Content="{res:Loc Nav_ManifestPinning}"

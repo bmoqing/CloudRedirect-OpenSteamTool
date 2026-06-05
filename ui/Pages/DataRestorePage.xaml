@@ -55,7 +55,7 @@
                                    Margin="0,4,0,0" />
                     </StackPanel>
                 </ui:CardControl.Header>
-                <ui:SymbolIcon x:Name="SourceIcon" Symbol="Database24" FontSize="24" />
+                <ui:SymbolIcon x:Name="SourceIcon" Symbol="Cloud24" FontSize="24" />
             </ui:CardControl>
 
             <UniformGrid Columns="1" Margin="0,0,0,16">
@@ -72,7 +72,7 @@
                     </ui:CardControl.Header>
                     <ui:Button x:Name="RestorePlaytimeButton"
                                Content="{res:Loc DataRestore_RestorePlaytime}"
-                               Icon="{ui:SymbolIcon Clock24}"
+                               Icon="{ui:SymbolIcon ArrowSync24}"
                                Appearance="Primary"
                                Click="RestorePlaytime_Click" />
                 </ui:CardControl>
@@ -90,7 +90,7 @@
                     </ui:CardControl.Header>
                     <ui:Button x:Name="RestoreStatsButton"
                                Content="{res:Loc DataRestore_RestoreStats}"
-                               Icon="{ui:SymbolIcon Trophy24}"
+                               Icon="{ui:SymbolIcon Document24}"
                                Appearance="Primary"
                                Click="RestoreStats_Click" />
                 </ui:CardControl>
@@ -108,7 +108,7 @@
                     </ui:CardControl.Header>
                     <ui:Button x:Name="RestoreLuaButton"
                                Content="{res:Loc DataRestore_RestoreLua}"
-                               Icon="{ui:SymbolIcon Code24}"
+                               Icon="{ui:SymbolIcon Wrench24}"
                                Appearance="Primary"
                                Click="RestoreLua_Click" />
                 </ui:CardControl>
