@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
   <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
     <xsd:element name="root" msdata:IsDataSet="true">
@@ -539,6 +539,9 @@ Si omites esto, las partidas se almacenarán localmente en tu carpeta de Steam.<
   <data name="Dashboard_NoTokenPath" xml:space="preserve">
     <value>{0} -- No hay ruta de token configurada</value>
   </data>
+  <data name="Dashboard_Configured" xml:space="preserve">
+    <value>{0} -- Configurado</value>
+  </data>
   <data name="Dashboard_LogNotFound" xml:space="preserve">
     <value>Archivo de registro no encontrado. Inicia Steam con CloudRedirect instalado primero.</value>
   </data>
@@ -601,6 +604,9 @@ Si omites esto, las partidas se almacenarán localmente en tu carpeta de Steam.<
   <data name="CloudProvider_Description" xml:space="preserve">
     <value>Configura tu proveedor de Steam Cloud. Solo Google Drive/OneDrive/Carpeta local por ahora.</value>
   </data>
+  <data name="CloudProvider_DescriptionWebDav" xml:space="preserve">
+    <value>Configura tu proveedor de Steam Cloud. Admite Google Drive, OneDrive, WebDAV o una carpeta local/de red.</value>
+  </data>
   <data name="CloudProvider_Provider" xml:space="preserve">
     <value>Proveedor</value>
   </data>
@@ -609,6 +615,9 @@ Si omites esto, las partidas se almacenarán localmente en tu carpeta de Steam.<
   </data>
   <data name="CloudProvider_OneDrive" xml:space="preserve">
     <value>OneDrive</value>
+  </data>
+  <data name="CloudProvider_WebDav" xml:space="preserve">
+    <value>WebDAV</value>
   </data>
   <data name="CloudProvider_FolderMappedDrive" xml:space="preserve">
     <value>Carpeta / Unidad asignada</value>
@@ -621,6 +630,24 @@ Si omites esto, las partidas se almacenarán localmente en tu carpeta de Steam.<
   </data>
   <data name="CloudProvider_TokenPlaceholder" xml:space="preserve">
     <value>Ruta al archivo de tokens OAuth</value>
+  </data>
+  <data name="CloudProvider_WebDavUrlPath" xml:space="preserve">
+    <value>URL de WebDAV</value>
+  </data>
+  <data name="CloudProvider_WebDavUrlPlaceholder" xml:space="preserve">
+    <value>https://example.com/remote.php/dav/files/user/CloudRedirect</value>
+  </data>
+  <data name="CloudProvider_WebDavUrlHint" xml:space="preserve">
+    <value>Usa una URL HTTPS de carpeta WebDAV dedicada a CloudRedirect.</value>
+  </data>
+  <data name="CloudProvider_WebDavUsername" xml:space="preserve">
+    <value>Usuario</value>
+  </data>
+  <data name="CloudProvider_WebDavUsernamePlaceholder" xml:space="preserve">
+    <value>Usuario de WebDAV</value>
+  </data>
+  <data name="CloudProvider_WebDavPassword" xml:space="preserve">
+    <value>Contraseña</value>
   </data>
   <data name="CloudProvider_Browse" xml:space="preserve">
     <value>Examinar</value>
@@ -703,6 +730,18 @@ Si omites esto, las partidas se almacenarán localmente en tu carpeta de Steam.<
   </data>
   <data name="CloudProvider_NoTokenFilePath" xml:space="preserve">
     <value>No se especificó ruta de archivo de token</value>
+  </data>
+  <data name="CloudProvider_WebDavNoUrl" xml:space="preserve">
+    <value>No se especificó URL de WebDAV</value>
+  </data>
+  <data name="CloudProvider_WebDavMissingCredentials" xml:space="preserve">
+    <value>Introduce la URL de WebDAV, el usuario y la contraseña.</value>
+  </data>
+  <data name="CloudProvider_WebDavRequiresHttps" xml:space="preserve">
+    <value>La URL de WebDAV debe comenzar con https://</value>
+  </data>
+  <data name="CloudProvider_WebDavConfigured" xml:space="preserve">
+    <value>WebDAV configurado: {0}</value>
   </data>
 
   <data name="Apps_Title" xml:space="preserve">
@@ -979,7 +1018,7 @@ La copia contiene: {1} archivo(s) ({2})
 Apps: {3}
 
 IMPORTANTE: Antes de restaurar, debes desactivar Steam Cloud para este juego:
-  Steam > clic derecho en el juego > Propiedades > General >
+  Steam &gt; clic derecho en el juego &gt; Propiedades &gt; General &gt;
   desmarca "Mantener partidas guardadas en Steam Cloud"
 
 Si Steam Cloud está activado, Steam puede sobrescribir los archivos restaurados.
@@ -1417,6 +1456,9 @@ Esto puede causar pérdida de datos en algunos casos.
   <data name="Provider_OneDrive" xml:space="preserve">
     <value>OneDrive</value>
   </data>
+  <data name="Provider_WebDav" xml:space="preserve">
+    <value>WebDAV</value>
+  </data>
   <data name="Provider_FolderNetworkDrive" xml:space="preserve">
     <value>Carpeta / Unidad de red</value>
   </data>
@@ -1488,6 +1530,12 @@ Esto puede causar pérdida de datos en algunos casos.
   <data name="Common_UpdateFailed" xml:space="preserve">
     <value>La actualización falló</value>
   </data>
+  <data name="Common_ErrorDetailsFormat" xml:space="preserve">
+    <value>Error: {0}</value>
+  </data>
+  <data name="Common_UnknownError" xml:space="preserve">
+    <value>Error desconocido</value>
+  </data>
 
   <data name="OAuth_AuthSuccessTitle" xml:space="preserve">
     <value>Autorización exitosa</value>
@@ -1531,6 +1579,9 @@ Esto puede causar pérdida de datos en algunos casos.
   </data>
   <data name="Settings_LanguagePortuguese" xml:space="preserve">
     <value>Português (Brasil)</value>
+  </data>
+  <data name="Settings_LanguageChineseSimplified" xml:space="preserve">
+    <value>简体中文</value>
   </data>
   <data name="Settings_Sync" xml:space="preserve">
     <value>Sincronización</value>
@@ -1589,6 +1640,25 @@ Esto puede causar pérdida de datos en algunos casos.
     <value>Cuando está activado, el SetManifestID especificado en el lua se tratará como si estuviera comentado. Si está desactivado, se respetará el SetManifestID, lo que significa que tu juego quedará bloqueado en la versión especificada en el lua. Esta opción nunca modifica los archivos lua en disco.</value>
   </data>
 
+  <data name="Settings_Parental" xml:space="preserve">
+    <value>Controles parentales</value>
+  </data>
+  <data name="Settings_ParentalHint" xml:space="preserve">
+    <value>Ajustes relacionados con el tiempo de juego y las restricciones familiares.</value>
+  </data>
+  <data name="Settings_ParentalIgnorePlaytime" xml:space="preserve">
+    <value>Ignorar restricciones de tiempo de juego</value>
+  </data>
+  <data name="Settings_ParentalIgnorePlaytimeHint" xml:space="preserve">
+    <value>Desactiva las restricciones de tiempo de juego. Informa el tiempo hasta el límite configurado, pero no más allá.</value>
+  </data>
+  <data name="Settings_ParentalBypassPlaytime" xml:space="preserve">
+    <value>Desactivar restricciones familiares</value>
+  </data>
+  <data name="Settings_ParentalBypassPlaytimeHint" xml:space="preserve">
+    <value>No se aplican restricciones familiares del lado del cliente.</value>
+  </data>
+
   <data name="Pin_PerAppTitle" xml:space="preserve">
     <value>Apps lua</value>
   </data>
@@ -1619,6 +1689,12 @@ Esto puede causar pérdida de datos en algunos casos.
   <data name="Pin_FailedSavePinConfig" xml:space="preserve">
     <value>No se pudo guardar la configuración de fijado: {0}</value>
   </data>
+  <data name="Pin_DepotLabel" xml:space="preserve">
+    <value>Depot</value>
+  </data>
+  <data name="Pin_DepotCountFormat" xml:space="preserve">
+    <value>{0} depot(s)</value>
+  </data>
 
   <data name="Search_Placeholder" xml:space="preserve">
     <value>Buscar por nombre o ID de app...</value>
@@ -1630,5 +1706,76 @@ Esto puede causar pérdida de datos en algunos casos.
   <data name="AppUpdate_UpdateNow" xml:space="preserve">
     <value>Actualizar ahora</value>
   </data>
+  <data name="AppUpdate_ReleaseNotes" xml:space="preserve">
+    <value>Notas de la versión</value>
+  </data>
+  <data name="AppUpdate_AvailableTitleFormat" xml:space="preserve">
+    <value>Actualización disponible -- v{0}</value>
+  </data>
+  <data name="AppUpdate_AvailableDescription" xml:space="preserve">
+    <value>Una nueva versión de CloudRedirect está lista para instalar.</value>
+  </data>
+  <data name="AppUpdate_DownloadingVersionFormat" xml:space="preserve">
+    <value>Descargando v{0}...</value>
+  </data>
+  <data name="AppUpdate_FailedTitle" xml:space="preserve">
+    <value>La actualización falló</value>
+  </data>
+  <data name="AppUpdate_DownloadingUpdate" xml:space="preserve">
+    <value>Descargando actualización...</value>
+  </data>
+  <data name="AppUpdate_SuspiciousSizeFormat" xml:space="preserve">
+    <value>El archivo descargado tiene un tamaño sospechoso ({0} bytes)</value>
+  </data>
+  <data name="AppUpdate_SuspiciousSizeOverFormat" xml:space="preserve">
+    <value>El archivo descargado tiene un tamaño sospechoso (&gt;{0} bytes)</value>
+  </data>
+  <data name="AppUpdate_DownloadingProgressFormat" xml:space="preserve">
+    <value>Descargando... {0}%</value>
+  </data>
+  <data name="AppUpdate_InvalidExecutable" xml:space="preserve">
+    <value>El archivo descargado no es un ejecutable válido</value>
+  </data>
+  <data name="AppUpdate_Installing" xml:space="preserve">
+    <value>Instalando actualización...</value>
+  </data>
+  <data name="AppUpdate_CurrentExeUnknown" xml:space="preserve">
+    <value>No se pudo determinar la ruta del ejecutable actual</value>
+  </data>
+  <data name="AppUpdate_ReplaceExeFailedFormat" xml:space="preserve">
+    <value>No se pudo reemplazar el exe: {0}</value>
+  </data>
+  <data name="AppUpdate_Relaunching" xml:space="preserve">
+    <value>Reiniciando...</value>
+  </data>
+  <data name="AppUpdate_UpdateFailedFormat" xml:space="preserve">
+    <value>La actualización falló: {0}</value>
+  </data>
 
+
+  <data name="CloudProvider_WebDavTestUnauthorized" xml:space="preserve"><value>La autenticación falló. Comprueba el usuario y la contraseña, o usa una contraseña de aplicación.</value></data>
+  <data name="CloudProvider_WebDavTestForbidden" xml:space="preserve"><value>El servidor rechazó el acceso a esta carpeta WebDAV.</value></data>
+  <data name="Settings_DllSourceReadFailed" xml:space="preserve"><value>No se pudo leer el DLL desplegado.</value></data>
+  <data name="CloudProvider_WebDavTestMethodNotAllowed" xml:space="preserve"><value>El servidor no permite PROPFIND en esta URL. Comprueba que sea una URL de carpeta WebDAV.</value></data>
+  <data name="CloudProvider_WebDavTestNotFound" xml:space="preserve"><value>No se encontró la carpeta WebDAV. Comprueba la ruta de la URL.</value></data>
+  <data name="Settings_DllSourceNotInstalledHint" xml:space="preserve"><value>Despliega el DLL antes de iniciar Steam.</value></data>
+  <data name="Settings_DllSourceNotInstalled" xml:space="preserve"><value>DLL no instalado</value></data>
+  <data name="CloudProvider_WebDavTestTimeout" xml:space="preserve"><value>La prueba de WebDAV agotó el tiempo de espera.</value></data>
+  <data name="Settings_DllSourceCustomDifferentEmbedded" xml:space="preserve"><value>Hay un DLL WebDAV personalizado desplegado, pero difiere del DLL incluido en esta aplicación.</value></data>
+  <data name="Settings_DllSourceSteamMissing" xml:space="preserve"><value>No se encontró Steam, por lo que no se pudo inspeccionar el DLL desplegado.</value></data>
+  <data name="CloudProvider_WebDavTestHttpError" xml:space="preserve"><value>La prueba de WebDAV falló: HTTP {0} {1}</value></data>
+  <data name="CloudProvider_TestConnection" xml:space="preserve"><value>Probar conexión</value></data>
+  <data name="Settings_DllSourceUnknown" xml:space="preserve"><value>Origen del DLL desconocido</value></data>
+  <data name="Settings_DllSourceHashMismatch" xml:space="preserve"><value>El hash del DLL no coincide</value></data>
+  <data name="CloudProvider_WebDavTestSuccess" xml:space="preserve"><value>Conexión WebDAV correcta (HTTP {0}).</value></data>
+  <data name="Settings_DllSourceOfficial" xml:space="preserve"><value>DLL oficial</value></data>
+  <data name="Settings_DllSourceMatchesEmbedded" xml:space="preserve"><value>El DLL desplegado en Steam coincide con el DLL incluido en esta aplicación.</value></data>
+  <data name="CloudProvider_TestingConnection" xml:space="preserve"><value>Probando conexión...</value></data>
+  <data name="Settings_DllSourceCustomWebDav" xml:space="preserve"><value>DLL WebDAV personalizado</value></data>
+  <data name="Settings_DllSourceHashMismatchHint" xml:space="preserve"><value>El DLL desplegado no coincide con el DLL incluido.</value></data>
+  <data name="CloudProvider_WebDavNoQueryFragment" xml:space="preserve"><value>La URL de WebDAV no debe incluir una consulta ni un fragmento.</value></data>
+  <data name="Settings_DllSource" xml:space="preserve"><value>Origen del DLL</value></data>
+  <data name="Settings_DllSourceDeployCustomHint" xml:space="preserve"><value>La aplicación contiene un DLL WebDAV personalizado, pero Steam aún no lo está usando. Despliega/actualiza el DLL desde el panel.</value></data>
+  <data name="Settings_DllSourceHashFormat" xml:space="preserve"><value>Desplegado: {0}  Incluido: {1}</value></data>
+  <data name="CloudProvider_WebDavTestNetworkError" xml:space="preserve"><value>Error de red al probar WebDAV: {0}</value></data>
 </root>

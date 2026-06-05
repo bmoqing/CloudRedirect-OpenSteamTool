@@ -79,6 +79,7 @@ set(COMMON_SOURCES
 set(PROVIDER_SOURCES
     src/providers/google_drive.cpp
     src/providers/onedrive.cpp
+    src/providers/webdav_provider.cpp
     src/providers/local_disk_provider.cpp
 )
 
@@ -129,6 +130,7 @@ target_compile_definitions(cloud_redirect PRIVATE
     MINIZ_NO_STDIO
     CR_VERSION_STRING="${CR_SO_VERSION}"
     CR_RELEASE_VERSION="${CR_RELEASE_VERSION}"
+    CR_CUSTOM_WEB_DAV_BUILD=1
 )
 
 if(WIN32)
@@ -276,6 +278,7 @@ if(EXISTS ${CMAKE_SOURCE_DIR}/tests/autocloud_native_tests.cpp)
         src/common/miniz_zip.c
         src/providers/google_drive.cpp
         src/providers/onedrive.cpp
+        src/providers/webdav_provider.cpp
         src/providers/local_disk_provider.cpp
     )
     target_include_directories(cloud_storage_staging_tests PRIVATE src/common src/providers src/testutil)

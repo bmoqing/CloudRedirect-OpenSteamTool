@@ -40,6 +40,12 @@
       <NativeCliSource>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\..\build\Release\cloud_redirect_cli.exe'))</NativeCliSource>
       <NativeCliDest>$(MSBuildProjectDirectory)\Resources\cloud_redirect_cli.exe</NativeCliDest>
     </PropertyGroup>
+    <PropertyGroup Condition="Exists('$(MSBuildProjectDirectory)\..\build-nmake\cloud_redirect.dll')">
+      <NativeDllSource>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\..\build-nmake\cloud_redirect.dll'))</NativeDllSource>
+    </PropertyGroup>
+    <PropertyGroup Condition="Exists('$(MSBuildProjectDirectory)\..\build-nmake\cloud_redirect_cli.exe')">
+      <NativeCliSource>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\..\build-nmake\cloud_redirect_cli.exe'))</NativeCliSource>
+    </PropertyGroup>
     <MakeDir Directories="$(MSBuildProjectDirectory)\Resources" Condition="!Exists('$(MSBuildProjectDirectory)\Resources')" />
     <Copy SourceFiles="$(NativeDllSource)" DestinationFiles="$(NativeDllDest)"
           Condition="Exists('$(NativeDllSource)')"

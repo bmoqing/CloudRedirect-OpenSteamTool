@@ -8,12 +8,13 @@ using System.Windows;
 using System.Windows.Controls;
 using CloudRedirect.Resources;
 using CloudRedirect.Services;
+using Wpf.Ui.Controls;
 
 namespace CloudRedirect.Pages;
 
 public partial class SettingsPage : Page
 {
-    private const string ReleasesUrl = "https://github.com/Selectively11/CloudRedirect/releases";
+    private const string ReleasesUrl = "https://github.com/bmoqing/CloudRedirect-OpenSteamTool/releases";
 
     private string? _latestDownloadUrl;
     private bool _languageLoading;
@@ -34,6 +35,7 @@ public partial class SettingsPage : Page
         ("Settings_LanguageEnglish", "en"),
         ("Settings_LanguageSpanish", "es"),
         ("Settings_LanguagePortuguese", "pt-BR"),
+        ("Settings_LanguageChineseSimplified", "zh-CN"),
     ];
 
     public SettingsPage()
@@ -61,7 +63,9 @@ public partial class SettingsPage : Page
         bool? SyncLuas,
         bool? AutoUpdateDll,
         bool? ParentalIgnorePlaytime,
-        bool? ParentalBypassPlaytime);
+        bool? ParentalBypassPlaytime,
+        DllIdentityInfo DllIdentity,
+        SteamLoginUser? CurrentUser);
 
     // M15: Move language/mode/sync-toggle config reads off the UI thread.
     // Loaded used to call ReadLanguageSetting + ReadModeSetting +
@@ -79,7 +83,12 @@ public partial class SettingsPage : Page
             if (mode == "cloud_redirect")
                 ReadSyncTogglesInto(ref a, ref p, ref l, ref u, ref pip, ref pbp);
 
-            return new SettingsSnapshot(lang, mode, a, p, l, u, pip, pbp);
+            var steamPath = Services.SteamDetector.FindSteamPath();
+            var currentUser = steamPath != null
+                ? SteamAccountService.GetMostRecentUser(steamPath)
+                : null;
+
+            return new SettingsSnapshot(lang, mode, a, p, l, u, pip, pbp, Services.DllIdentity.GetCurrent(), currentUser);
         });
 
         ApplySettingsSnapshot(snapshot);
@@ -93,14 +102,16 @@ public partial class SettingsPage : Page
         if (snap.Mode == "cloud_redirect")
         {
             SyncSection.Visibility = Visibility.Visible;
+            ApplyDllIdentity(snap.DllIdentity);
+            ApplyCurrentAccount(snap.CurrentUser);
             ApplySyncToggles(snap.SyncAchievements, snap.SyncPlaytime, snap.SyncLuas, snap.AutoUpdateDll,
-                             snap.ParentalIgnorePlaytime, snap.ParentalBypassPlaytime);
+                             snap.ParentalIgnorePlaytime, snap.ParentalBypassPlaytime, snap.DllIdentity);
         }
         else
         {
             SyncSection.Visibility = Visibility.Collapsed;
             ApplySyncToggles(false, false, false, false,
-                             snap.ParentalIgnorePlaytime, snap.ParentalBypassPlaytime);
+                             snap.ParentalIgnorePlaytime, snap.ParentalBypassPlaytime, snap.DllIdentity);
         }
     }
 
@@ -129,8 +140,45 @@ public partial class SettingsPage : Page
         }
     }
 
+    private void ApplyDllIdentity(DllIdentityInfo identity)
+    {
+        DllSourceText.Text = identity.DisplayText;
+        DllSourceDetailText.Text = identity.DetailText;
+        DllSourceIcon.Symbol = identity.Kind switch
+        {
+            DllSourceKind.CustomWebDav => SymbolRegular.Code24,
+            DllSourceKind.Official => SymbolRegular.CheckmarkCircle24,
+            DllSourceKind.HashMismatch => SymbolRegular.Warning24,
+            DllSourceKind.NotInstalled => SymbolRegular.PlugDisconnected24,
+            _ => SymbolRegular.QuestionCircle24,
+        };
+
+        var deployed = identity.DeployedHash is { Length: >= 12 } ? identity.DeployedHash[..12] : "-";
+        var embedded = identity.EmbeddedHash is { Length: >= 12 } ? identity.EmbeddedHash[..12] : "-";
+        DllHashText.Text = S.Format("Settings_DllSourceHashFormat", deployed, embedded);
+    }
+
+    private void ApplyCurrentAccount(SteamLoginUser? user)
+    {
+        if (user == null)
+        {
+            CurrentAccountText.Text = S.Get("Settings_CurrentAccountNone");
+            CurrentAccountDetailText.Text = S.Get("Settings_CurrentAccountWarning");
+            CurrentAccountIcon.Symbol = SymbolRegular.Warning24;
+            return;
+        }
+
+        CurrentAccountText.Text = S.Format("Settings_CurrentAccountFormat",
+            string.IsNullOrWhiteSpace(user.PersonaName) ? user.AccountName : user.PersonaName,
+            user.AccountId,
+            user.SteamId64);
+        CurrentAccountDetailText.Text = S.Get("Settings_CurrentAccountWarning");
+        CurrentAccountIcon.Symbol = SymbolRegular.Person24;
+    }
+
     private void ApplySyncToggles(bool? achievements, bool? playtime, bool? luas, bool? autoUpdateDll,
-                                   bool? parentalIgnorePlaytime, bool? parentalBypassPlaytime)
+                                   bool? parentalIgnorePlaytime, bool? parentalBypassPlaytime,
+                                   DllIdentityInfo identity)
     {
         _syncLoading = true;
         try
@@ -138,7 +186,17 @@ public partial class SettingsPage : Page
             if (achievements == true) SyncAchievementsToggle.IsChecked = true;
             if (playtime == true) SyncPlaytimeToggle.IsChecked = true;
             if (luas == true) SyncLuasToggle.IsChecked = true;
-            if (autoUpdateDll == true) AutoUpdateDllToggle.IsChecked = true;
+            AutoUpdateDllToggle.IsEnabled = !identity.IsCustomBuild;
+            if (identity.IsCustomBuild)
+            {
+                AutoUpdateDllToggle.IsChecked = false;
+                if (autoUpdateDll == true)
+                    SaveSyncToggles();
+            }
+            else if (autoUpdateDll == true)
+            {
+                AutoUpdateDllToggle.IsChecked = true;
+            }
             if (parentalIgnorePlaytime == true) ParentalIgnorePlaytimeToggle.IsChecked = true;
             if (parentalBypassPlaytime == true) ParentalBypassPlaytimeToggle.IsChecked = true;
         }

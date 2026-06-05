@@ -32,6 +32,9 @@ void InstallRecvPktMonitor(void* savedOrigPtrAddr);
 // install inline detour on steamclient64 for manifest pinning
 void InstallManifestPinHook();
 
+// install hooks when loaded directly by OpenSteamTool's Lua runtime
+void InstallDirectHooks();
+
 // Stub -- release-state patching removed from public builds.
 void InstallReleaseStateNop();
 

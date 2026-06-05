@@ -275,7 +275,20 @@ public static class SteamDetector
             if (root.TryGetProperty("sync_path", out var sp))
                 syncPath = sp.GetString();
 
-            return new CloudConfig(provider, tokenPath, syncPath);
+            string? webDavUrl = null;
+            if (root.TryGetProperty("webdav_url", out var wu))
+                webDavUrl = wu.GetString();
+
+            string? webDavUsername = null;
+            if (root.TryGetProperty("webdav_username", out var wun))
+                webDavUsername = wun.GetString();
+
+            string? webDavPassword = null;
+            if (root.TryGetProperty("webdav_password", out var wp))
+                webDavPassword = wp.GetString();
+
+            return new CloudConfig(provider, tokenPath, syncPath,
+                webDavUrl, webDavUsername, webDavPassword);
         }
         catch
         {
@@ -287,12 +300,19 @@ public static class SteamDetector
 /// <summary>
 /// Parsed contents of cloud_redirect/config.json.
 /// </summary>
-public record CloudConfig(string Provider, string? TokenPath, string? SyncPath)
+public record CloudConfig(
+    string Provider,
+    string? TokenPath,
+    string? SyncPath,
+    string? WebDavUrl,
+    string? WebDavUsername,
+    string? WebDavPassword)
 {
     public string DisplayName => Provider switch
     {
         "gdrive" => S.Get("Provider_GoogleDrive"),
         "onedrive" => S.Get("Provider_OneDrive"),
+        "webdav" => S.Get("Provider_WebDav"),
         "folder" => S.Get("Provider_FolderNetworkDrive"),
         "local" => S.Get("Provider_LocalOnly"),
         _ => Provider
@@ -300,4 +320,10 @@ public record CloudConfig(string Provider, string? TokenPath, string? SyncPath)
 
     public bool IsFolder => Provider == "folder";
     public bool IsLocal => Provider == "local";
+    public bool IsWebDav => Provider == "webdav";
+    public bool HasWebDavConfig =>
+        IsWebDav &&
+        !string.IsNullOrWhiteSpace(WebDavUrl) &&
+        !string.IsNullOrWhiteSpace(WebDavUsername) &&
+        !string.IsNullOrEmpty(WebDavPassword);
 }

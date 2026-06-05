@@ -76,6 +76,9 @@
   <data name="Nav_ChoiceMode" xml:space="preserve">
     <value>Mode</value>
   </data>
+  <data name="Nav_Diagnostics" xml:space="preserve">
+    <value>Diagnostics</value>
+  </data>
 
   <!-- ═══════════════════════════════════════════════════════════════════ -->
   <!-- ChoiceModePage                                                      -->
@@ -127,7 +130,7 @@
     <value>Setup</value>
   </data>
   <data name="Setup_Description" xml:space="preserve">
-    <value>Apply patches and deploy CloudRedirect to your Steam installation.</value>
+    <value>Deploy CloudRedirect for OpenSteamTool and install the Lua loader.</value>
   </data>
   <data name="Setup_Description_STFixer" xml:space="preserve">
     <value>Apply patches for the Capcom save fix and manifest pinning.</value>
@@ -154,16 +157,16 @@
     <value>Change</value>
   </data>
   <data name="Setup_RunAllPatches" xml:space="preserve">
-    <value>Run All Patches</value>
+    <value>Install OpenSteamTool Integration</value>
   </data>
   <data name="Setup_OfflineSetupHeader" xml:space="preserve">
-    <value>SteamTools Offline Setup</value>
+    <value>OpenSteamTool</value>
   </data>
   <data name="Setup_OfflineSetupDescription" xml:space="preserve">
-    <value>Patches SteamTools so it works even when their activation servers are down. Required for first-time installations.</value>
+    <value>CloudRedirect now loads through OpenSteamTool. Install OpenSteamTool in the Steam root before restarting Steam.</value>
   </data>
   <data name="Setup_OfflineSetup" xml:space="preserve">
-    <value>Offline Setup</value>
+    <value>OpenSteamTool Status</value>
   </data>
   <data name="Setup_NotChecked" xml:space="preserve">
     <value>Not checked</value>
@@ -175,40 +178,40 @@
     <value>Revert Patch</value>
   </data>
   <data name="Setup_StExeHeader" xml:space="preserve">
-    <value>SteamTools.exe Patch</value>
+    <value>Lua Loader</value>
   </data>
   <data name="Setup_StExeDescription" xml:space="preserve">
-    <value>Disables the SteamTools Desktop App from overwriting patched DLLs on every startup. Without this, SteamTools will undo core patches.</value>
+    <value>Installs a small Lua file under config\lua so OpenSteamTool loads cloud_redirect.dll.</value>
   </data>
   <data name="Setup_DllDeploy" xml:space="preserve">
-    <value>DLL Deploy</value>
+    <value>Loader Status</value>
   </data>
   <data name="Setup_PatchSteamToolsExe" xml:space="preserve">
-    <value>Patch SteamTools.exe</value>
+    <value>Install Loader</value>
   </data>
   <data name="Setup_CloudRedirectPatchHeader" xml:space="preserve">
-    <value>Cloud Redirect Patch</value>
+    <value>CloudRedirect Runtime</value>
   </data>
   <data name="Setup_CloudRedirectPatchHeader_STFixer" xml:space="preserve">
     <value>Save Fix and Manifest Pinning Patch</value>
   </data>
   <data name="Setup_CloudRedirectPatchDescription" xml:space="preserve">
-    <value>Patches SteamTools payload so lua app cloud saves are routed through the CloudRedirect system.</value>
+    <value>OpenSteamTool loads CloudRedirect from Lua; no SteamTools payload patch is required.</value>
   </data>
   <data name="Setup_CloudRedirectPatchDescription_STFixer" xml:space="preserve">
     <value>Patches SteamTools payload to fix Capcom save routing and enable manifest pinning for lua apps.</value>
   </data>
   <data name="Setup_PatchStatus" xml:space="preserve">
-    <value>Patch Status</value>
+    <value>Runtime Status</value>
   </data>
   <data name="Setup_ApplyPatch" xml:space="preserve">
-    <value>Apply Patch</value>
+    <value>Apply Legacy Patch</value>
   </data>
   <data name="Setup_DeployHeader" xml:space="preserve">
     <value>Deploy CloudRedirect</value>
   </data>
   <data name="Setup_DeployDescription" xml:space="preserve">
-    <value>Copies core DLL to your Steam folder.</value>
+    <value>Copies cloud_redirect.dll to your Steam folder and installs the OpenSteamTool Lua loader.</value>
   </data>
   <data name="Setup_DllStatus" xml:space="preserve">
     <value>DLL Status</value>
@@ -280,6 +283,30 @@
   </data>
   <data name="Setup_StExeNotFound" xml:space="preserve">
     <value>SteamTools Desktop not found</value>
+  </data>
+  <data name="Setup_OpenSteamToolInstalled" xml:space="preserve">
+    <value>OpenSteamTool found</value>
+  </data>
+  <data name="Setup_OpenSteamToolNotFound" xml:space="preserve">
+    <value>OpenSteamTool not found in Steam root</value>
+  </data>
+  <data name="Setup_LoaderInstalled" xml:space="preserve">
+    <value>Lua loader installed</value>
+  </data>
+  <data name="Setup_LoaderNotInstalled" xml:space="preserve">
+    <value>Lua loader not installed</value>
+  </data>
+  <data name="Setup_InstallLoader" xml:space="preserve">
+    <value>Install Loader</value>
+  </data>
+  <data name="Setup_ReinstallLoader" xml:space="preserve">
+    <value>Reinstall Loader</value>
+  </data>
+  <data name="Setup_OpenSteamToolReady" xml:space="preserve">
+    <value>Ready for OpenSteamTool Lua loading</value>
+  </data>
+  <data name="Setup_OpenSteamToolNeedsInstall" xml:space="preserve">
+    <value>Install cloud_redirect.dll and Lua loader</value>
   </data>
   <data name="Setup_CouldNotCheck" xml:space="preserve">
     <value>Could not check: {0}</value>
@@ -553,6 +580,9 @@ If you skip this, saves will be stored locally in your Steam folder.</value>
   <data name="Dashboard_NoTokenPath" xml:space="preserve">
     <value>{0} -- No token path configured</value>
   </data>
+  <data name="Dashboard_Configured" xml:space="preserve">
+    <value>{0} -- Configured</value>
+  </data>
   <data name="Dashboard_LogNotFound" xml:space="preserve">
     <value>Log file not found. Start Steam with CloudRedirect installed first.</value>
   </data>
@@ -618,6 +648,9 @@ Force-kill it?</value>
   <data name="CloudProvider_Description" xml:space="preserve">
     <value>Configure your Steam Cloud provider. Google Drive/OneDrive/Local Folder only for now.</value>
   </data>
+  <data name="CloudProvider_DescriptionWebDav" xml:space="preserve">
+    <value>Configure your Steam Cloud provider. Supports Google Drive, OneDrive, WebDAV, or a local/network folder.</value>
+  </data>
   <data name="CloudProvider_Provider" xml:space="preserve">
     <value>Provider</value>
   </data>
@@ -626,6 +659,9 @@ Force-kill it?</value>
   </data>
   <data name="CloudProvider_OneDrive" xml:space="preserve">
     <value>OneDrive</value>
+  </data>
+  <data name="CloudProvider_WebDav" xml:space="preserve">
+    <value>WebDAV</value>
   </data>
   <data name="CloudProvider_FolderMappedDrive" xml:space="preserve">
     <value>Folder / Mapped Drive</value>
@@ -638,6 +674,24 @@ Force-kill it?</value>
   </data>
   <data name="CloudProvider_TokenPlaceholder" xml:space="preserve">
     <value>Path to OAuth tokens file</value>
+  </data>
+  <data name="CloudProvider_WebDavUrlPath" xml:space="preserve">
+    <value>WebDAV URL</value>
+  </data>
+  <data name="CloudProvider_WebDavUrlPlaceholder" xml:space="preserve">
+    <value>https://example.com/remote.php/dav/files/user/CloudRedirect</value>
+  </data>
+  <data name="CloudProvider_WebDavUrlHint" xml:space="preserve">
+    <value>Use an HTTPS WebDAV folder URL dedicated to CloudRedirect.</value>
+  </data>
+  <data name="CloudProvider_WebDavUsername" xml:space="preserve">
+    <value>Username</value>
+  </data>
+  <data name="CloudProvider_WebDavUsernamePlaceholder" xml:space="preserve">
+    <value>WebDAV username</value>
+  </data>
+  <data name="CloudProvider_WebDavPassword" xml:space="preserve">
+    <value>Password</value>
   </data>
   <data name="CloudProvider_Browse" xml:space="preserve">
     <value>Browse</value>
@@ -721,6 +775,51 @@ Force-kill it?</value>
   </data>
   <data name="CloudProvider_NoTokenFilePath" xml:space="preserve">
     <value>No token file path specified</value>
+  </data>
+  <data name="CloudProvider_WebDavNoUrl" xml:space="preserve">
+    <value>No WebDAV URL specified</value>
+  </data>
+  <data name="CloudProvider_WebDavMissingCredentials" xml:space="preserve">
+    <value>Please enter the WebDAV URL, username, and password.</value>
+  </data>
+  <data name="CloudProvider_WebDavRequiresHttps" xml:space="preserve">
+    <value>WebDAV URL must start with https://</value>
+  </data>
+  <data name="CloudProvider_WebDavConfigured" xml:space="preserve">
+    <value>WebDAV configured: {0}</value>
+  </data>
+  <data name="CloudProvider_WebDavNoQueryFragment" xml:space="preserve">
+    <value>WebDAV URL must not include a query string or fragment.</value>
+  </data>
+  <data name="CloudProvider_TestConnection" xml:space="preserve">
+    <value>Test Connection</value>
+  </data>
+  <data name="CloudProvider_TestingConnection" xml:space="preserve">
+    <value>Testing connection...</value>
+  </data>
+  <data name="CloudProvider_WebDavTestSuccess" xml:space="preserve">
+    <value>WebDAV connection OK (HTTP {0}).</value>
+  </data>
+  <data name="CloudProvider_WebDavTestUnauthorized" xml:space="preserve">
+    <value>Authentication failed. Check the username and password or use an app password.</value>
+  </data>
+  <data name="CloudProvider_WebDavTestForbidden" xml:space="preserve">
+    <value>The server rejected access to this WebDAV folder.</value>
+  </data>
+  <data name="CloudProvider_WebDavTestNotFound" xml:space="preserve">
+    <value>The WebDAV folder was not found. Check the URL path.</value>
+  </data>
+  <data name="CloudProvider_WebDavTestMethodNotAllowed" xml:space="preserve">
+    <value>The server does not allow PROPFIND on this URL. Check that it is a WebDAV folder URL.</value>
+  </data>
+  <data name="CloudProvider_WebDavTestHttpError" xml:space="preserve">
+    <value>WebDAV test failed: HTTP {0} {1}</value>
+  </data>
+  <data name="CloudProvider_WebDavTestTimeout" xml:space="preserve">
+    <value>WebDAV test timed out.</value>
+  </data>
+  <data name="CloudProvider_WebDavTestNetworkError" xml:space="preserve">
+    <value>Network error while testing WebDAV: {0}</value>
   </data>
 
   <!-- ═══════════════════════════════════════════════════════════════════ -->
@@ -1458,6 +1557,9 @@ Are you sure?</value>
   <data name="Provider_OneDrive" xml:space="preserve">
     <value>OneDrive</value>
   </data>
+  <data name="Provider_WebDav" xml:space="preserve">
+    <value>WebDAV</value>
+  </data>
   <data name="Provider_FolderNetworkDrive" xml:space="preserve">
     <value>Folder / Network Drive</value>
   </data>
@@ -1539,6 +1641,12 @@ Are you sure?</value>
   <data name="Common_UpdateFailed" xml:space="preserve">
     <value>Update Failed</value>
   </data>
+  <data name="Common_ErrorDetailsFormat" xml:space="preserve">
+    <value>Error: {0}</value>
+  </data>
+  <data name="Common_UnknownError" xml:space="preserve">
+    <value>Unknown error</value>
+  </data>
 
   <!-- OAuthService browser pages (user-facing HTML) -->
   <data name="OAuth_AuthSuccessTitle" xml:space="preserve">
@@ -1587,6 +1695,9 @@ Are you sure?</value>
   <data name="Settings_LanguagePortuguese" xml:space="preserve">
     <value>Português (Brasil)</value>
   </data>
+  <data name="Settings_LanguageChineseSimplified" xml:space="preserve">
+    <value>Simplified Chinese</value>
+  </data>
   <data name="Settings_Sync" xml:space="preserve">
     <value>Sync</value>
   </data>
@@ -1616,6 +1727,60 @@ Are you sure?</value>
   </data>
   <data name="Settings_AutoUpdateDllHint" xml:space="preserve">
     <value>Automatically check for and install newer versions of the CloudRedirect DLL when Steam launches. The update takes effect on the next Steam restart.</value>
+  </data>
+  <data name="Settings_DllSource" xml:space="preserve">
+    <value>DLL Source</value>
+  </data>
+  <data name="Settings_DllSourceOfficial" xml:space="preserve">
+    <value>Official DLL</value>
+  </data>
+  <data name="Settings_DllSourceCustomWebDav" xml:space="preserve">
+    <value>Custom WebDAV DLL</value>
+  </data>
+  <data name="Settings_DllSourceHashMismatch" xml:space="preserve">
+    <value>DLL hash mismatch</value>
+  </data>
+  <data name="Settings_DllSourceNotInstalled" xml:space="preserve">
+    <value>DLL not installed</value>
+  </data>
+  <data name="Settings_DllSourceUnknown" xml:space="preserve">
+    <value>DLL source unknown</value>
+  </data>
+  <data name="Settings_DllSourceMatchesEmbedded" xml:space="preserve">
+    <value>The DLL deployed to Steam matches the DLL embedded in this app.</value>
+  </data>
+  <data name="Settings_DllSourceCustomDifferentEmbedded" xml:space="preserve">
+    <value>A custom WebDAV DLL is deployed, but it differs from the DLL embedded in this app.</value>
+  </data>
+  <data name="Settings_DllSourceDeployCustomHint" xml:space="preserve">
+    <value>The app contains a custom WebDAV DLL, but Steam is not using it yet. Deploy/update the DLL from the dashboard.</value>
+  </data>
+  <data name="Settings_DllSourceHashMismatchHint" xml:space="preserve">
+    <value>The deployed DLL does not match the embedded DLL.</value>
+  </data>
+  <data name="Settings_DllSourceNotInstalledHint" xml:space="preserve">
+    <value>Deploy the DLL before starting Steam.</value>
+  </data>
+  <data name="Settings_DllSourceSteamMissing" xml:space="preserve">
+    <value>Steam was not found, so the deployed DLL could not be inspected.</value>
+  </data>
+  <data name="Settings_DllSourceReadFailed" xml:space="preserve">
+    <value>The deployed DLL could not be read.</value>
+  </data>
+  <data name="Settings_DllSourceHashFormat" xml:space="preserve">
+    <value>Deployed: {0}  Embedded: {1}</value>
+  </data>
+  <data name="Settings_CurrentAccount" xml:space="preserve">
+    <value>Current Steam Account</value>
+  </data>
+  <data name="Settings_CurrentAccountFormat" xml:space="preserve">
+    <value>{0} / accountId {1} / SteamID64 {2}</value>
+  </data>
+  <data name="Settings_CurrentAccountNone" xml:space="preserve">
+    <value>No current account detected</value>
+  </data>
+  <data name="Settings_CurrentAccountWarning" xml:space="preserve">
+    <value>Cloud saves are stored under this accountId. Check this before switching Steam accounts.</value>
   </data>
 
   <!-- ═══════════════════════════════════════════════════════════════════ -->
@@ -1683,6 +1848,12 @@ Are you sure?</value>
   <data name="Pin_FailedSavePinConfig" xml:space="preserve">
     <value>Couldn't save pin configuration: {0}</value>
   </data>
+  <data name="Pin_DepotLabel" xml:space="preserve">
+    <value>Depot</value>
+  </data>
+  <data name="Pin_DepotCountFormat" xml:space="preserve">
+    <value>{0} depot(s)</value>
+  </data>
 
   <!-- ═══════════════════════════════════════════════════════════════════ -->
   <!-- Search                                                              -->
@@ -1717,5 +1888,225 @@ Are you sure?</value>
   <data name="AppUpdate_UpdateNow" xml:space="preserve">
     <value>Update Now</value>
   </data>
+  <data name="AppUpdate_ReleaseNotes" xml:space="preserve">
+    <value>Release Notes</value>
+  </data>
+  <data name="AppUpdate_AvailableTitleFormat" xml:space="preserve">
+    <value>Update available -- v{0}</value>
+  </data>
+  <data name="AppUpdate_AvailableDescription" xml:space="preserve">
+    <value>A new version of CloudRedirect is ready to install.</value>
+  </data>
+  <data name="AppUpdate_DownloadingVersionFormat" xml:space="preserve">
+    <value>Downloading v{0}...</value>
+  </data>
+  <data name="AppUpdate_FailedTitle" xml:space="preserve">
+    <value>Update failed</value>
+  </data>
+  <data name="AppUpdate_DownloadingUpdate" xml:space="preserve">
+    <value>Downloading update...</value>
+  </data>
+  <data name="AppUpdate_SuspiciousSizeFormat" xml:space="preserve">
+    <value>Downloaded file has suspicious size ({0} bytes)</value>
+  </data>
+  <data name="AppUpdate_SuspiciousSizeOverFormat" xml:space="preserve">
+    <value>Downloaded file has suspicious size (&gt;{0} bytes)</value>
+  </data>
+  <data name="AppUpdate_DownloadingProgressFormat" xml:space="preserve">
+    <value>Downloading... {0}%</value>
+  </data>
+  <data name="AppUpdate_InvalidExecutable" xml:space="preserve">
+    <value>Downloaded file is not a valid executable</value>
+  </data>
+  <data name="AppUpdate_Installing" xml:space="preserve">
+    <value>Installing update...</value>
+  </data>
+  <data name="AppUpdate_CurrentExeUnknown" xml:space="preserve">
+    <value>Could not determine current executable path</value>
+  </data>
+  <data name="AppUpdate_ReplaceExeFailedFormat" xml:space="preserve">
+    <value>Could not replace exe: {0}</value>
+  </data>
+  <data name="AppUpdate_Relaunching" xml:space="preserve">
+    <value>Relaunching...</value>
+  </data>
+  <data name="AppUpdate_UpdateFailedFormat" xml:space="preserve">
+    <value>Update failed: {0}</value>
+  </data>
+
+  <data name="CloudProvider_WebDavTestSuccessFull" xml:space="preserve">
+    <value>WebDAV compatibility test passed: list, create directories, upload, download, overwrite, verify, and delete all worked.</value>
+  </data>
+  <data name="CloudProvider_WebDavTestStepFailed" xml:space="preserve">
+    <value>WebDAV test step {0} failed: HTTP {1} {2}</value>
+  </data>
+  <data name="CloudProvider_WebDavTestContentMismatch" xml:space="preserve">
+    <value>WebDAV download content did not match the uploaded test file.</value>
+  </data>
+  <data name="Diagnostics_Title" xml:space="preserve">
+    <value>Diagnostics</value>
+  </data>
+  <data name="Diagnostics_Subtitle" xml:space="preserve">
+    <value>Runtime checks for DLL loading, OpenSteamTool integration, Steam account, WebDAV, and recent hook activity.</value>
+  </data>
+  <data name="Diagnostics_Refresh" xml:space="preserve">
+    <value>Refresh</value>
+  </data>
+  <data name="Diagnostics_RuntimeStatus" xml:space="preserve">
+    <value>Runtime Status</value>
+  </data>
+  <data name="Diagnostics_OpenSteamToolChecks" xml:space="preserve">
+    <value>OpenSteamTool Checks</value>
+  </data>
+  <data name="Diagnostics_RecentLog" xml:space="preserve">
+    <value>Recent cloud_redirect.log</value>
+  </data>
+  <data name="Diagnostics_SteamPath" xml:space="preserve">
+    <value>Steam path</value>
+  </data>
+  <data name="Diagnostics_SteamPathNotFound" xml:space="preserve">
+    <value>Not found</value>
+  </data>
+  <data name="Diagnostics_SteamVersion" xml:space="preserve">
+    <value>Steam version</value>
+  </data>
+  <data name="Diagnostics_SteamVersionSupported" xml:space="preserve">
+    <value>{0} (supported)</value>
+  </data>
+  <data name="Diagnostics_SteamVersionUnsupported" xml:space="preserve">
+    <value>{0} (unsupported)</value>
+  </data>
+  <data name="Diagnostics_SteamVersionUnknown" xml:space="preserve">
+    <value>Unknown</value>
+  </data>
+  <data name="Diagnostics_DllSource" xml:space="preserve">
+    <value>DLL source</value>
+  </data>
+  <data name="Diagnostics_DllSourceFormat" xml:space="preserve">
+    <value>{0} - {1}</value>
+  </data>
+  <data name="Diagnostics_OpenSteamToolIntegration" xml:space="preserve">
+    <value>OpenSteamTool integration</value>
+  </data>
+  <data name="Diagnostics_OpenSteamToolReady" xml:space="preserve">
+    <value>Ready</value>
+  </data>
+  <data name="Diagnostics_OpenSteamToolFailed" xml:space="preserve">
+    <value>One or more required checks failed</value>
+  </data>
+  <data name="Diagnostics_CurrentAccount" xml:space="preserve">
+    <value>Current account</value>
+  </data>
+  <data name="Diagnostics_CurrentAccountFormat" xml:space="preserve">
+    <value>{0} / accountId {1} / SteamID64 {2}</value>
+  </data>
+  <data name="Diagnostics_CurrentAccountMissing" xml:space="preserve">
+    <value>No account ID detected</value>
+  </data>
+  <data name="Diagnostics_DllLoaded" xml:space="preserve">
+    <value>DLL loaded</value>
+  </data>
+  <data name="Diagnostics_DllLoadedOk" xml:space="preserve">
+    <value>Loaded through OpenSteamTool Lua</value>
+  </data>
+  <data name="Diagnostics_DllLoadedMissing" xml:space="preserve">
+    <value>No OpenSteamTool load marker in recent log</value>
+  </data>
+  <data name="Diagnostics_CloudRpcHook" xml:space="preserve">
+    <value>Cloud RPC hook</value>
+  </data>
+  <data name="Diagnostics_CloudRpcHookOk" xml:space="preserve">
+    <value>vtable hook active</value>
+  </data>
+  <data name="Diagnostics_CloudRpcHookMissing" xml:space="preserve">
+    <value>No active vtable hook marker in recent log</value>
+  </data>
+  <data name="Diagnostics_AccountId" xml:space="preserve">
+    <value>Account ID</value>
+  </data>
+  <data name="Diagnostics_AccountIdOk" xml:space="preserve">
+    <value>Account ID available</value>
+  </data>
+  <data name="Diagnostics_AccountIdMissing" xml:space="preserve">
+    <value>No account ID marker in recent log</value>
+  </data>
+  <data name="Diagnostics_AccountIdRecentMissing" xml:space="preserve">
+    <value>Recent log still contains no Steam account ID</value>
+  </data>
+  <data name="Diagnostics_WebDavProvider" xml:space="preserve">
+    <value>WebDAV provider</value>
+  </data>
+  <data name="Diagnostics_WebDavProviderOk" xml:space="preserve">
+    <value>Initialized in DLL log</value>
+  </data>
+  <data name="Diagnostics_WebDavProviderMissing" xml:space="preserve">
+    <value>No WebDAV initialization marker in recent log</value>
+  </data>
+  <data name="Diagnostics_RecentSyncActivity" xml:space="preserve">
+    <value>Recent sync activity</value>
+  </data>
+  <data name="Diagnostics_RecentSyncActivityMissing" xml:space="preserve">
+    <value>No intercepted Cloud RPC in recent log</value>
+  </data>
+  <data name="Diagnostics_LogMissing" xml:space="preserve">
+    <value>cloud_redirect.log not found or empty.</value>
+  </data>
+
+  <data name="Nav_DataRestore" xml:space="preserve"><value>Restore Data</value></data>
+  <data name="DataRestore_Title" xml:space="preserve"><value>Restore Data</value></data>
+  <data name="DataRestore_Subtitle" xml:space="preserve"><value>Restore synced playtime, achievement/stat cache, and OpenSteamTool Lua files back to this PC.</value></data>
+  <data name="DataRestore_Refresh" xml:space="preserve"><value>Refresh</value></data>
+  <data name="DataRestore_CurrentAccount" xml:space="preserve"><value>Current Steam account</value></data>
+  <data name="DataRestore_CurrentAccountFormat" xml:space="preserve"><value>{0} / accountId {1} / SteamID64 {2}</value></data>
+  <data name="DataRestore_CurrentAccountMissing" xml:space="preserve"><value>No current account detected. Log into Steam once so loginusers.vdf can identify the target account.</value></data>
+  <data name="DataRestore_Source" xml:space="preserve"><value>Backup source</value></data>
+  <data name="DataRestore_SourceFormat" xml:space="preserve"><value>{0} (accountId {1})</value></data>
+  <data name="DataRestore_SourceCountsFormat" xml:space="preserve"><value>Playtime: {0}; achievement/stat files: {1}; Lua files: {2}</value></data>
+  <data name="DataRestore_NoSource" xml:space="preserve"><value>No usable backup source found for the current account.</value></data>
+  <data name="DataRestore_Detecting" xml:space="preserve"><value>Detecting...</value></data>
+  <data name="DataRestore_SteamNotFound" xml:space="preserve"><value>Steam installation not found.</value></data>
+  <data name="DataRestore_PlaytimeTitle" xml:space="preserve"><value>Restore playtime</value></data>
+  <data name="DataRestore_PlaytimeHint" xml:space="preserve"><value>Writes backed-up playtime fields into Steam userdata localconfig.vdf for this account.</value></data>
+  <data name="DataRestore_StatsTitle" xml:space="preserve"><value>Restore achievement files</value></data>
+  <data name="DataRestore_StatsHint" xml:space="preserve"><value>Copies backed-up UserGameStats files into Steam appcache stats for this account.</value></data>
+  <data name="DataRestore_LuaTitle" xml:space="preserve"><value>Restore Lua files</value></data>
+  <data name="DataRestore_LuaHint" xml:space="preserve"><value>Extracts the Lua archive into OpenSteamTool's config\lua directory.</value></data>
+  <data name="DataRestore_RestorePlaytime" xml:space="preserve"><value>Restore Playtime</value></data>
+  <data name="DataRestore_RestoreStats" xml:space="preserve"><value>Restore Achievements</value></data>
+  <data name="DataRestore_RestoreLua" xml:space="preserve"><value>Restore Lua</value></data>
+  <data name="DataRestore_Result" xml:space="preserve"><value>Result</value></data>
+  <data name="DataRestore_Ready" xml:space="preserve"><value>Ready.</value></data>
+  <data name="DataRestore_Restoring" xml:space="preserve"><value>Restoring...</value></data>
+  <data name="DataRestore_Done" xml:space="preserve"><value>Restore complete</value></data>
+  <data name="DataRestore_DoneMessage" xml:space="preserve"><value>Restored {0} item(s), skipped {1} item(s).</value></data>
+  <data name="DataRestore_FailedFormat" xml:space="preserve"><value>Restore failed: {0}</value></data>
+  <data name="DataRestore_PlaytimeConfirmTitle" xml:space="preserve"><value>Restore playtime?</value></data>
+  <data name="DataRestore_PlaytimeConfirmMessage" xml:space="preserve"><value>This will update Steam userdata localconfig.vdf for the current account. Steam must be closed.</value></data>
+  <data name="DataRestore_StatsConfirmTitle" xml:space="preserve"><value>Restore achievement/stat cache?</value></data>
+  <data name="DataRestore_StatsConfirmMessage" xml:space="preserve"><value>This will copy UserGameStats cache files into Steam appcache stats. Steam must be closed.</value></data>
+  <data name="DataRestore_LuaConfirmTitle" xml:space="preserve"><value>Restore Lua files?</value></data>
+  <data name="DataRestore_LuaConfirmMessage" xml:space="preserve"><value>This will extract backed-up Lua files into the OpenSteamTool Lua directory and back up overwritten files.</value></data>
+  <data name="DataRestore_SteamRunningTitle" xml:space="preserve"><value>Steam is running</value></data>
+  <data name="DataRestore_SteamRunningMessage" xml:space="preserve"><value>Exit Steam completely first. Steam can overwrite localconfig.vdf and stats cache while it is running.</value></data>
+  <data name="DataRestore_ResultSummaryFormat" xml:space="preserve"><value>Restored {0}, skipped {1}, accountId {2}</value></data>
+  <data name="DataRestore_ResultSourceFormat" xml:space="preserve"><value>Source: {0}</value></data>
+  <data name="DataRestore_ResultTargetFormat" xml:space="preserve"><value>Target: {0}</value></data>
+  <data name="DataRestore_ResultBackupFormat" xml:space="preserve"><value>Backup: {0}</value></data>
+  <data name="DataRestore_ResultMoreFormat" xml:space="preserve"><value>...and {0} more item(s).</value></data>
+  <data name="DataRestore_PlaytimeDetailFormat" xml:space="preserve"><value>Playtime {0}: {1} min</value></data>
+  <data name="DataRestore_StatsDetailFormat" xml:space="preserve"><value>UserGameStats {0}</value></data>
+  <data name="DataRestore_LuaDetailFormat" xml:space="preserve"><value>Lua {0}</value></data>
+  <data name="DataRestore_SkippedDetailFormat" xml:space="preserve"><value>Skipped {0}: {1}</value></data>
+  <data name="DataRestore_SourceMissingFormat" xml:space="preserve"><value>Backup source is missing: {0}</value></data>
+  <data name="DataRestore_TargetMissingFormat" xml:space="preserve"><value>Target file is missing: {0}</value></data>
+  <data name="DataRestore_NoPlaytimeBackups" xml:space="preserve"><value>No playtime backup files were found.</value></data>
+  <data name="DataRestore_NoStatsBackups" xml:space="preserve"><value>No achievement/stat backup files were found.</value></data>
+  <data name="DataRestore_NoLuaBackups" xml:space="preserve"><value>No Lua archive backup was found.</value></data>
+  <data name="DataRestore_LocalConfigAppsMissing" xml:space="preserve"><value>Could not find the apps block in localconfig.vdf.</value></data>
+  <data name="DataRestore_VdfBlockBroken" xml:space="preserve"><value>localconfig.vdf contains an unmatched VDF block.</value></data>
+  <data name="DataRestore_InvalidLuaName" xml:space="preserve"><value>Invalid Lua filename.</value></data>
+  <data name="DataRestore_InvalidLuaSize" xml:space="preserve"><value>Invalid Lua file size.</value></data>
+  <data name="DataRestore_InvalidLuaContent" xml:space="preserve"><value>Lua file appears to contain binary data.</value></data>
+  <data name="DataRestore_LuaArchiveTooLarge" xml:space="preserve"><value>Lua archive is too large.</value></data>
 
 </root>

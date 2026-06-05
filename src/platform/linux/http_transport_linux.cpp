@@ -119,6 +119,21 @@ static size_t HeaderCallback(const char* data, size_t size, size_t nmemb, std::s
     return total;
 }
 
+static std::vector<std::string> SplitHeaderLines(const std::string& headers) {
+    std::vector<std::string> lines;
+    size_t start = 0;
+    while (start < headers.size()) {
+        size_t end = headers.find('\n', start);
+        if (end == std::string::npos) end = headers.size();
+        std::string line = headers.substr(start, end - start);
+        while (!line.empty() && (line.back() == '\r' || line.back() == '\n'))
+            line.pop_back();
+        if (!line.empty()) lines.push_back(std::move(line));
+        start = end + 1;
+    }
+    return lines;
+}
+
 // Extract Location header from raw header block
 static std::string ExtractLocation(const std::string& headers) {
     for (const char* key : {"Location: ", "location: "}) {
@@ -207,6 +222,8 @@ static HttpUtil::HttpResp CurlRequest(const char* logTag, const char* method,
 
     resp.status = (int)httpCode;
     resp.body = std::move(responseBody);
+    if (!responseHeaders.empty())
+        resp.headers = SplitHeaderLines(responseHeaders);
 
     if (outLocation && !responseHeaders.empty())
         *outLocation = ExtractLocation(responseHeaders);

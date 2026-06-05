@@ -132,42 +132,52 @@ public partial class ManifestPinningPage : Page
             var steamPath = SteamDetector.FindSteamPath();
             if (steamPath == null) return result;
 
-            var luaDir = Path.Combine(steamPath, "config", "stplug-in");
-            if (!Directory.Exists(luaDir)) return result;
-
-            foreach (var file in Directory.GetFiles(luaDir, "*.lua"))
+            foreach (var luaDir in OpenSteamToolIntegration.GetLuaDirectories(steamPath))
             {
-                var fileName = Path.GetFileNameWithoutExtension(file);
-                if (!uint.TryParse(fileName, out var appId) || appId == 0) continue;
+                if (!Directory.Exists(luaDir)) continue;
 
-                var depots = new List<DepotEntry>();
-                foreach (var line in File.ReadLines(file))
+                foreach (var file in Directory.GetFiles(luaDir, "*.lua"))
                 {
-                    var trimmed = line.TrimStart();
-                    if (trimmed.StartsWith("--")) continue;
+                    var fileName = Path.GetFileNameWithoutExtension(file);
+                    if (!uint.TryParse(fileName, out var appId) || appId == 0) continue;
 
-                    var match = ManifestIdRegex.Match(line);
-                    if (!match.Success) continue;
-
-                    if (uint.TryParse(match.Groups[1].Value, out _) &&
-                        ulong.TryParse(match.Groups[2].Value, out _))
+                    var depots = new List<DepotEntry>();
+                    foreach (var line in File.ReadLines(file))
                     {
-                        depots.Add(new DepotEntry
+                        var trimmed = line.TrimStart();
+                        if (trimmed.StartsWith("--")) continue;
+
+                        var match = ManifestIdRegex.Match(line);
+                        if (!match.Success) continue;
+
+                        if (uint.TryParse(match.Groups[1].Value, out _) &&
+                            ulong.TryParse(match.Groups[2].Value, out _))
                         {
-                            DepotId = match.Groups[1].Value,
-                            ManifestId = match.Groups[2].Value
+                            depots.Add(new DepotEntry
+                            {
+                                DepotId = match.Groups[1].Value,
+                                ManifestId = match.Groups[2].Value
+                            });
+                        }
+                    }
+
+                    if (depots.Count == 0) continue;
+
+                    var existing = result.FirstOrDefault(a => a.AppId == appId);
+                    if (existing != null)
+                    {
+                        existing.Depots.AddRange(depots);
+                    }
+                    else
+                    {
+                        result.Add(new LuaApp
+                        {
+                            AppId = appId,
+                            DisplayName = S.Format("Pin_AppFallbackName", appId),
+                            Depots = depots
                         });
                     }
                 }
-
-                if (depots.Count == 0) continue;
-
-                result.Add(new LuaApp
-                {
-                    AppId = appId,
-                    DisplayName = S.Format("Pin_AppFallbackName", appId),
-                    Depots = depots
-                });
             }
 
             result.Sort((a, b) => a.AppId.CompareTo(b.AppId));

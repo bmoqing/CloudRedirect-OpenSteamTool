@@ -77,6 +77,7 @@ public:
             WinHttpQueryHeaders(hReq, WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER,
                 WINHTTP_HEADER_NAME_BY_INDEX, &code, &codeLen, WINHTTP_NO_HEADER_INDEX);
             resp.status = (int)code;
+            ReadHeaders(hReq, resp.headers);
             ReadBody(hReq, resp.body);
         }
 
@@ -143,6 +144,7 @@ public:
             WinHttpQueryHeaders(hReq, WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER,
                 WINHTTP_HEADER_NAME_BY_INDEX, &code, &codeLen, WINHTTP_NO_HEADER_INDEX);
             resp.status = (int)code;
+            ReadHeaders(hReq, resp.headers);
             ReadBody(hReq, resp.body);
         }
 
@@ -190,6 +192,7 @@ public:
         WinHttpQueryHeaders(hReq, WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER,
             WINHTTP_HEADER_NAME_BY_INDEX, &statusCode, &codeLen, WINHTTP_NO_HEADER_INDEX);
         resp.status = (int)statusCode;
+        ReadHeaders(hReq, resp.headers);
 
         if (statusCode == 200) {
             ReadBody(hReq, resp.body);
@@ -227,6 +230,40 @@ public:
     }
 
 private:
+    void ReadHeaders(HINTERNET hReq, std::vector<std::string>& headers) {
+        DWORD len = 0;
+        WinHttpQueryHeaders(hReq, WINHTTP_QUERY_RAW_HEADERS_CRLF,
+            WINHTTP_HEADER_NAME_BY_INDEX, WINHTTP_NO_OUTPUT_BUFFER, &len,
+            WINHTTP_NO_HEADER_INDEX);
+        if (GetLastError() != ERROR_INSUFFICIENT_BUFFER || len == 0) return;
+
+        std::wstring raw(len / sizeof(wchar_t), 0);
+        if (!WinHttpQueryHeaders(hReq, WINHTTP_QUERY_RAW_HEADERS_CRLF,
+                WINHTTP_HEADER_NAME_BY_INDEX, raw.data(), &len,
+                WINHTTP_NO_HEADER_INDEX)) {
+            return;
+        }
+        while (!raw.empty() && raw.back() == L'\0') raw.pop_back();
+
+        size_t start = 0;
+        while (start < raw.size()) {
+            size_t end = raw.find(L"\r\n", start);
+            if (end == std::wstring::npos) end = raw.size();
+            if (end > start) {
+                std::wstring line = raw.substr(start, end - start);
+                int n = WideCharToMultiByte(CP_UTF8, 0, line.c_str(), (int)line.size(),
+                                             nullptr, 0, nullptr, nullptr);
+                if (n > 0) {
+                    std::string utf8(n, 0);
+                    WideCharToMultiByte(CP_UTF8, 0, line.c_str(), (int)line.size(),
+                                         utf8.data(), n, nullptr, nullptr);
+                    headers.push_back(std::move(utf8));
+                }
+            }
+            start = end + 2;
+        }
+    }
+
     void ReadBody(HINTERNET hReq, std::string& body) {
         DWORD avail, got;
         while (WinHttpQueryDataAvailable(hReq, &avail) && avail > 0) {

@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
 #include <cstdint>
+#include <vector>
 
 namespace HttpUtil {
 
@@ -24,6 +25,7 @@ std::string UnixToIso8601(int64_t ts);
 struct HttpResp {
     int status = 0;
     std::string body;
+    std::vector<std::string> headers;
 };
 
 } // namespace HttpUtil

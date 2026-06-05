@@ -1,100 +1,109 @@
-# CloudRedirect
+# CloudRedirect OpenSteamTool 自定义版
 
-""Steam Cloud"" for 'lua' games.
+这是基于 [Selectively11/CloudRedirect](https://github.com/Selectively11/CloudRedirect) v2.1.5 制作的自定义构建。上游项目提供核心 Steam Cloud 重定向、DLL hook、第三方接入 API 和 WPF 管理程序；本仓库在此基础上加入 OpenSteamTool 加载方式、简体中文界面、WebDAV 云服务、诊断页和维护工具。
 
-> ****This software is experimental and under active development.**** The underlying techniques are fairly insane. What this software tries to do is nuts to attempt. This software could damage your save files and probably will! It could overwrite your saves, cause weird conflicts, make your saves disappear, make you cry. Back up any saves you care about before using this software.
+使用前请先备份重要存档。CloudRedirect 会拦截 Steam Cloud 相关调用，并把 Lua/假入库应用的云存档重定向到你配置的云服务或本地目录。它适合你确实需要这些应用进行云同步的场景；如果只是不想看到 Steam Cloud 报错，请优先考虑关闭该游戏属性里的 Steam Cloud。
 
-But it probably won't. It's been very solid for a long time.
+## 基于上游 v2.1.5
 
->****Do not use this if you do not actively want cloud saves for "lua" games. If all you care about is the Steam Cloud error, disable Steam Cloud in properties for that game.****
+上游 v2.1.5 的主要变化：
 
-## What it does
+- 修复中文、日文等非 ASCII 存档路径可能导致崩溃的问题。
+- 修复 Unicode 游戏安装目录下 AutoCloud 扫描失败的问题。
+- 移除剩余可用原生行为替代的自定义 AutoCloud 逻辑。
+- 新增第三方非 SteamTools 解锁方案的 CloudRedirect API 起步支持。
+- 首次设置后新增自动更新提示。
+- 已通过 Google Drive 或 OneDrive 认证时跳过云服务配置提示。
 
-Valve patched the (sinful) thing SteamTools did to sync saves. Specifically, SteamTools rewrote requests to AppID 760, which is Steam Screenshots. It sent all Steam Cloud requests for non-owned AppIDs there. It did not create prefixes for each individual game, which means that each lua app shared the saves with all others. This can cause saves to conflict if multiple games use the same save file name. This also means that your saves are replicated in the `Steam/Userdata/<steamid>/<appid for lua game>` folder for each lua app.
+本自定义版保留并适配：
 
-It also did not support Steam AutoCloud games at all. It would simply show a fake success message for those games.
+- OpenSteamTool 加载方式：通过 `Steam\config\lua\cloud_redirect_loader.lua` 加载 `cloud_redirect.dll`，不再依赖 `config\stplug-in`。
+- 简体中文界面，并在设置中提供中文选项。
+- WebDAV 云服务提供商，适合 Nextcloud、AList、坚果云等支持 WebDAV 的服务。
+- WebDAV 测试连接：执行 PROPFIND、MKCOL、PUT、GET、覆盖、列目录和删除验证。
+- 设置页显示当前 DLL 来源：官方版、自定义 WebDAV 版、哈希不匹配或未安装。
+- 自定义 DLL 构建禁用官方 DLL 自动更新，避免 WebDAV 版被上游官方 DLL 覆盖。
+- 诊断页：检查 DLL 加载、OpenSteamTool 安装、Lua 目录、当前 Steam accountId、WebDAV 初始化和最近 hook 日志。
+- 数据恢复页：一键恢复游玩时间、成就/统计缓存和 OpenSteamTool Lua 文件。
+- 本地 WebDAV 兼容性测试脚本。
+- `patches/` 和 `CUSTOM_BUILD_NOTES.md`，用于后续上游升级时复用改动。
 
-What _this_ tool does is redirect Steam Cloud requests for games that are injected to Google Drive/OneDrive/a local folder, including AutoCloud games. Everything is native inside the Steam Client, but the actual data is read/written to and from your cloud account. This was much harder to do than just redirecting read/write to an AppID that your account owns, but it was fun to make. It also is less likely to piss off Valve.
+## 安装方式
 
-This isn't uploading your save files manually or something silly like that. It's the real deal. Steam Cloud, but going to a cloud provider and not Valve.
+1. 安装 OpenSteamTool，把 `dwmapi.dll`、`xinput1_4.dll`、`OpenSteamTool.dll` 放到 Steam 根目录，例如 `C:\Program Files (x86)\Steam`。
+2. 运行本项目 Release 里的 `CloudRedirect.exe`。
+3. 在“安装设置”里点击“安装 OpenSteamTool 集成”。
+4. 在“云服务提供商”里选择 Google Drive、OneDrive、WebDAV、文件夹/网络驱动器或仅本地。
+5. 如果选择 WebDAV，请填写 HTTPS WebDAV URL、用户名和密码/应用密码，然后点击“测试连接”。
+6. 重启 Steam 后，在“诊断”页查看 DLL 是否已通过 OpenSteamTool Lua 加载、vtable hook 是否激活、accountId 是否正确。
 
-The tool also has a function to reset the progress of games (useful for auto cloud games that you want to start over in) and a tool to scan SteamTools games for the pollution described above. 
+OpenSteamTool 默认读取：
 
-Please treat the cloud 'folder' on your cloud provider the same way you would treat Steam Cloud itself. Don't delete files inside a game's folder in the Cloud or anything like that - you'll just cause a sync error, but stil....
-
-CloudRedirect is good software. It's clever.
-
-## How it works
-
-CloudRedirect for Windows consists of a C++ DLL and a WPF companion app:
-
-1. The companion app patches the SteamTools payload to load the CloudRedirect DLL at startup.
-2. The DLL hooks Steam's internal cloud save RPC handlers via ~~vtable interception~~ black magic.
-3. When a lua game attempts to read or write cloud save data, the DLL intercepts the calls and redirects it. If the game is owned, the game uses normal Steam Cloud as expected. If a lua is present that only unlocks DLC, the game will use normal Steam Cloud.
-4. More dark magic occurs. Saves sync. Bytes flow. This all is visible in the Steam UI and looks identical to normal Steam Cloud functionality.
-
-Same rough idea on Linux, but involving a flatpak application and a library that is loaded on steam startup instead. 
-   
-## Supported cloud providers
-
-- **Google Drive**
-- **OneDrive**
-- **Local folder / mapped drive** -- by request of literally one user.
-
-With more to come over time. 
-
-## Usage (Windows)
-
-Grab the latest release from the [Releases page](https://github.com/Selectively11/CloudRedirect/releases).
-
-Run the EXE. Pick your mode - STfixer mode for fixes to ST bugs, CloudRedirect mode for the good stuff. In Setup, hit 'Run All Patches'. Go to the Cloud Provider tab, select your provider. If it is a cloud provider, sign in to it.
-
-That's it. Go launch Steam and watch the magic.
-
-## Usage (Linux)
-
-```bash
-curl -fsSL "https://raw.githubusercontent.com/Deadboy666/h3adcr-b/refs/heads/cr-testbranch/headcrab.sh" | bash
+```text
+C:\Program Files (x86)\Steam\config\lua
 ```
 
-Followed by 
+不要把 Lua 文件放到旧 SteamTools 目录：
 
-```bash
-curl -fsSL headcrab.pages.dev/cloudredirect | bash
+```text
+C:\Program Files (x86)\Steam\config\stplug-in
 ```
 
-Open the CloudRedirect app, sign into a provider.
+## 多账号提醒
 
-Edit your SLS config. The games you want to sync must be specified under AdditionalApps in your SLS config. This requirement will go away in the future. Make sure DisableCloud is set to No in the config.
+CloudRedirect 的本地缓存和云端路径会按 Steam `accountId` 分目录。切换 Steam 账号前，请在“设置”或“诊断”页确认当前显示的 accountId 是目标账号，避免把云存档写到另一个账号目录。
 
-Now launch Steam and watch your games sync!
+## WebDAV 配置
 
-## Building from source (Windows)
+WebDAV URL 必须是 HTTPS，不能包含 query string 或 fragment。常见示例：
 
-### Prerequisites
+```text
+https://example.com/remote.php/dav/files/user/CloudRedirect
+```
 
-- Visual Studio 2022 (or Build Tools) with the C++ and .NET 8 workloads
+当前实现支持 Basic Auth，并带有 Digest Auth 兼容逻辑。很多服务需要使用“应用密码”，不要直接使用网页登录密码。
+
+## 构建
+
+需要：
+
+- Visual Studio 2022 或 Build Tools，包含 C++ 工具链
+- .NET 8 Windows Desktop Runtime/SDK
 - CMake 3.20+
 
-### Build
+构建 native DLL 和 CLI：
 
-```bash
-cmake -B build -G "Visual Studio 17 2022" -A x64
-cmake --build build --config Release
+```powershell
+cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+cmake --build build --config Release --target cloud_redirect cloud_redirect_cli
 ```
 
-This builds both the C++ DLL (`build/Release/cloud_redirect.dll`) and publishes the WPF app (`ui/bin/publish/CloudRedirect.exe`). The DLL is automatically embedded into the executable.
+发布单文件 EXE：
 
-Or don't build it? Building Windows apps is pain.
+```powershell
+dotnet publish ui/CloudRedirect.csproj -c Release -r win-x64 --self-contained false -o ui/bin/publish
+```
 
-## Building from source (Linux)
+输出：
 
-Oooooh boy. Yeah. Have fun. 
+```text
+ui/bin/publish/CloudRedirect.exe
+build/Release/cloud_redirect.dll
+build/Release/cloud_redirect_cli.exe
+```
 
-You need to build against glibc 2.31 or older. Ubuntu 20.04 would work, if you dislike yourself. There's also an ancient version of Fedora that fits the bill. Or Debian 11. Distrobox is the way, here. Don't even bother trying to build under whatever distro you daily, you'll wind up fighting it for no reason. Distrobox exists for a reason. 
+## 本地 WebDAV 兼容性测试
 
-If you are building under Ubuntu 20.04, GCC 12 is needed along with the 32-bit multilib stuff. System cmake is ancient garbage, you'll have to update it.
+```powershell
+powershell -ExecutionPolicy Bypass -File tests\run_local_webdav_compat.ps1
+```
 
-Then specify -DLINUX_32BIT=ON and wham bam.
+这个脚本会启动一个本地 WebDAV 测试服务，验证创建目录、上传、下载、中文文件名、空目录、多级目录、覆盖冲突和删除。测试结束后会打印临时目录路径，按项目规则不会自动批量删除目录。
 
-Isn't building for weird distros _fun?_
+## 上游来源
+
+核心实现来自：
+
+[Selectively11/CloudRedirect](https://github.com/Selectively11/CloudRedirect)
+
+如果上游发布新版本，请先保留上游 hook/RVA/signature/API 更新，再按 `CUSTOM_BUILD_NOTES.md` 和 `patches/` 重新套用本项目的汉化、OpenSteamTool 和 WebDAV 改动。

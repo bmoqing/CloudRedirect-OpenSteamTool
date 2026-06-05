@@ -295,6 +295,7 @@ static std::atomic<uint64_t> g_detectedSteamVersion{0};
 
 // Cloud-redirect master toggle (default ON). When OFF the DLL still applies manifest pinning + patches but skips HTTP/storage/interception.
 static std::atomic<bool> g_cloudRedirectEnabled{true};
+static std::atomic<bool> g_cloudInitBlocked{false};
 
 // Manifest pinning (depot -> manifest override)
 // Config lives in Steam folder (per-system), NOT AppData (per-user).
@@ -346,7 +347,7 @@ struct HookGuard {
     HookGuard& operator=(const HookGuard&) = delete;
 };
 
-// namespace state (auto-detected from stplug-in directory)
+// namespace state (auto-detected from OpenSteamTool Lua directories)
 static std::unordered_set<uint32_t> g_namespaceApps;
 static std::mutex g_namespaceAppsMutex;
 
@@ -360,6 +361,11 @@ static bool HasNamespaceApps() {
     return !g_namespaceApps.empty();
 }
 
+static size_t NamespaceAppCount() {
+    std::lock_guard<std::mutex> lock(g_namespaceAppsMutex);
+    return g_namespaceApps.size();
+}
+
 void AddNamespaceApp(uint32_t appId) {
     std::lock_guard<std::mutex> lock(g_namespaceAppsMutex);
     g_namespaceApps.insert(appId);
@@ -368,6 +374,152 @@ void AddNamespaceApp(uint32_t appId) {
 void RemoveNamespaceApp(uint32_t appId) {
     std::lock_guard<std::mutex> lock(g_namespaceAppsMutex);
     g_namespaceApps.erase(appId);
+}
+
+static std::string TrimAscii(std::string s) {
+    size_t start = 0;
+    while (start < s.size() && (s[start] == ' ' || s[start] == '\t' || s[start] == '\r' || s[start] == '\n'))
+        ++start;
+    size_t end = s.size();
+    while (end > start && (s[end - 1] == ' ' || s[end - 1] == '\t' || s[end - 1] == '\r' || s[end - 1] == '\n'))
+        --end;
+    return s.substr(start, end - start);
+}
+
+static bool IsAbsoluteWinPath(const std::string& path) {
+    if (path.size() >= 3 && ((path[0] >= 'A' && path[0] <= 'Z') || (path[0] >= 'a' && path[0] <= 'z')) &&
+        path[1] == ':' && (path[2] == '\\' || path[2] == '/'))
+        return true;
+    return path.size() >= 2 &&
+        ((path[0] == '\\' && path[1] == '\\') || (path[0] == '/' && path[1] == '/'));
+}
+
+static std::string NormalizeLuaDir(std::string dir) {
+    dir = TrimAscii(std::move(dir));
+    if (dir.empty()) return {};
+    for (auto& c : dir) {
+        if (c == '/') c = '\\';
+    }
+    if (!IsAbsoluteWinPath(dir))
+        dir = g_steamPath + dir;
+    if (!dir.empty() && dir.back() != '\\')
+        dir += '\\';
+    return dir;
+}
+
+static bool SamePathInsensitive(const std::string& a, const std::string& b) {
+    return _stricmp(a.c_str(), b.c_str()) == 0;
+}
+
+static void AddUniquePath(std::vector<std::string>& paths, std::string path) {
+    path = NormalizeLuaDir(std::move(path));
+    if (path.empty()) return;
+    for (const auto& existing : paths) {
+        if (SamePathInsensitive(existing, path))
+            return;
+    }
+    paths.push_back(std::move(path));
+}
+
+static std::vector<std::string> ParseOpenSteamToolLuaPaths() {
+    std::vector<std::string> paths;
+    AddUniquePath(paths, "config\\lua");
+
+    std::string tomlPath = g_steamPath + "opensteamtool.toml";
+    std::ifstream f(FileUtil::Utf8ToPath(tomlPath));
+    if (!f.is_open())
+        return paths;
+
+    bool inLuaSection = false;
+    std::string line;
+    std::string pendingArray;
+    while (std::getline(f, line)) {
+        std::string trimmed = TrimAscii(line);
+        if (trimmed.empty() || trimmed[0] == '#')
+            continue;
+
+        if (trimmed.front() == '[') {
+            inLuaSection = (_stricmp(trimmed.c_str(), "[lua]") == 0);
+            continue;
+        }
+        if (!inLuaSection)
+            continue;
+
+        if (pendingArray.empty()) {
+            size_t eq = trimmed.find('=');
+            if (eq == std::string::npos)
+                continue;
+            std::string key = TrimAscii(trimmed.substr(0, eq));
+            if (_stricmp(key.c_str(), "paths") != 0)
+                continue;
+            pendingArray = trimmed.substr(eq + 1);
+        } else {
+            pendingArray += "\n";
+            pendingArray += trimmed;
+        }
+
+        if (pendingArray.find(']') == std::string::npos)
+            continue;
+
+        bool inQuote = false;
+        bool escape = false;
+        std::string current;
+        for (char c : pendingArray) {
+            if (!inQuote) {
+                if (c == '"') {
+                    inQuote = true;
+                    current.clear();
+                }
+                continue;
+            }
+
+            if (escape) {
+                if (c == 'n') current.push_back('\n');
+                else if (c == 'r') current.push_back('\r');
+                else if (c == 't') current.push_back('\t');
+                else current.push_back(c);
+                escape = false;
+                continue;
+            }
+
+            if (c == '\\') {
+                escape = true;
+                continue;
+            }
+            if (c == '"') {
+                inQuote = false;
+                AddUniquePath(paths, current);
+                current.clear();
+                continue;
+            }
+            current.push_back(c);
+        }
+        pendingArray.clear();
+    }
+
+    return paths;
+}
+
+static const std::vector<std::string>& GetOpenSteamToolLuaDirs() {
+    static std::string cachedSteamPath;
+    static std::vector<std::string> cached;
+    if (cachedSteamPath != g_steamPath || cached.empty()) {
+        cachedSteamPath = g_steamPath;
+        cached = ParseOpenSteamToolLuaPaths();
+        std::ostringstream oss;
+        for (size_t i = 0; i < cached.size(); ++i) {
+            if (i) oss << "; ";
+            oss << cached[i];
+        }
+        LOG("[LuaDirs] OpenSteamTool Lua directories: %s", oss.str().c_str());
+    }
+    return cached;
+}
+
+static std::string GetPrimaryOpenSteamToolLuaDir() {
+    const auto& dirs = GetOpenSteamToolLuaDirs();
+    if (!dirs.empty()) return dirs.front();
+    return g_steamPath + "config\\lua\\";
 }
 
 // per-app launch timestamp for internal playtime tracking
@@ -600,6 +752,113 @@ void SetAccountId(uint32_t accountId) {
 
 // recursion guard
 thread_local bool g_proxySending = false;
+
+static constexpr uint64_t STEAMID64_BASE = 76561197960265728ULL;
+
+static uint64_t ParseSteamId64Key(const std::string& trimmed) {
+    if (trimmed.size() < 3 || trimmed[0] != '"') return 0;
+    size_t endQuote = trimmed.find('"', 1);
+    if (endQuote == std::string::npos) return 0;
+
+    std::string key = trimmed.substr(1, endQuote - 1);
+    if (key.empty()) return 0;
+    for (char c : key) {
+        if (c < '0' || c > '9') return 0;
+    }
+
+    char* endp = nullptr;
+    uint64_t sid = strtoull(key.c_str(), &endp, 10);
+    if (endp != key.c_str() + key.size()) return 0;
+    return sid > STEAMID64_BASE ? sid : 0;
+}
+
+static uint64_t LoadSteamIdFromLoginUsers() {
+    std::string vdfPath = g_steamPath + "config\\loginusers.vdf";
+    std::ifstream f(FileUtil::Utf8ToPath(vdfPath));
+    if (!f) {
+        LOG("[Account] Cannot open loginusers.vdf at %s", vdfPath.c_str());
+        return 0;
+    }
+
+    std::string line;
+    uint64_t currentSteamId = 0;
+    uint64_t mostRecentSteamId = 0;
+    uint64_t singleSteamId = 0;
+    int steamIdCount = 0;
+    bool inUser = false;
+    int braceDepth = 0;
+
+    while (std::getline(f, line)) {
+        std::string trimmed = TrimAscii(line);
+        if (trimmed.empty()) continue;
+
+        if (trimmed == "{") {
+            ++braceDepth;
+            continue;
+        }
+        if (trimmed == "}") {
+            if (braceDepth == 2) inUser = false;
+            if (braceDepth > 0) --braceDepth;
+            continue;
+        }
+
+        if (braceDepth == 1) {
+            uint64_t sid = ParseSteamId64Key(trimmed);
+            if (sid != 0) {
+                currentSteamId = sid;
+                inUser = true;
+                ++steamIdCount;
+                if (singleSteamId == 0) singleSteamId = sid;
+                continue;
+            }
+        }
+
+        if (inUser && braceDepth == 2 &&
+            trimmed.find("\"MostRecent\"") != std::string::npos &&
+            trimmed.find("\"1\"") != std::string::npos) {
+            mostRecentSteamId = currentSteamId;
+        }
+    }
+
+    if (mostRecentSteamId != 0)
+        return mostRecentSteamId;
+    if (steamIdCount == 1)
+        return singleSteamId;
+
+    LOG("[Account] No unambiguous SteamID64 found in loginusers.vdf (users=%d)", steamIdCount);
+    return 0;
+}
+
+static void SetSteamIdFromSource(uint64_t steamId, const char* source, bool allowReplace) {
+    if (steamId == 0) return;
+
+    uint64_t existing = g_steamId.load(std::memory_order_acquire);
+    if (existing == steamId) return;
+    if (existing != 0 && !allowReplace) return;
+
+    g_steamId.store(steamId, std::memory_order_release);
+    uint32_t accountId = (uint32_t)(steamId & 0xFFFFFFFFu);
+    HttpServer::SetAccountId(accountId);
+
+    if (existing != 0) {
+        LOG("[Account] Replaced SteamID64 from %llu to %llu via %s (accountId=%u)",
+            existing, steamId, source, accountId);
+    } else {
+        LOG("[Account] Captured SteamID64=%llu via %s (accountId=%u)",
+            steamId, source, accountId);
+    }
+
+    ScheduleStartupMetadataSync();
+}
+
+static void BootstrapSteamIdFromLoginUsers() {
+    if (g_steamId.load(std::memory_order_acquire) != 0)
+        return;
+
+    uint64_t steamId = LoadSteamIdFromLoginUsers();
+    if (steamId != 0)
+        SetSteamIdFromSource(steamId, "loginusers.vdf", false);
+}
 
 
 static void SpyLogFields(const char* prefix, const uint8_t* data, uint32_t len, int depth = 0, int* totalFields = nullptr) {
@@ -1453,26 +1712,19 @@ static bool __fastcall ServiceMethodHook(void* thisptr, const char* methodName,
     SpyLogFields("[VtHook-REQ]", reqBytes.data(), (uint32_t)reqBytes.size());
 #endif
 
-    // Capture SteamID from request header if not yet captured
-    if (g_steamId.load() == 0) {
-        void* reqHeader = *(void**)((uintptr_t)request + 40);
-        if (reqHeader) {
-            // CMsgProtoBufHeader: serialize-and-parse to extract steamid.
-            auto hdrBytes = SerializeBodyToBytes(reqHeader);
-            if (!hdrBytes.empty()) {
-                auto hdrFields = PB::Parse(hdrBytes.data(), hdrBytes.size());
-                auto* sidField = PB::FindField(hdrFields, HDR_STEAMID);
-                if (sidField) {
-                    g_steamId.store(sidField->varintVal);
-                    LOG("[VtHook] Captured SteamID: %llu (accountId=%u)", g_steamId.load(), GetAccountId());
-                    HttpServer::SetAccountId(GetAccountId());
-                    ScheduleStartupMetadataSync();
-                }
-                auto* sessField = PB::FindField(hdrFields, HDR_SESSIONID);
-                if (sessField) {
-                    g_sessionId.store((int32_t)sessField->varintVal);
-                }
-            }
+    // Capture SteamID/session from the real RPC header. This may replace the
+    // loginusers.vdf bootstrap value in multi-account sessions.
+    void* reqHeader = *(void**)((uintptr_t)request + 40);
+    if (reqHeader) {
+        auto hdrBytes = SerializeBodyToBytes(reqHeader);
+        if (!hdrBytes.empty()) {
+            auto hdrFields = PB::Parse(hdrBytes.data(), hdrBytes.size());
+            auto* sidField = PB::FindField(hdrFields, HDR_STEAMID);
+            if (sidField)
+                SetSteamIdFromSource(sidField->varintVal, "vtable RPC header", true);
+            auto* sessField = PB::FindField(hdrFields, HDR_SESSIONID);
+            if (sessField)
+                g_sessionId.store((int32_t)sessField->varintVal);
         }
     }
 
@@ -2591,7 +2843,7 @@ static int64_t __fastcall RecvPktMonitorHook(void* thisptr, CNetPacket* pkt) {
     return g_originalRecvPkt(thisptr, pkt);
 }
 
-// Lua file sync: stplug-in/*.lua via account-scope LuaArchive.zip + LuaManifest.json (appId=0).
+// Lua file sync: OpenSteamTool's primary config/lua/*.lua via account-scope LuaArchive.zip + LuaManifest.json (appId=0).
 // Manifest entry: { "file.lua": { "mod": ts, "del": ts } }; del > mod = deleted (timestamps prevent ping-pong).
 // .sync_state: line 1 = lastSyncTime, remaining lines = files this machine knows about.
 
@@ -2603,7 +2855,7 @@ struct SyncState {
 };
 
 static std::string GetLuaSyncStatePath() {
-    return g_steamPath + "config\\stplug-in\\.sync_state";
+    return GetPrimaryOpenSteamToolLuaDir() + ".sync_state";
 }
 
 static SyncState ReadSyncState() {
@@ -2685,7 +2937,7 @@ static bool IsValidLuaContent(const uint8_t* data, size_t len) {
 
 static std::vector<LuaFile> ReadLocalLuaFiles() {
     std::vector<LuaFile> files;
-    std::string dir = g_steamPath + "config\\stplug-in\\";
+    std::string dir = GetPrimaryOpenSteamToolLuaDir();
     // Wide enumeration; ANSI would return 8.3 short names for non-Latin-1
     // filenames and rotate them into different lua records every launch.
     auto dirWide = FileUtil::Utf8ToPath(dir).wstring();
@@ -2823,7 +3075,7 @@ static void SyncLuaFiles() {
         return;
     }
 
-    std::string luaDir = g_steamPath + "config\\stplug-in\\";
+    std::string luaDir = GetPrimaryOpenSteamToolLuaDir();
     uint64_t now = NowUnix();
 
     auto manifestData = CloudStorage::RetrieveBlob(accountId, LUA_SYNC_APPID, "LuaManifest.json");
@@ -2972,7 +3224,7 @@ static void SyncLuaFiles() {
                 if (dot != std::string::npos) {
                     uint32_t appId = (uint32_t)strtoul(lf.filename.substr(0, dot).c_str(), nullptr, 10);
                     if (appId) {
-                        std::string luaPath = g_steamPath + "config\\stplug-in\\" + lf.filename;
+                        std::string luaPath = luaDir + lf.filename;
                         if (IsSelfUnlockingLua(luaPath, appId))
                             AddNamespaceApp(appId);
                     }
@@ -3345,6 +3597,10 @@ static std::string ComputeFileSHA256(const std::string& path) {
 }
 
 static void TryAutoUpdateDll() {
+#ifdef CR_CUSTOM_WEB_DAV_BUILD
+    LOG("[AutoUpdate] Skipping official DLL auto-update for custom WebDAV build");
+    return;
+#endif
     LOG("[AutoUpdate] Checking for DLL update (local version: %s)...", CR_RELEASE_VERSION);
 
     // Fetch releases from GitHub
@@ -3668,6 +3924,8 @@ void Init(const std::string& steamPath, bool cloudSaveOnly, CR_NotifyFn notifyCa
     g_steamPath = steamPath;
     if (!g_steamPath.empty() && g_steamPath.back() != '\\')
         g_steamPath += '\\';
+    g_cloudInitBlocked.store(false, std::memory_order_release);
+    BootstrapSteamIdFromLoginUsers();
 
     // Read Steam version early (used by version gate below and auto-update).
     uint64_t detectedVersion = ReadSteamVersion(g_steamPath);
@@ -3681,15 +3939,19 @@ void Init(const std::string& steamPath, bool cloudSaveOnly, CR_NotifyFn notifyCa
     if (MetadataSync::steamToolsPresent.load(std::memory_order_relaxed))
         PreStageStatsFromLocalCache(g_steamPath);
 
-    // Auto-detect namespace apps from {steamPath}\config\stplug-in\*.lua, restricted to self-unlocking luas (base-game addappid for own id).
-    std::string pluginDir = g_steamPath + "config\\stplug-in\\*";
-    std::string pluginBase = g_steamPath + "config\\stplug-in\\";
+    // Auto-detect namespace apps from OpenSteamTool Lua directories, restricted to
+    // self-unlocking luas (base-game addappid for own id).
     int totalLuas = 0, selfUnlocking = 0;
-    // Wide enumeration; FindFirstFileA fails on non-ASCII g_steamPath.
-    auto pluginDirWide = FileUtil::Utf8ToPath(pluginDir).wstring();
-    WIN32_FIND_DATAW fd;
-    HANDLE hFind = FindFirstFileW(pluginDirWide.c_str(), &fd);
-    if (hFind != INVALID_HANDLE_VALUE) {
+    for (const auto& luaBase : GetOpenSteamToolLuaDirs()) {
+        std::string patternUtf8 = luaBase + "*.lua";
+        auto patternWide = FileUtil::Utf8ToPath(patternUtf8).wstring();
+        WIN32_FIND_DATAW fd;
+        HANDLE hFind = FindFirstFileW(patternWide.c_str(), &fd);
+        if (hFind == INVALID_HANDLE_VALUE) {
+            LOG("[NS] Lua directory not found or unreadable: %s (err=%u)",
+                luaBase.c_str(), GetLastError());
+            continue;
+        }
         do {
             std::string name = FileUtil::WideToUtf8(fd.cFileName);
             if (name.empty()) continue;
@@ -3703,7 +3965,7 @@ void Init(const std::string& steamPath, bool cloudSaveOnly, CR_NotifyFn notifyCa
                     uint32_t appId = (uint32_t)strtoul(stem.c_str(), nullptr, 10);
                     if (appId > 0) {
                         totalLuas++;
-                        std::string luaPath = pluginBase + name;
+                        std::string luaPath = luaBase + name;
                         if (IsSelfUnlockingLua(luaPath, appId)) {
                             AddNamespaceApp(appId);
                             selfUnlocking++;
@@ -3713,9 +3975,6 @@ void Init(const std::string& steamPath, bool cloudSaveOnly, CR_NotifyFn notifyCa
             }
         } while (FindNextFileW(hFind, &fd));
         FindClose(hFind);
-    } else {
-        LOG("[NS] Failed to scan stplug-in directory: %s (err=%u)",
-            pluginDir.c_str(), GetLastError());
     }
 
     if (HasNamespaceApps()) {
@@ -3766,12 +4025,13 @@ void Init(const std::string& steamPath, bool cloudSaveOnly, CR_NotifyFn notifyCa
             // Load lua setManifestid pins (when auto_comment=false or app
             // is in pinned_apps). Wide enumeration for non-ASCII paths.
             if (g_manifestPinsEnabled.load()) {
-                std::string luaDir = g_steamPath + "config\\stplug-in\\";
-                auto luaDirWide = FileUtil::Utf8ToPath(luaDir).wstring();
-                std::wstring pattern = luaDirWide + L"*.lua";
-                WIN32_FIND_DATAW fd;
-                HANDLE hFind = FindFirstFileW(pattern.c_str(), &fd);
-                if (hFind != INVALID_HANDLE_VALUE) {
+                for (const auto& luaDir : GetOpenSteamToolLuaDirs()) {
+                    auto luaDirWide = FileUtil::Utf8ToPath(luaDir).wstring();
+                    std::wstring pattern = luaDirWide + L"*.lua";
+                    WIN32_FIND_DATAW fd;
+                    HANDLE hFind = FindFirstFileW(pattern.c_str(), &fd);
+                    if (hFind == INVALID_HANDLE_VALUE)
+                        continue;
                     do {
                         // strtoul on narrowed cFileName: pure-digit prefixes are single-byte in both encodings.
                         std::string nameUtf8 = FileUtil::WideToUtf8(fd.cFileName);
@@ -3811,7 +4071,7 @@ void Init(const std::string& steamPath, bool cloudSaveOnly, CR_NotifyFn notifyCa
                             g_manifestPins[fileAppId][depotId] = manifestId;
                             totalPins++;
                             LOG("[ManifestPin] Lua pin: app %u depot %u -> manifest %llu (from %s)",
-                                fileAppId, depotId, manifestId, nameUtf8.c_str());
+                                fileAppId, depotId, manifestId, luaPath.c_str());
                         }
                     } while (FindNextFileW(hFind, &fd));
                     FindClose(hFind);
@@ -3843,6 +4103,7 @@ void Init(const std::string& steamPath, bool cloudSaveOnly, CR_NotifyFn notifyCa
             // CloudRedirect mode: block cloud init, but STFixer still works.
             if (detectedVersion == 0) {
                 LOG("FATAL: Could not read Steam version from manifest");
+                g_cloudInitBlocked.store(true, std::memory_order_release);
                 NotifyUser(CR_NOTIFY_ERROR, "CloudRedirect -- Version Unknown",
                     "CloudRedirect could not determine the installed Steam version.\n\n"
                     "CloudRedirect cannot activate. STFixer patches will still apply.");
@@ -3852,6 +4113,7 @@ void Init(const std::string& steamPath, bool cloudSaveOnly, CR_NotifyFn notifyCa
                 LOG("FATAL: Steam version mismatch! supported_newest=%llu actual=%llu (%s)",
                     newestSupported, detectedVersion,
                     steamIsNewer ? "Steam is newer" : "Steam is older");
+                g_cloudInitBlocked.store(true, std::memory_order_release);
                 char msg[512];
                 if (steamIsNewer) {
                     snprintf(msg, sizeof(msg),
@@ -4023,7 +4285,7 @@ void Init(const std::string& steamPath, bool cloudSaveOnly, CR_NotifyFn notifyCa
 
     // start local HTTP server for upload/download
     std::string blobRoot = g_steamPath + "cloud_redirect\\storage\\";
-    if (HttpServer::Start(blobRoot)) {
+    if (HttpServer::Start(blobRoot, GetAccountId())) {
         LOG("[NS] HTTP server started on port %u, blob root: %s",
             HttpServer::GetPort(), blobRoot.c_str());
     } else {
@@ -4070,6 +4332,8 @@ void Init(const std::string& steamPath, bool cloudSaveOnly, CR_NotifyFn notifyCa
                 std::string syncPath = cfg["sync_path"].str();
                 if (providerName == "folder" && !syncPath.empty()) {
                     initPath = syncPath;
+                } else if (providerName == "webdav") {
+                    initPath = configPath;
                 }
 
                 if (!initPath.empty() && provider->Init(initPath)) {
@@ -4136,14 +4400,16 @@ void Init(const std::string& steamPath, bool cloudSaveOnly, CR_NotifyFn notifyCa
 
         } // !cloudSaveOnly (parental)
 
-        bool autoUpdate = cfg["auto_update_dll"].type == Json::Type::Bool
-            ? cfg["auto_update_dll"].boolean()
-            : !MetadataSync::steamToolsPresent.load(std::memory_order_relaxed);
-        if (autoUpdate) {
+        // DLL auto-update (default OFF)
+        if (cfg["auto_update_dll"].type == Json::Type::Bool && cfg["auto_update_dll"].boolean()) {
+#ifdef CR_CUSTOM_WEB_DAV_BUILD
+            LOG("[NS] DLL auto-update requested, but this custom WebDAV build will not download the official DLL");
+#else
             std::thread t(TryAutoUpdateDll);
             std::lock_guard<std::mutex> lock(g_bgThreadsMutex);
             g_bgThreads.push_back(std::move(t));
             LOG("[NS] DLL auto-update enabled, checking in background");
+#endif
         }
     } else {
         LOG("[NS] No config.json at %s -- local-only mode", configPath.c_str());
@@ -4201,6 +4467,10 @@ void InstallRecvPktMonitor(void* savedOrigPtrAddr) {
 void InstallManifestPinHook() {
     if (!g_manifestPinsEnabled.load(std::memory_order_relaxed)) {
         LOG("[ManifestPin] Pins not enabled, skipping hook");
+        return;
+    }
+    if (g_bddOrigAddr || g_bddTrampoline || g_origBuildDepotDependency) {
+        LOG("[ManifestPin] Hook already installed or in progress, skipping");
         return;
     }
 
@@ -4302,6 +4572,65 @@ void InstallReleaseStateNop() {
     // Stub -- release-state patching removed from public builds.
 }
 
+void InstallDirectHooks() {
+    for (int attempt = 0; attempt < 240 && !g_shuttingDown.load(std::memory_order_acquire); ++attempt) {
+        HMODULE hSteamClient = GetModuleHandleA("steamclient64.dll");
+        if (hSteamClient) {
+            g_steamClientBase = reinterpret_cast<uintptr_t>(hSteamClient);
+            LOG("[OpenSteamTool] steamclient64.dll base: %p (attempt %d)", hSteamClient, attempt + 1);
+            break;
+        }
+
+        if (attempt == 0)
+            LOG("[OpenSteamTool] steamclient64.dll not loaded yet; waiting before direct hook install");
+        Sleep(500);
+    }
+
+    if (!g_steamClientBase) {
+        LOG("[OpenSteamTool] steamclient64.dll did not load; direct hook install aborted");
+        return;
+    }
+
+    InstallManifestPinHook();
+    InstallReleaseStateNop();
+
+    if (!g_cloudRedirectEnabled.load(std::memory_order_relaxed)) {
+        LOG("[OpenSteamTool] Cloud redirection disabled; direct cloud hooks skipped");
+        return;
+    }
+    if (g_cloudInitBlocked.load(std::memory_order_acquire)) {
+        LOG("[OpenSteamTool] Cloud initialization was blocked; direct cloud hooks skipped");
+        return;
+    }
+
+    size_t namespaceCount = NamespaceAppCount();
+    if (namespaceCount == 0) {
+        LOG("[OpenSteamTool] No namespace apps detected; vtable hook will not be installed yet");
+        return;
+    }
+
+    LOG("[OpenSteamTool] Installing direct Cloud RPC vtable hook for %zu namespace app(s)", namespaceCount);
+    for (int attempt = 0; attempt < 120 && !g_shuttingDown.load(std::memory_order_acquire); ++attempt) {
+        if (!g_vtableHookInstalled.load(std::memory_order_acquire) &&
+            HasNamespaceApps()) {
+            InstallServiceMethodHook();
+        }
+        if (g_vtableHookInstalled.load(std::memory_order_acquire))
+            break;
+
+        // Keep probing the old SteamTools send/receive path for diagnostics and
+        // Approach-D fallback support, but direct vtable installation must not
+        // depend on CCMInterface being found.
+        TryFindCCMInterface();
+        Sleep(500);
+    }
+
+    LOG("[OpenSteamTool] Direct hook install finished: namespaceApps=%zu cmInterface=%d vtable=%d",
+        NamespaceAppCount(),
+        g_cmInterfaceFound.load(std::memory_order_acquire),
+        g_vtableHookInstalled.load(std::memory_order_acquire));
+}
+
 
 
 void SetSendPktAddr(void* recvPktGlobalAddr) {
@@ -4347,19 +4676,12 @@ bool OnSendPkt(void* thisptr, const uint8_t* data, uint32_t size) {
     uint64_t jobSrc = GetJobIdSource(pkt.header);
 
     // capture SteamID and SessionID from first packet
-    if (g_steamId.load() == 0) {
-        auto* sidField = PB::FindField(pkt.header, HDR_STEAMID);
-        if (sidField) {
-            g_steamId.store(sidField->varintVal);
-            LOG("[NS] Captured SteamID: %llu (accountId=%u)", g_steamId.load(), GetAccountId());
-            HttpServer::SetAccountId(GetAccountId());
-            ScheduleStartupMetadataSync();
-        }
-        auto* sessField = PB::FindField(pkt.header, HDR_SESSIONID);
-        if (sessField) {
-            g_sessionId.store((int32_t)sessField->varintVal);
-        }
-    }
+    auto* sidField = PB::FindField(pkt.header, HDR_STEAMID);
+    if (sidField)
+        SetSteamIdFromSource(sidField->varintVal, "SendPkt header", true);
+    auto* sessField = PB::FindField(pkt.header, HDR_SESSIONID);
+    if (sessField)
+        g_sessionId.store((int32_t)sessField->varintVal);
 
     // With slots 4+5 hooked, namespace Cloud RPCs should not reach SendPkt;
     // log and fall through to Approach D as a safety net if they do.

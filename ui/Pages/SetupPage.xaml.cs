@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
@@ -226,6 +226,8 @@ public partial class SetupPage : Page
         PatchState OfflineState,
         PatchState PatchState,
         int StExeState,
+        bool OpenSteamToolInstalled,
+        bool LoaderInstalled,
         bool ProbeFailed,
         string? ProbeError,
         bool DllExists,
@@ -286,6 +288,8 @@ public partial class SetupPage : Page
             OfflineState: offline,
             PatchState: patchState,
             StExeState: stExe,
+            OpenSteamToolInstalled: OpenSteamToolIntegration.IsInstalled(steamPath),
+            LoaderInstalled: OpenSteamToolIntegration.IsLoaderCurrent(steamPath),
             ProbeFailed: probeFailed,
             ProbeError: probeError,
             DllExists: dllExists,
@@ -354,17 +358,33 @@ public partial class SetupPage : Page
     {
         ApplyVersionStatus(snap.Version);
 
+        OfflineStatusText.Text = snap.OpenSteamToolInstalled
+            ? S.Get("Setup_OpenSteamToolInstalled")
+            : S.Get("Setup_OpenSteamToolNotFound");
+        OfflineRevertButton.Visibility = Visibility.Collapsed;
+        OfflineSetupButton.Visibility = Visibility.Collapsed;
+
+        StExeStatusText.Text = snap.LoaderInstalled
+            ? S.Get("Setup_LoaderInstalled")
+            : S.Get("Setup_LoaderNotInstalled");
+        StExeUnpatchButton.Visibility = snap.LoaderInstalled
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        StExePatchButton.Content = snap.LoaderInstalled
+            ? S.Get("Setup_ReinstallLoader")
+            : S.Get("Setup_InstallLoader");
+
         if (snap.ProbeFailed)
         {
-            OfflineStatusText.Text = S.Format("Setup_CouldNotCheck", snap.ProbeError ?? "Unknown error");
-            StExeStatusText.Text = S.Format("Setup_CouldNotCheck", snap.ProbeError ?? "Unknown error");
             PatchStatusText.Text = S.Format("Setup_CouldNotCheck", snap.ProbeError ?? "Unknown error");
         }
         else
         {
-            ApplyOfflineStatus(snap.OfflineState);
-            ApplyStExeStatus(snap.StExeState);
-            ApplyPatchStatus(snap.PatchState);
+            PatchStatusText.Text = snap.LoaderInstalled && snap.DllExists
+                ? S.Get("Setup_OpenSteamToolReady")
+                : S.Get("Setup_OpenSteamToolNeedsInstall");
+            PatchRevertButton.Visibility = Visibility.Collapsed;
+            PatchButton.Visibility = Visibility.Collapsed;
         }
 
         if (snap.DllExists)
@@ -584,13 +604,21 @@ public partial class SetupPage : Page
 
         await EnsureSteamClosed();
 
+        if (UseOpenSteamToolIntegration())
+        {
+            bool integrationSucceeded = await InstallOpenSteamToolIntegrationAsync();
+            await PromptCloudProviderConfigAsync(integrationSucceeded);
+            SetBusy(false);
+            return;
+        }
+
         bool allSucceeded = true;
 
         // Pre-step: if core DLLs are missing, download them and bootstrap Steam
         bool needsCoreDlls = await Task.Run(() => !new Patcher(_steamPath, Log).HasCoreDll());
         if (needsCoreDlls)
         {
-            Log("═══ Pre-step: Download SteamTools Core DLLs ═══");
+            Log("=== Pre-step: Download SteamTools Core DLLs ===");
             try
             {
                 var patcher = new Patcher(_steamPath, Log);
@@ -620,7 +648,7 @@ public partial class SetupPage : Page
         bool needsPayload = await Task.Run(() => !new Patcher(_steamPath, Log).HasPayloadCache());
         if (needsPayload)
         {
-            Log("═══ Pre-step: Bootstrap Steam for Payload ═══");
+            Log("=== Pre-step: Bootstrap Steam for Payload ===");
             bool payloadFound = await BootstrapSteamForPayload();
             if (!payloadFound)
             {
@@ -633,7 +661,7 @@ public partial class SetupPage : Page
             Log("");
         }
 
-        Log("═══ Step 1/4: SteamTools Offline Setup ═══");
+        Log("=== Step 1/4: SteamTools Offline Setup ===");
         try
         {
             PatchResult? result = null;
@@ -663,7 +691,7 @@ public partial class SetupPage : Page
 
         Log("");
 
-        Log("═══ Step 2/4: Patch SteamTools.exe ═══");
+        Log("=== Step 2/4: Patch SteamTools.exe ===");
         try
         {
             int stResult = 0;
@@ -692,7 +720,7 @@ public partial class SetupPage : Page
 
         Log("");
 
-        Log("═══ Step 3/4: Cloud Redirect Patch ═══");
+        Log("=== Step 3/4: Cloud Redirect Patch ===");
         try
         {
             PatchResult? patchResult = null;
@@ -723,7 +751,7 @@ public partial class SetupPage : Page
 
         Log("");
 
-        Log("═══ Step 4/4: Deploy cloud_redirect.dll ═══");
+        Log("=== Step 4/4: Deploy cloud_redirect.dll ===");
         try
         {
             var destPath = Path.Combine(_steamPath, "cloud_redirect.dll");
@@ -828,12 +856,17 @@ public partial class SetupPage : Page
     {
         try
         {
-            var enable = await Services.Dialog.ChoiceAsync(
-                "Automatic Updates",
-                "Would you like CloudRedirect to check for and install updates during Steam startup?\n\n" +
-                "You can change this behavior in the Settings tab in this app.",
-                "Enable",
-                "No thanks");
+            var identity = Services.DllIdentity.GetCurrent();
+            var enable = false;
+            if (!identity.IsCustomBuild)
+            {
+                enable = await Services.Dialog.ChoiceAsync(
+                    "Automatic Updates",
+                    "Would you like CloudRedirect to check for and install updates during Steam startup?\n\n" +
+                    "You can change this behavior in the Settings tab in this app.",
+                    "Enable",
+                    "No thanks");
+            }
 
             var configPath = Services.SteamDetector.GetConfigFilePath();
             await Task.Run(() => Services.ConfigHelper.SaveConfig(configPath,
@@ -845,6 +878,116 @@ public partial class SetupPage : Page
                 }));
         }
         catch { }
+    }
+
+    private static bool UseOpenSteamToolIntegration() => true;
+
+    private async Task<bool> InstallOpenSteamToolIntegrationAsync()
+    {
+        bool allSucceeded = true;
+
+        Log("=== Step 1/3: Check OpenSteamTool ===");
+        if (OpenSteamToolIntegration.IsInstalled(_steamPath!))
+        {
+            OfflineStatusText.Text = S.Get("Setup_OpenSteamToolInstalled");
+            Log("OK: OpenSteamTool files found.");
+        }
+        else
+        {
+            OfflineStatusText.Text = S.Get("Setup_OpenSteamToolNotFound");
+            Log("WARNING: OpenSteamTool.dll was not found in the Steam folder.");
+            Log("Install OpenSteamTool first: copy dwmapi.dll, xinput1_4.dll, and OpenSteamTool.dll to the Steam root.");
+            allSucceeded = false;
+        }
+        Log("");
+
+        Log("=== Step 2/3: Deploy cloud_redirect.dll ===");
+        if (!EmbeddedDll.IsAvailable())
+        {
+            DeployStatusText.Text = S.Get("Setup_DllNotInstalledNoEmbed");
+            Log("FAILED: cloud_redirect.dll is not embedded in this app build.");
+            return false;
+        }
+
+        try
+        {
+            var destPath = Path.Combine(_steamPath!, "cloud_redirect.dll");
+            var deployError = await Task.Run(() => EmbeddedDll.DeployTo(destPath));
+            if (deployError != null)
+            {
+                DeployStatusText.Text = S.Get("Setup_DeployFailed");
+                Log($"FAILED: {deployError}");
+                allSucceeded = false;
+            }
+            else
+            {
+                var info = new FileInfo(destPath);
+                DeployStatusText.Text = S.Format("Setup_DllInstalled", info.Length.ToString("N0"), info.LastWriteTime.ToString("g"));
+                Log($"Deployed to {destPath}");
+                Log("OK");
+            }
+        }
+        catch (Exception ex)
+        {
+            DeployStatusText.Text = S.Get("Setup_DeployFailed");
+            Log($"FAILED: {ex.Message}");
+            allSucceeded = false;
+        }
+        Log("");
+
+        Log("=== Step 3/3: Install OpenSteamTool Lua loader ===");
+        try
+        {
+            await Task.Run(() => OpenSteamToolIntegration.InstallLoader(_steamPath!));
+            StExeStatusText.Text = S.Get("Setup_LoaderInstalled");
+            PatchStatusText.Text = S.Get("Setup_OpenSteamToolReady");
+            Log($"Loader installed to {OpenSteamToolIntegration.GetLoaderPath(_steamPath!)}");
+            Log("OK");
+        }
+        catch (Exception ex)
+        {
+            StExeStatusText.Text = S.Get("Setup_FailedSeeLog");
+            PatchStatusText.Text = S.Get("Setup_OpenSteamToolNeedsInstall");
+            Log($"FAILED: {ex.Message}");
+            allSucceeded = false;
+        }
+
+        Log("");
+        Log(allSucceeded
+            ? "OpenSteamTool integration installed. Restart Steam to load CloudRedirect."
+            : "Install finished with warnings/errors. Review the log above.");
+
+        await RefreshStatuses();
+        return allSucceeded;
+    }
+
+    private async Task PromptCloudProviderConfigAsync(bool allSucceeded)
+    {
+        var mode = SteamDetector.ReadModeSetting();
+        if (mode != "cloud_redirect")
+            return;
+
+        var existingConfig = Services.SteamDetector.ReadConfig();
+        var statusText = allSucceeded ? S.Get("Setup_AllPatchesApplied") : S.Get("Setup_PatchingFinishedWithErrors");
+        string message = existingConfig != null
+            ? S.Format("Setup_ConfigureProviderExisting", statusText, existingConfig.DisplayName)
+            : S.Format("Setup_ConfigureProviderNew", statusText);
+
+        var wantsConfigure = await Services.Dialog.ChoiceAsync(
+            S.Get("Setup_ConfigureProviderTitle"),
+            message,
+            S.Get("Setup_ConfigureProvider"),
+            S.Get("Setup_UseLocalStorage"));
+
+        if (wantsConfigure)
+        {
+            var nav = FindNavigationView();
+            nav?.Navigate(typeof(CloudProviderPage));
+        }
+        else if (existingConfig == null)
+        {
+            await WriteDefaultLocalConfig();
+        }
     }
 
     private async void OfflineSetup_Click(object sender, RoutedEventArgs e)
@@ -960,6 +1103,27 @@ public partial class SetupPage : Page
 
         await EnsureSteamClosed();
 
+        if (UseOpenSteamToolIntegration())
+        {
+            try
+            {
+                await Task.Run(() => OpenSteamToolIntegration.InstallLoader(_steamPath));
+                StExeStatusText.Text = S.Get("Setup_LoaderInstalled");
+                Log($"Loader installed to {OpenSteamToolIntegration.GetLoaderPath(_steamPath)}");
+            }
+            catch (Exception ex)
+            {
+                Log($"ERROR: {ex.Message}");
+                StExeStatusText.Text = S.Get("Setup_FailedSeeLog");
+            }
+            finally
+            {
+                await RefreshStatuses();
+                SetBusy(false);
+            }
+            return;
+        }
+
         Log("Patching SteamTools.exe to disable DLL deployment...");
 
         try
@@ -1001,6 +1165,27 @@ public partial class SetupPage : Page
         ClearLog();
 
         await EnsureSteamClosed();
+
+        if (UseOpenSteamToolIntegration())
+        {
+            try
+            {
+                await Task.Run(() => OpenSteamToolIntegration.RemoveLoader(_steamPath));
+                StExeStatusText.Text = S.Get("Setup_LoaderNotInstalled");
+                Log($"Deleted {OpenSteamToolIntegration.GetLoaderPath(_steamPath)}");
+            }
+            catch (Exception ex)
+            {
+                Log($"ERROR: {ex.Message}");
+                StExeStatusText.Text = S.Get("Setup_FailedSeeLog");
+            }
+            finally
+            {
+                await RefreshStatuses();
+                SetBusy(false);
+            }
+            return;
+        }
 
         Log("Restoring SteamTools.exe to original...");
 
@@ -1165,6 +1350,12 @@ public partial class SetupPage : Page
                 Log($"Deployed to: {destPath}");
                 Log($"Size: {info.Length:N0} bytes");
                 DeployStatusText.Text = S.Format("Setup_DllInstalled", info.Length.ToString("N0"), info.LastWriteTime.ToString("g"));
+                if (UseOpenSteamToolIntegration())
+                {
+                    OpenSteamToolIntegration.InstallLoader(_steamPath);
+                    StExeStatusText.Text = S.Get("Setup_LoaderInstalled");
+                    Log($"Loader installed to: {OpenSteamToolIntegration.GetLoaderPath(_steamPath)}");
+                }
                 Log("");
                 Log("DLL deployed successfully.");
             }
@@ -1206,10 +1397,17 @@ public partial class SetupPage : Page
 
         try
         {
-            await Task.Run(() => File.Delete(dllPath));
+            await Task.Run(() =>
+            {
+                File.Delete(dllPath);
+                if (UseOpenSteamToolIntegration())
+                    OpenSteamToolIntegration.RemoveLoader(_steamPath);
+            });
             DeployStatusText.Text = S.Get("Setup_NotInstalled");
             UninstallDllButton.Visibility = Visibility.Collapsed;
             Log($"Deleted {dllPath}");
+            if (UseOpenSteamToolIntegration())
+                Log($"Deleted {OpenSteamToolIntegration.GetLoaderPath(_steamPath)}");
             Log("");
             Log("DLL uninstalled.");
         }

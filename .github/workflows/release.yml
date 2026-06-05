@@ -1,0 +1,71 @@
+name: Build Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows-release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Configure native build
+        shell: pwsh
+        run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+
+      - name: Build native DLL and CLI
+        shell: pwsh
+        run: cmake --build build --config Release --target cloud_redirect cloud_redirect_cli
+
+      - name: Publish single-file app
+        shell: pwsh
+        run: dotnet publish ui/CloudRedirect.csproj -c Release -r win-x64 --self-contained false -o ui/bin/publish
+
+      - name: Write SHA256 files
+        shell: pwsh
+        run: |
+          Get-FileHash ui/bin/publish/CloudRedirect.exe -Algorithm SHA256 |
+            ForEach-Object { $_.Hash } | Set-Content ui/bin/publish/CloudRedirect.exe.sha256
+          Get-FileHash build/Release/cloud_redirect.dll -Algorithm SHA256 |
+            ForEach-Object { $_.Hash } | Set-Content build/Release/cloud_redirect.dll.sha256
+          Get-FileHash build/Release/cloud_redirect_cli.exe -Algorithm SHA256 |
+            ForEach-Object { $_.Hash } | Set-Content build/Release/cloud_redirect_cli.exe.sha256
+
+      - name: Create GitHub release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          body: |
+            Based on Selectively11/CloudRedirect v2.1.5.
+
+            Upstream updates:
+            - Fixed crashes with non-ASCII save paths.
+            - Fixed AutoCloud scans for Unicode install directories.
+            - Added initial third-party CloudRedirect API support.
+            - Added the first-run DLL auto-update prompt and skipped provider setup when Google Drive or OneDrive is already authenticated.
+
+            Custom build updates:
+            - OpenSteamTool integration through config/lua.
+            - Simplified Chinese localization.
+            - WebDAV provider and compatibility test.
+            - Diagnostics page, data restore page, DLL source labeling, and official-DLL auto-update protection.
+          files: |
+            ui/bin/publish/CloudRedirect.exe
+            ui/bin/publish/CloudRedirect.exe.sha256
+            build/Release/cloud_redirect.dll
+            build/Release/cloud_redirect.dll.sha256
+            build/Release/cloud_redirect_cli.exe
+            build/Release/cloud_redirect_cli.exe.sha256

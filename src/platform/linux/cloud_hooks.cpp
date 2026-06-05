@@ -266,10 +266,16 @@ static void EnsureInitialized() {
             if (!providerName.empty() && providerName != "local") {
                 provider = CreateCloudProvider(providerName);
                 if (provider) {
-                    std::string tokenPath = cloudRedirectRoot + "tokens_" + providerName + ".json";
-                    if (provider->Init(tokenPath)) {
-                        LOG("[Linux] Cloud provider '%s' initialized (tokens: %s)",
-                            provider->Name(), tokenPath.c_str());
+                    std::string initPath = cloudRedirectRoot + "tokens_" + providerName + ".json";
+                    if (providerName == "folder") {
+                        std::string syncPath = cfg["sync_path"].str();
+                        if (!syncPath.empty()) initPath = syncPath;
+                    } else if (providerName == "webdav") {
+                        initPath = configPath;
+                    }
+                    if (provider->Init(initPath)) {
+                        LOG("[Linux] Cloud provider '%s' initialized (path: %s)",
+                            provider->Name(), initPath.c_str());
                         if (!provider->IsAuthenticated()) {
                             LOG("[Linux] WARNING: %s configured but not authenticated -- local-only until signed in",
                                 provider->Name());

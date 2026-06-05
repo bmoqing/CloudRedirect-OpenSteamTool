@@ -50,6 +50,8 @@ public partial class CloudProviderPage : Page
         Services.CloudConfig? Config,
         string DefaultLocalPath,
         string PathTextOverride,
+        string WebDavUsername,
+        string WebDavPassword,
         Services.TokenStatus? TokenStatus);
 
     // M14: Move SteamDetector.ReadConfig + FindSteamPath + OAuth token
@@ -83,13 +85,21 @@ public partial class CloudProviderPage : Page
                         pathOverride = config.TokenPath;
                     else if (config.SyncPath != null)
                         pathOverride = config.SyncPath;
+                    else if (config.WebDavUrl != null)
+                        pathOverride = config.WebDavUrl;
                 }
 
                 Services.TokenStatus? tokenStatus = null;
                 if (config?.TokenPath != null)
                     tokenStatus = Services.OAuthService.CheckTokenStatus(config.TokenPath);
 
-                return new LoadedConfigSnapshot(config, defaultLocal, pathOverride, tokenStatus);
+                return new LoadedConfigSnapshot(
+                    config,
+                    defaultLocal,
+                    pathOverride,
+                    config?.WebDavUsername ?? "",
+                    config?.WebDavPassword ?? "",
+                    tokenStatus);
             });
 
             ApplyLoadedSnapshot(snapshot);
@@ -109,7 +119,7 @@ public partial class CloudProviderPage : Page
         if (snap.Config == null)
         {
             AuthStatus.Text = S.Get("CloudProvider_NoConfigFound");
-            ProviderCombo.SelectedIndex = 3; // Local only
+            ProviderCombo.SelectedIndex = 4; // Local only
             if (!string.IsNullOrEmpty(snap.DefaultLocalPath))
                 TokenPathBox.Text = snap.DefaultLocalPath;
             return;
@@ -131,6 +141,9 @@ public partial class CloudProviderPage : Page
             if (!string.IsNullOrEmpty(snap.DefaultLocalPath))
                 TokenPathBox.Text = snap.DefaultLocalPath;
         }
+
+        WebDavUsernameBox.Text = snap.WebDavUsername;
+        WebDavPasswordBox.Password = snap.WebDavPassword;
 
         UpdateProviderUI();
         // Use the pre-resolved token status so the dispatcher path never
@@ -172,6 +185,12 @@ public partial class CloudProviderPage : Page
                     Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
                     "CloudRedirect", "onedrive_tokens.json");
             }
+            else if (tag == "webdav")
+            {
+                TokenPathBox.Text = "";
+                WebDavUsernameBox.Text = "";
+                WebDavPasswordBox.Password = "";
+            }
             else if (tag is "local" or "folder")
             {
                 SetDefaultLocalPath();
@@ -192,14 +211,24 @@ public partial class CloudProviderPage : Page
         bool needsTokens = tag is "gdrive" or "onedrive";
         bool isFolder = tag == "folder";
         bool isLocal = tag == "local";
-        bool needsPath = needsTokens || isFolder;
+        bool isWebDav = tag == "webdav";
+        bool needsPath = needsTokens || isFolder || isWebDav;
 
         TokenPathBox.IsEnabled = needsPath;
-        BrowseButton.IsEnabled = needsPath;
+        BrowseButton.IsEnabled = needsPath && !isWebDav;
+        BrowseButton.Visibility = isWebDav ? Visibility.Collapsed : Visibility.Visible;
+        WebDavFields.Visibility = isWebDav ? Visibility.Visible : Visibility.Collapsed;
+        TestWebDavButton.Visibility = isWebDav ? Visibility.Visible : Visibility.Collapsed;
         SignInButton.Visibility = needsTokens ? Visibility.Visible : Visibility.Collapsed;
 
         // Update labels based on provider type
-        if (isFolder)
+        if (isWebDav)
+        {
+            PathLabel.Text = S.Get("CloudProvider_WebDavUrlPath");
+            TokenPathBox.PlaceholderText = S.Get("CloudProvider_WebDavUrlPlaceholder");
+            PathHint.Text = S.Get("CloudProvider_WebDavUrlHint");
+        }
+        else if (isFolder)
         {
             PathLabel.Text = S.Get("CloudProvider_SyncFolderPath");
             TokenPathBox.PlaceholderText = S.Get("CloudProvider_SyncFolderPlaceholder");
@@ -230,6 +259,7 @@ public partial class CloudProviderPage : Page
     private void BrowseToken_Click(object sender, RoutedEventArgs e)
     {
         var provider = GetSelectedProvider();
+        if (provider == "webdav") return;
 
         if (provider == "folder")
         {
@@ -270,7 +300,7 @@ public partial class CloudProviderPage : Page
         if (_isAuthenticating) return;
 
         var provider = GetSelectedProvider();
-        if (provider is "local" or "folder") return;
+        if (provider is "local" or "folder" or "webdav") return;
 
         var tokenPath = TokenPathBox.Text?.Trim();
         if (string.IsNullOrEmpty(tokenPath))
@@ -345,6 +375,34 @@ public partial class CloudProviderPage : Page
         }
     }
 
+    private async void TestWebDav_Click(object sender, RoutedEventArgs e)
+    {
+        if (GetSelectedProvider() != "webdav") return;
+
+        TestWebDavButton.IsEnabled = false;
+        TestWebDavButton.Content = S.Get("CloudProvider_TestingConnection");
+        AuthStatus.Text = S.Get("CloudProvider_TestingConnection");
+        AuthIcon.Symbol = Wpf.Ui.Controls.SymbolRegular.ArrowSync24;
+
+        try
+        {
+            var result = await Services.WebDavConnectionTester.TestAsync(
+                TokenPathBox.Text?.Trim() ?? "",
+                WebDavUsernameBox.Text?.Trim() ?? "",
+                WebDavPasswordBox.Password ?? "");
+
+            AuthStatus.Text = result.Message;
+            AuthIcon.Symbol = result.Success
+                ? Wpf.Ui.Controls.SymbolRegular.ShieldCheckmark24
+                : Wpf.Ui.Controls.SymbolRegular.ShieldDismiss24;
+        }
+        finally
+        {
+            TestWebDavButton.IsEnabled = true;
+            TestWebDavButton.Content = S.Get("CloudProvider_TestConnection");
+        }
+    }
+
     /// <summary>
     /// Writes config.json without showing a dialog. Returns true on success.
     /// </summary>
@@ -356,6 +414,8 @@ public partial class CloudProviderPage : Page
 
         var provider = GetSelectedProvider();
         var tokenPath = TokenPathBox.Text?.Trim() ?? "";
+        var webDavUsername = WebDavUsernameBox.Text?.Trim() ?? "";
+        var webDavPassword = WebDavPasswordBox.Password ?? "";
 
         // "local" in the UI maps to "folder" provider in the DLL with the
         // default localcloud path, so the DLL has a concrete storage location.
@@ -363,16 +423,51 @@ public partial class CloudProviderPage : Page
         if (provider == "local")
             configProvider = "folder";
 
+        if (provider == "webdav")
+        {
+            if (string.IsNullOrWhiteSpace(tokenPath) ||
+                string.IsNullOrWhiteSpace(webDavUsername) ||
+                string.IsNullOrEmpty(webDavPassword))
+            {
+                await Services.Dialog.ShowWarningAsync(
+                    S.Get("CloudProvider_MissingPath"),
+                    S.Get("CloudProvider_WebDavMissingCredentials"));
+                return false;
+            }
+            if (!Uri.TryCreate(tokenPath, UriKind.Absolute, out var uri) ||
+                !string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+            {
+                await Services.Dialog.ShowWarningAsync(
+                    S.Get("CloudProvider_MissingPath"),
+                    S.Get("CloudProvider_WebDavRequiresHttps"));
+                return false;
+            }
+            if (!string.IsNullOrEmpty(uri.Query) || !string.IsNullOrEmpty(uri.Fragment))
+            {
+                await Services.Dialog.ShowWarningAsync(
+                    S.Get("CloudProvider_MissingPath"),
+                    S.Get("CloudProvider_WebDavNoQueryFragment"));
+                return false;
+            }
+        }
+
         var configPath = Path.Combine(configDir, "config.json");
 
         try
         {
             Services.ConfigHelper.SaveConfig(configPath,
-                new[] { "provider", "sync_path", "token_path" },
+                new[] { "provider", "sync_path", "token_path", "webdav_url", "webdav_username", "webdav_password", "webdav_auth_mode" },
                 writer =>
                 {
                     writer.WriteString("provider", configProvider);
-                    if (configProvider == "folder")
+                    if (configProvider == "webdav")
+                    {
+                        writer.WriteString("webdav_url", tokenPath);
+                        writer.WriteString("webdav_username", webDavUsername);
+                        writer.WriteString("webdav_password", webDavPassword);
+                        writer.WriteString("webdav_auth_mode", "auto");
+                    }
+                    else if (configProvider == "folder")
                         writer.WriteString("sync_path", tokenPath);
                     else if (configProvider is not "local")
                         writer.WriteString("token_path", tokenPath);
@@ -427,6 +522,41 @@ public partial class CloudProviderPage : Page
             {
                 AuthStatus.Text = S.Format("CloudProvider_FolderNotFound", folderPath);
                 AuthIcon.Symbol = Wpf.Ui.Controls.SymbolRegular.ShieldDismiss24;
+            }
+            return;
+        }
+
+        if (tag == "webdav")
+        {
+            var url = TokenPathBox.Text?.Trim();
+            var username = WebDavUsernameBox.Text?.Trim();
+            var password = WebDavPasswordBox.Password ?? "";
+
+            if (string.IsNullOrEmpty(url))
+            {
+                AuthStatus.Text = S.Get("CloudProvider_WebDavNoUrl");
+                AuthIcon.Symbol = Wpf.Ui.Controls.SymbolRegular.ShieldKeyhole24;
+            }
+            else if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) ||
+                     !string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+            {
+                AuthStatus.Text = S.Get("CloudProvider_WebDavRequiresHttps");
+                AuthIcon.Symbol = Wpf.Ui.Controls.SymbolRegular.ShieldDismiss24;
+            }
+            else if (!string.IsNullOrEmpty(uri.Query) || !string.IsNullOrEmpty(uri.Fragment))
+            {
+                AuthStatus.Text = S.Get("CloudProvider_WebDavNoQueryFragment");
+                AuthIcon.Symbol = Wpf.Ui.Controls.SymbolRegular.ShieldDismiss24;
+            }
+            else if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
+            {
+                AuthStatus.Text = S.Get("CloudProvider_WebDavMissingCredentials");
+                AuthIcon.Symbol = Wpf.Ui.Controls.SymbolRegular.ShieldKeyhole24;
+            }
+            else
+            {
+                AuthStatus.Text = S.Format("CloudProvider_WebDavConfigured", url);
+                AuthIcon.Symbol = Wpf.Ui.Controls.SymbolRegular.ShieldCheckmark24;
             }
             return;
         }
