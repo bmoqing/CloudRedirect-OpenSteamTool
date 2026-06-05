@@ -112,7 +112,7 @@ index 9357c23..4d691e6 100644
      target_include_directories(cloud_storage_staging_tests PRIVATE src/common src/providers src/testutil)
 diff --git a/CUSTOM_BUILD_NOTES.md b/CUSTOM_BUILD_NOTES.md
 new file mode 100644
-index 0000000..4200dc3
+index 0000000..bd5491d
 --- /dev/null
 +++ b/CUSTOM_BUILD_NOTES.md
 @@ -0,0 +1,213 @@
@@ -259,7 +259,7 @@ index 0000000..4200dc3
 +Current verified output hashes from this workspace:
 +
 +```text
-+CloudRedirect.exe:      347238B684DC3819B3118CBBE46DC6FA18D2C35FF019DFDBBDD3F67FE7A7CFDD
++CloudRedirect.exe:      A7AAE615105019F6AE902A24BB0A39AEA756E3273B5CA56463A35AB8D0A314F0
 +cloud_redirect.dll:     EDC170BAEA0D549700230F8845D334C949F05B4764828D4C3B10F919D3B5A378
 +cloud_redirect_cli.exe: 88BDF46E90B6742FB34C22FFB16A8D9DD4EF697C4897DF515D895FF7590173F1
 +```
@@ -3114,7 +3114,7 @@ index 255082c..0e9c3e0 100644
      <Copy SourceFiles="$(NativeDllSource)" DestinationFiles="$(NativeDllDest)"
            Condition="Exists('$(NativeDllSource)')"
 diff --git a/ui/MainWindow.xaml b/ui/MainWindow.xaml
-index 1182539..b8ad02c 100644
+index 1182539..92f6e0a 100644
 --- a/ui/MainWindow.xaml
 +++ b/ui/MainWindow.xaml
 @@ -107,9 +107,16 @@
@@ -3122,7 +3122,7 @@ index 1182539..b8ad02c 100644
                                           Content="{res:Loc Nav_Cleanup}"
                                           TargetPageType="{x:Type pages:CleanupPage}" />
 +                <ui:NavigationViewItem x:Name="NavDataRestore"
-+                                       Icon="{ui:SymbolIcon DatabaseArrowUp24}"
++                                       Icon="{ui:SymbolIcon ArrowSync24}"
 +                                       Content="{res:Loc Nav_DataRestore}"
 +                                       TargetPageType="{x:Type pages:DataRestorePage}" />
                  <ui:NavigationViewItem Content="{res:Loc Nav_ManifestPinning}"
@@ -3476,7 +3476,7 @@ index 1420a17..a6ee15f 100644
          {
 diff --git a/ui/Pages/DataRestorePage.xaml b/ui/Pages/DataRestorePage.xaml
 new file mode 100644
-index 0000000..676e45d
+index 0000000..dbdf36c
 --- /dev/null
 +++ b/ui/Pages/DataRestorePage.xaml
 @@ -0,0 +1,145 @@
@@ -3537,7 +3537,7 @@ index 0000000..676e45d
 +                                   Margin="0,4,0,0" />
 +                    </StackPanel>
 +                </ui:CardControl.Header>
-+                <ui:SymbolIcon x:Name="SourceIcon" Symbol="Database24" FontSize="24" />
++                <ui:SymbolIcon x:Name="SourceIcon" Symbol="Cloud24" FontSize="24" />
 +            </ui:CardControl>
 +
 +            <UniformGrid Columns="1" Margin="0,0,0,16">
@@ -3554,7 +3554,7 @@ index 0000000..676e45d
 +                    </ui:CardControl.Header>
 +                    <ui:Button x:Name="RestorePlaytimeButton"
 +                               Content="{res:Loc DataRestore_RestorePlaytime}"
-+                               Icon="{ui:SymbolIcon Clock24}"
++                               Icon="{ui:SymbolIcon ArrowSync24}"
 +                               Appearance="Primary"
 +                               Click="RestorePlaytime_Click" />
 +                </ui:CardControl>
@@ -3572,7 +3572,7 @@ index 0000000..676e45d
 +                    </ui:CardControl.Header>
 +                    <ui:Button x:Name="RestoreStatsButton"
 +                               Content="{res:Loc DataRestore_RestoreStats}"
-+                               Icon="{ui:SymbolIcon Trophy24}"
++                               Icon="{ui:SymbolIcon Document24}"
 +                               Appearance="Primary"
 +                               Click="RestoreStats_Click" />
 +                </ui:CardControl>
@@ -3590,7 +3590,7 @@ index 0000000..676e45d
 +                    </ui:CardControl.Header>
 +                    <ui:Button x:Name="RestoreLuaButton"
 +                               Content="{res:Loc DataRestore_RestoreLua}"
-+                               Icon="{ui:SymbolIcon Code24}"
++                               Icon="{ui:SymbolIcon Wrench24}"
 +                               Appearance="Primary"
 +                               Click="RestoreLua_Click" />
 +                </ui:CardControl>
@@ -3627,7 +3627,7 @@ index 0000000..676e45d
 +</Page>
 diff --git a/ui/Pages/DataRestorePage.xaml.cs b/ui/Pages/DataRestorePage.xaml.cs
 new file mode 100644
-index 0000000..be2f6f8
+index 0000000..f80c228
 --- /dev/null
 +++ b/ui/Pages/DataRestorePage.xaml.cs
 @@ -0,0 +1,208 @@
@@ -3730,7 +3730,7 @@ index 0000000..be2f6f8
 +        SourceText.Text = S.Format("DataRestore_SourceFormat", _source.RootPath, _source.AccountId);
 +        SourceCountsText.Text = S.Format("DataRestore_SourceCountsFormat",
 +            _source.PlaytimeCount, _source.StatsCount, _source.LuaCount);
-+        SourceIcon.Symbol = SymbolRegular.Database24;
++        SourceIcon.Symbol = SymbolRegular.Cloud24;
 +        RestorePlaytimeButton.IsEnabled = _source.PlaytimeCount > 0;
 +        RestoreStatsButton.IsEnabled = _source.StatsCount > 0;
 +        RestoreLuaButton.IsEnabled = _source.LuaCount > 0;
